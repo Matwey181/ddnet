@@ -71,6 +71,8 @@
 
 #if defined(CONF_PLATFORM_ANDROID)
 #include <android/android_main.h>
+#elif defined(CONF_PLATFORM_IOS)
+#include <ios/ios_main.h>
 #endif
 
 #include "SDL.h"
@@ -4643,6 +4645,9 @@ extern "C" int TWMain(int argc, const char **argv)
 static int gs_AndroidStarted = false;
 extern "C" [[gnu::visibility("default")]] int SDL_main(int argc, char *argv[]);
 int SDL_main(int argc, char *argv2[])
+#elif defined(CONF_PLATFORM_IOS)
+extern "C" int SDL_main(int argc, char *argv[]);
+int SDL_main(int argc, char *argv2[])
 #else
 int main(int argc, const char **argv)
 #endif
@@ -4659,6 +4664,8 @@ int main(int argc, const char **argv)
 		std::exit(0);
 	}
 	gs_AndroidStarted = true;
+#elif defined(CONF_PLATFORM_IOS)
+	const char **argv = const_cast<const char **>(argv2);
 #elif defined(CONF_FAMILY_WINDOWS)
 	CWindowsComLifecycle WindowsComLifecycle(true);
 #endif
@@ -4704,6 +4711,16 @@ int main(int argc, const char **argv)
 		std::exit(0);
 	}
 #endif
+#if defined(CONF_PLATFORM_IOS)
+	// Initialize iOS after logger is available
+	const char *pIosInitError = InitIOS();
+	if(pIosInitError != nullptr)
+	{
+		log_error("ios", "%s", pIosInitError);
+		ShowMessageBoxWithoutGraphics({.m_pTitle = "iOS Error", .m_pMessage = pIosInitError});
+		std::exit(0);
+	}
+#endif
 
 	std::stack<std::function<void()>> CleanerFunctions;
 	std::function<void()> PerformCleanup = [&CleanerFunctions]() mutable {
@@ -4726,6 +4743,10 @@ int main(int argc, const char **argv)
 		// TODO: This is not the correct way to close an activity on Android, as it
 		//       ignores the activity lifecycle entirely, which may cause issues if
 		//       we ever used any global resources like the camera.
+		std::exit(0);
+#elif defined(CONF_PLATFORM_IOS)
+		// iOS does not reliably terminate when returning from SDL_main.
+		// For local debugging we terminate explicitly on Quit.
 		std::exit(0);
 #endif
 	};
@@ -5050,6 +5071,8 @@ int main(int argc, const char **argv)
 	// Trap the Android back button so it can be handled in our code reliably
 	// instead of letting the system handle it.
 	SDL_SetHint("SDL_ANDROID_TRAP_BACK_BUTTON", "1");
+#endif
+#if defined(CONF_PLATFORM_ANDROID) || defined(CONF_PLATFORM_IOS)
 	// Force landscape screen orientation.
 	SDL_SetHint("SDL_IOS_ORIENTATIONS", "LandscapeLeft LandscapeRight");
 #endif
@@ -5283,7 +5306,7 @@ int CClient::UdpConnectivity(int NetType)
 
 static bool ViewLinkImpl(const char *pLink)
 {
-#if defined(CONF_PLATFORM_ANDROID)
+#if defined(CONF_PLATFORM_ANDROID) || defined(CONF_PLATFORM_IOS)
 	if(SDL_OpenURL(pLink) == 0)
 	{
 		return true;
@@ -5298,6 +5321,41 @@ static bool ViewLinkImpl(const char *pLink)
 	log_error("client", "Failed to open link '%s'", pLink);
 	return false;
 #endif
+}
+
+// Keep '/' unescaped so file paths remain readable for file:// URLs.
+static inline bool IsUrlUnreservedPathChar(unsigned char c)
+{
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+	       (c >= '0' && c <= '9') || c == '-' || c == '_' ||
+	       c == '.' || c == '~' || c == '/';
+}
+
+static void UrlEncodePath(const char *pIn, char *pOut, size_t OutSize)
+{
+	if(!pIn || !pOut || OutSize == 0)
+		return;
+	static const char HEX[] = "0123456789ABCDEF";
+	size_t WriteIndex = 0;
+	for(size_t i = 0; pIn[i] != '\0'; ++i)
+	{
+		const unsigned char c = static_cast<unsigned char>(pIn[i]);
+		if(IsUrlUnreservedPathChar(c))
+		{
+			if(OutSize - WriteIndex < 2)
+				break;
+			pOut[WriteIndex++] = static_cast<char>(c);
+		}
+		else
+		{
+			if(OutSize - WriteIndex < 4)
+				break;
+			pOut[WriteIndex++] = '%';
+			pOut[WriteIndex++] = HEX[c >> 4];
+			pOut[WriteIndex++] = HEX[c & 0x0F];
+		}
+	}
+	pOut[WriteIndex] = '\0';
 }
 
 bool CClient::ViewLink(const char *pLink)
@@ -5317,21 +5375,26 @@ bool CClient::ViewFile(const char *pFilename)
 #else
 	// Create a file link so the path can contain forward and
 	// backward slashes. But the file link must be absolute.
-	char aWorkingDir[IO_MAX_PATH_LENGTH];
+	char aFullPath[IO_MAX_PATH_LENGTH];
 	if(fs_is_relative_path(pFilename))
 	{
-		if(!fs_getcwd(aWorkingDir, sizeof(aWorkingDir)))
+		if(!fs_getcwd(aFullPath, sizeof(aFullPath)))
 		{
 			log_error("client", "Failed to open file '%s' (failed to get working directory)", pFilename);
 			return false;
 		}
-		str_append(aWorkingDir, "/");
+		str_append(aFullPath, "/");
+		str_append(aFullPath, pFilename);
 	}
 	else
-		aWorkingDir[0] = '\0';
+	{
+		str_copy(aFullPath, pFilename);
+	}
 
-	char aFileLink[IO_MAX_PATH_LENGTH];
-	str_format(aFileLink, sizeof(aFileLink), "file://%s%s", aWorkingDir, pFilename);
+	char aEscaped[IO_MAX_PATH_LENGTH * 3];
+	UrlEncodePath(aFullPath, aEscaped, sizeof(aEscaped));
+	char aFileLink[IO_MAX_PATH_LENGTH * 3 + 8];
+	str_format(aFileLink, sizeof(aFileLink), "file://%s", aEscaped);
 	return ViewLinkImpl(aFileLink);
 #endif
 }

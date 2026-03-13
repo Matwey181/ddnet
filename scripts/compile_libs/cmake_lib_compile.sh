@@ -8,6 +8,10 @@ source "${SCRIPT_DIR}/_build_common.sh"
 TARGET_LIBRARY="${1}"
 export TARGET_PLATFORM="${2}"
 
+if [[ "${TARGET_PLATFORM}" == "ios" ]]; then
+	assert_xcode_found
+fi
+
 function make_cmake() {
 	local build_folder="${1}"
 	local build_extra_cflags=""
@@ -15,6 +19,9 @@ function make_cmake() {
 	local cmake_arguments=()
 	local cmake_wrapper=""
 	local cmake_targets=""
+
+	# Allow older projects that still declare very low CMake minimum versions.
+	cmake_arguments+=("-DCMAKE_POLICY_VERSION_MINIMUM=3.5")
 
 	# Target platform settings
 	if [[ "${TARGET_PLATFORM}" == "android" ]]; then
@@ -35,6 +42,17 @@ function make_cmake() {
 		cmake_wrapper="emcmake"
 		build_extra_cflags="${EMSCRIPTEN_WASM_CFLAGS} ${EMSCRIPTEN_EXTRA_RELEASE_CFLAGS}"
 		build_extra_ldflags="${EMSCRIPTEN_WASM_LDFLAGS}"
+	elif [[ "${TARGET_PLATFORM}" == "ios" ]]; then
+		local build_ios_sysroot="${3}"
+		local build_ios_arch="${4}"
+		local ios_sdk_path=""
+		ios_sdk_path="$(xcrun --sdk "${build_ios_sysroot}" --show-sdk-path)"
+		cmake_arguments+=("-DCMAKE_SYSTEM_NAME=iOS")
+		cmake_arguments+=("-DCMAKE_OSX_SYSROOT=${ios_sdk_path}")
+		cmake_arguments+=("-DCMAKE_OSX_ARCHITECTURES=${build_ios_arch}")
+		cmake_arguments+=("-DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_DEPLOYMENT_TARGET}")
+		cmake_arguments+=("-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY")
+		build_extra_cflags="${IOS_COMMON_CFLAGS} ${IOS_EXTRA_RELEASE_CFLAGS}"
 	fi
 
 	# Remove absolute build paths and compiler identification from binary
@@ -70,6 +88,13 @@ function make_cmake() {
 		elif [[ "${TARGET_PLATFORM}" == "webasm" ]]; then
 			# Compile without crypto because curl does not work with Emscripten at all,
 			# but we currently need curl to compile server and client.
+			cmake_arguments+=("-DCURL_USE_OPENSSL=OFF")
+		elif [[ "${TARGET_PLATFORM}" == "ios" ]]; then
+			# Use Apple's native TLS stack on iOS.
+			cmake_arguments+=("-DCURL_ENABLE_SSL=ON")
+			# Older curl CMake uses CURL_USE_SECTRANSP, newer uses CURL_USE_SECTRANSPORT.
+			cmake_arguments+=("-DCURL_USE_SECTRANSP=ON")
+			cmake_arguments+=("-DCURL_USE_SECTRANSPORT=ON")
 			cmake_arguments+=("-DCURL_USE_OPENSSL=OFF")
 		fi
 	elif [[ "${TARGET_LIBRARY}" == "freetype" ]]; then
@@ -147,6 +172,10 @@ function make_all_cmake() {
 		make_cmake "${ANDROID_X64_BUILD_FOLDER}" "${ANDROID_X64_ABI}"
 	elif [[ "${TARGET_PLATFORM}" == "webasm" ]]; then
 		make_cmake "${EMSCRIPTEN_WASM_BUILD_FOLDER}" ""
+	elif [[ "${TARGET_PLATFORM}" == "ios" ]]; then
+		make_cmake "${IOS_DEVICE_BUILD_FOLDER}" "" "iphoneos" "${IOS_DEVICE_ARCH}"
+		make_cmake "${IOS_SIM_ARM64_BUILD_FOLDER}" "" "iphonesimulator" "${IOS_SIM_ARM64_ARCH}"
+		make_cmake "${IOS_SIM_X64_BUILD_FOLDER}" "" "iphonesimulator" "${IOS_SIM_X64_ARCH}"
 	else
 		log_error "ERROR: Unsupported target platform: ${TARGET_PLATFORM}"
 		exit 1

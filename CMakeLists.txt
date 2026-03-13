@@ -1,8 +1,17 @@
 cmake_minimum_required(VERSION 3.12...3.27.4)
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE INTERNAL "Minimum macOS deployment version")
-if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.15)
-  message(WARNING "Building for macOS < 10.15 is not supported")
+set(IS_IOS FALSE)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  set(IS_IOS TRUE)
+elseif(DEFINED CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "iphoneos|iphonesimulator")
+  set(IS_IOS TRUE)
+endif()
+
+if(NOT IS_IOS)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE INTERNAL "Minimum macOS deployment version")
+  if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS 10.15)
+    message(WARNING "Building for macOS < 10.15 is not supported")
+  endif()
 endif()
 
 file(STRINGS src/game/version.h VERSION_LINE
@@ -56,7 +65,9 @@ else()
   endif()
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(IS_IOS)
+  set(TARGET_OS "ios")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(TARGET_OS "windows")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(TARGET_OS "linux")
@@ -173,6 +184,8 @@ endif()
 
 set(SERVER_EXECUTABLE DDNet-Server CACHE STRING "Name of the built server executable")
 set(CLIENT_EXECUTABLE DDNet CACHE STRING "Name of the build client executable")
+set(IOS_BUNDLE_IDENTIFIER "org.ddnet.client" CACHE STRING "iOS bundle identifier")
+set(IOS_BUNDLE_NAME "${CLIENT_EXECUTABLE}" CACHE STRING "iOS bundle name")
 
 ########################################################################
 # Compiler flags
@@ -437,11 +450,41 @@ if(FAT)
   set(LIB_DIR "${TARGET_OS}/libfat")
 elseif(TARGET_OS STREQUAL "emscripten")
   set(LIB_DIR "webasm/libwasm")
+elseif(TARGET_OS STREQUAL "ios")
+  if(CMAKE_OSX_SYSROOT MATCHES "iphonesimulator")
+    if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64")
+      set(LIB_DIR "ios/libsimarm64")
+    elseif(CMAKE_OSX_ARCHITECTURES MATCHES "x86_64")
+      set(LIB_DIR "ios/libsimx86_64")
+    else()
+      message(SEND_ERROR "Unknown iOS simulator architecture: ${CMAKE_OSX_ARCHITECTURES}")
+    endif()
+  else()
+    set(LIB_DIR "ios/libarm64")
+  endif()
 elseif(TARGET_CPU_ARCHITECTURE STREQUAL "arm" OR TARGET_CPU_ARCHITECTURE STREQUAL "arm64")
   set(LIB_DIR "${TARGET_OS}/lib${TARGET_CPU_ARCHITECTURE}")
 else()
   set(LIB_DIR "${TARGET_OS}/lib${TARGET_BITS}")
 endif()
+
+function(force_ios_bundled_library VARIABLE NAME LIBNAME)
+  if(PREFER_BUNDLED_LIBS AND TARGET_OS STREQUAL "ios")
+    set(LIB_PATH "${PROJECT_SOURCE_DIR}/ddnet-libs/${NAME}/${LIB_DIR}/${LIBNAME}")
+    if(EXISTS "${LIB_PATH}")
+      set(${VARIABLE} "${LIB_PATH}" CACHE FILEPATH "" FORCE)
+    endif()
+  endif()
+endfunction()
+
+force_ios_bundled_library(CURL_LIBRARY curl libcurl.a)
+force_ios_bundled_library(FREETYPE_LIBRARY freetype libfreetype.a)
+force_ios_bundled_library(OGG_LIBRARY opus libogg.a)
+force_ios_bundled_library(OPUS_LIBRARY opus libopus.a)
+force_ios_bundled_library(OPUSFILE_LIBRARY opus libopusfile.a)
+force_ios_bundled_library(PNG_LIBRARY png libpng16.a)
+force_ios_bundled_library(SDL2_LIBRARY sdl libSDL2.a)
+force_ios_bundled_library(SQLite3_LIBRARY sqlite3 libsqlite3.a)
 
 function(set_extra_dirs_lib VARIABLE NAME)
   set("PATHS_${VARIABLE}_LIBDIR" PARENT_SCOPE)
@@ -472,7 +515,7 @@ function(set_extra_dirs_include VARIABLE NAME LIBRARY)
 endfunction()
 
 if(CMAKE_CROSSCOMPILING)
-  if(TARGET_OS STREQUAL "android" OR TARGET_OS STREQUAL "emscripten")
+  if(TARGET_OS STREQUAL "android" OR TARGET_OS STREQUAL "emscripten" OR TARGET_OS STREQUAL "ios")
     # be more aggressive with android toolchain
     set(CROSSCOMPILING_NO_CMAKE_SYSTEM_PATH NO_CMAKE_SYSTEM_PATH NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
   else()
@@ -513,7 +556,7 @@ find_package(Freetype)
 if(DOWNLOAD_GTEST)
   find_package(Git)
 endif()
-if(NOT(TARGET_OS STREQUAL "android"))
+if(NOT(TARGET_OS STREQUAL "android" OR TARGET_OS STREQUAL "ios"))
   find_package(GLEW)
 endif()
 find_package(GTest)
@@ -575,7 +618,7 @@ endif()
 
 message(STATUS "******** ${CMAKE_PROJECT_NAME} ********")
 set(TARGET "Target OS: ${TARGET_OS} ${CMAKE_SYSTEM_PROCESSOR}")
-if(TARGET_OS STREQUAL "mac")
+if(TARGET_OS STREQUAL "mac" OR TARGET_OS STREQUAL "ios")
   set(TARGET "${TARGET} (SDK: ${CMAKE_OSX_SYSROOT}, architectures: ${CMAKE_OSX_ARCHITECTURES})")
 endif()
 message(STATUS ${TARGET})
@@ -733,6 +776,44 @@ elseif(TARGET_OS STREQUAL "mac")
   )
   set(PLATFORM_CLIENT_LIBS ${COCOA} ${OPENGL})
   set(PLATFORM_LIBS ${CARBON} ${SECURITY})
+elseif(TARGET_OS STREQUAL "ios")
+  find_library(UIKIT UIKit)
+  find_library(FOUNDATION Foundation)
+  find_library(COREFOUNDATION CoreFoundation)
+  find_library(COREGRAPHICS CoreGraphics)
+  find_library(COREMOTION CoreMotion)
+  find_library(COREBLUETOOTH CoreBluetooth)
+  find_library(COREHAPTICS CoreHaptics)
+  find_library(AUDIOTOOLBOX AudioToolbox)
+  find_library(AVFOUNDATION AVFoundation)
+  find_library(QUARTZCORE QuartzCore)
+  find_library(OPENGLES OpenGLES)
+  find_library(COREAUDIO CoreAudio)
+  find_library(GAMECONTROLLER GameController)
+  find_library(SECURITY Security)
+  find_library(SYSTEMCONFIGURATION SystemConfiguration)
+  set(PLATFORM_CLIENT
+    src/ios/ios_main.cpp
+  )
+  set(PLATFORM_CLIENT_LIBS
+    ${UIKIT}
+    ${FOUNDATION}
+    ${COREFOUNDATION}
+    ${COREGRAPHICS}
+    ${COREMOTION}
+    ${COREBLUETOOTH}
+    ${COREHAPTICS}
+    ${AUDIOTOOLBOX}
+    ${AVFOUNDATION}
+    ${QUARTZCORE}
+    ${OPENGLES}
+    ${COREAUDIO}
+    ${GAMECONTROLLER}
+    ${SECURITY}
+    ${SYSTEMCONFIGURATION}
+  )
+  set(PLATFORM_LIBS)
+  set(PLATFORM_CLIENT_INCLUDE_DIRS)
 elseif(TARGET_OS STREQUAL "haiku")
     set(PLATFORM_CLIENT)
     find_package(OpenGL)
@@ -895,7 +976,107 @@ endif()
 if(RUST_NIGHTLY)
   list(APPEND CARGO_BUILD -Z build-std=std,panic_abort)
 endif()
-if(NOT CMAKE_OSX_ARCHITECTURES AND (DEFINED CMAKE_RUST_COMPILER_TARGET OR RUST_NIGHTLY))
+if(TARGET_OS STREQUAL "ios")
+  if(DEFINED CMAKE_RUST_COMPILER_TARGET)
+    set(RUST_TARGET ${CMAKE_RUST_COMPILER_TARGET})
+  else()
+    if(CMAKE_OSX_SYSROOT MATCHES "iphonesimulator")
+      if(CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+        set(RUST_TARGET "aarch64-apple-ios-sim")
+      else()
+        set(RUST_TARGET "x86_64-apple-ios")
+      endif()
+    else()
+      set(RUST_TARGET "aarch64-apple-ios")
+    endif()
+  endif()
+  list(APPEND CARGO_BUILD --target ${RUST_TARGET})
+  list(APPEND CARGO_TEST --target ${RUST_TARGET})
+  set(CARGO_BUILD_DIR "${RUST_TARGET}/")
+endif()
+if(TARGET_OS STREQUAL "ios")
+  execute_process(
+    COMMAND xcrun --sdk macosx --show-sdk-path
+    OUTPUT_VARIABLE MACOS_SDKROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(IS_ABSOLUTE "${CMAKE_OSX_SYSROOT}")
+    set(IOS_SDKROOT "${CMAKE_OSX_SYSROOT}")
+  else()
+    execute_process(
+      COMMAND xcrun --sdk ${CMAKE_OSX_SYSROOT} --show-sdk-path
+      OUTPUT_VARIABLE IOS_SDKROOT
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+  endif()
+  if(MACOS_SDKROOT AND IOS_SDKROOT)
+    set(RUST_HOST_RUSTFLAGS "-C link-arg=-isysroot -C link-arg=${MACOS_SDKROOT}")
+    set(RUST_TARGET_RUSTFLAGS "-C link-arg=-isysroot -C link-arg=${IOS_SDKROOT}")
+    string(TOUPPER "${RUST_TARGET}" RUST_TARGET_UPPER)
+    string(REPLACE "-" "_" RUST_TARGET_ENV "${RUST_TARGET_UPPER}")
+    string(TOUPPER "${RUST_TARGET_HOST}" RUST_HOST_UPPER)
+    string(REPLACE "-" "_" RUST_HOST_ENV_KEY "${RUST_HOST_UPPER}")
+    set(RUST_HOST_ENV "CARGO_TARGET_${RUST_HOST_ENV_KEY}_RUSTFLAGS=${RUST_HOST_RUSTFLAGS}")
+    set(RUST_TARGET_ENV "CARGO_TARGET_${RUST_TARGET_ENV}_RUSTFLAGS=${RUST_TARGET_RUSTFLAGS}")
+    string(TOLOWER "${RUST_TARGET_ENV}" RUST_TARGET_ENV_LOWER)
+    execute_process(
+      COMMAND xcrun --sdk macosx --find clang
+      OUTPUT_VARIABLE MACOS_CLANG
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    execute_process(
+      COMMAND xcrun --sdk ${CMAKE_OSX_SYSROOT} --find clang
+      OUTPUT_VARIABLE IOS_CLANG
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      ERROR_QUIET
+    )
+    if(MACOS_CLANG)
+      set(RUST_HOST_LINKER_ENV "CARGO_TARGET_${RUST_HOST_ENV_KEY}_LINKER=${MACOS_CLANG}")
+    endif()
+    if(IOS_CLANG)
+      set(RUST_TARGET_LINKER_ENV "CARGO_TARGET_${RUST_TARGET_ENV}_LINKER=${IOS_CLANG}")
+      set(RUST_TARGET_CC_ENV_UPPER "CC_${RUST_TARGET_ENV}=${IOS_CLANG}")
+      set(RUST_TARGET_CC_ENV_LOWER "CC_${RUST_TARGET_ENV_LOWER}=${IOS_CLANG}")
+    endif()
+    set(RUST_TARGET_CFLAGS_ENV_UPPER "CFLAGS_${RUST_TARGET_ENV}=-isysroot ${IOS_SDKROOT}")
+    set(RUST_TARGET_CFLAGS_ENV_LOWER "CFLAGS_${RUST_TARGET_ENV_LOWER}=-isysroot ${IOS_SDKROOT}")
+    set(RUST_SDKROOT_ENV "SDKROOT=${MACOS_SDKROOT}")
+
+    list(FIND CARGO_BUILD "${RUST_CARGO}" CARGO_BUILD_RUST_INDEX)
+    if(NOT CARGO_BUILD_RUST_INDEX EQUAL -1)
+      list(INSERT CARGO_BUILD ${CARGO_BUILD_RUST_INDEX}
+        "${RUST_SDKROOT_ENV}"
+        "${RUST_HOST_ENV}"
+        "${RUST_HOST_LINKER_ENV}"
+        "${RUST_TARGET_ENV}"
+        "${RUST_TARGET_LINKER_ENV}"
+        "${RUST_TARGET_CC_ENV_UPPER}"
+        "${RUST_TARGET_CC_ENV_LOWER}"
+        "${RUST_TARGET_CFLAGS_ENV_UPPER}"
+        "${RUST_TARGET_CFLAGS_ENV_LOWER}"
+      )
+    endif()
+
+    list(FIND CARGO_TEST "${RUST_CARGO}" CARGO_TEST_RUST_INDEX)
+    if(NOT CARGO_TEST_RUST_INDEX EQUAL -1)
+      list(INSERT CARGO_TEST ${CARGO_TEST_RUST_INDEX}
+        "${RUST_SDKROOT_ENV}"
+        "${RUST_HOST_ENV}"
+        "${RUST_HOST_LINKER_ENV}"
+        "${RUST_TARGET_ENV}"
+        "${RUST_TARGET_LINKER_ENV}"
+        "${RUST_TARGET_CC_ENV_UPPER}"
+        "${RUST_TARGET_CC_ENV_LOWER}"
+        "${RUST_TARGET_CFLAGS_ENV_UPPER}"
+        "${RUST_TARGET_CFLAGS_ENV_LOWER}"
+      )
+    endif()
+  endif()
+endif()
+if(NOT CMAKE_OSX_ARCHITECTURES AND (DEFINED CMAKE_RUST_COMPILER_TARGET OR RUST_NIGHTLY) AND NOT TARGET_OS STREQUAL "ios")
   if(DEFINED CMAKE_RUST_COMPILER_TARGET)
     list(APPEND CARGO_TEST --target ${CMAKE_RUST_COMPILER_TARGET})
     set(RUST_TARGET ${CMAKE_RUST_COMPILER_TARGET})
@@ -925,7 +1106,7 @@ else()
 endif()
 list(APPEND CARGO_BUILD $<$<NOT:$<CONFIG:Debug>>:--release>)
 
-if(CMAKE_OSX_ARCHITECTURES)
+if(CMAKE_OSX_ARCHITECTURES AND TARGET_OS STREQUAL "mac")
   set(RUST_OSX_ARCHITECTURES)
   foreach(arch ${CMAKE_OSX_ARCHITECTURES})
     if(${arch} STREQUAL arm64)
@@ -946,7 +1127,7 @@ set(RUST_SRC
       Cargo.lock
 )
 set(RUST_TARGETS engine_shared)
-if(NOT CMAKE_OSX_ARCHITECTURES)
+if(NOT CMAKE_OSX_ARCHITECTURES OR TARGET_OS STREQUAL "ios")
   set(RUST_OUTPUTS)
   foreach(rust_target ${RUST_TARGETS})
     set(LIBRARY_NAME "${CMAKE_STATIC_LIBRARY_PREFIX}ddnet_${rust_target}${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -2693,6 +2874,18 @@ if(CLIENT)
       $<TARGET_OBJECTS:game-shared>
       $<TARGET_OBJECTS:rust-bridge-shared>
     )
+  elseif(TARGET_OS STREQUAL "ios")
+    add_executable(game-client MACOSX_BUNDLE
+      ${CLIENT_SRC}
+      ${CLIENT_ICON}
+      ${CLIENT_VERSIONINFO}
+      ${CLIENT_MANIFEST}
+      ${DEPS_CLIENT}
+      $<TARGET_OBJECTS:engine-gfx>
+      $<TARGET_OBJECTS:engine-shared>
+      $<TARGET_OBJECTS:game-shared>
+      $<TARGET_OBJECTS:rust-bridge-shared>
+    )
   else()
     add_executable(game-client WIN32
       ${CLIENT_SRC}
@@ -2710,6 +2903,23 @@ if(CLIENT)
       PROPERTY OUTPUT_NAME ${CLIENT_EXECUTABLE}
   )
   target_link_libraries(game-client ${LIBS_CLIENT})
+
+  if(TARGET_OS STREQUAL "ios")
+    set(IOS_INFO_PLIST "${PROJECT_BINARY_DIR}/ios-Info.plist")
+    configure_file("${PROJECT_SOURCE_DIR}/scripts/ios/files/Info.plist.in" "${IOS_INFO_PLIST}" @ONLY)
+    set_target_properties(game-client PROPERTIES
+      MACOSX_BUNDLE_INFO_PLIST "${IOS_INFO_PLIST}"
+      MACOSX_BUNDLE_GUI_IDENTIFIER "${IOS_BUNDLE_IDENTIFIER}"
+      XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "${IOS_BUNDLE_IDENTIFIER}"
+      XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+    )
+    target_link_options(game-client PRIVATE "-ObjC")
+    add_custom_command(TARGET game-client POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/data $<TARGET_BUNDLE_DIR:game-client>/data
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/storage.cfg $<TARGET_BUNDLE_DIR:game-client>/storage.cfg
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/other/icons/DDNet_256x256x32.png $<TARGET_BUNDLE_DIR:game-client>/AppIcon.png
+    )
+  endif()
 
   if(MSVC)
     target_link_options(game-client PRIVATE /ENTRY:mainCRTStartup)

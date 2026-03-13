@@ -175,7 +175,7 @@ bool CUpdater::MoveFile(const char *pFile)
 	const size_t Length = str_length(pFile);
 	bool Success = true;
 
-#if !defined(CONF_FAMILY_WINDOWS)
+#if !defined(CONF_FAMILY_WINDOWS) && !defined(CONF_PLATFORM_IOS)
 	if(!str_comp_nocase(pFile + Length - 4, ".dll"))
 		return Success;
 #endif
@@ -235,7 +235,7 @@ bool CUpdater::ReplaceClient()
 	Success &= m_pStorage->RenameBinaryFile(PLAT_CLIENT_EXEC, CLIENT_EXEC ".old");
 	str_format(aPath, sizeof(aPath), "update/%s", m_aClientExecTmp);
 	Success &= m_pStorage->RenameBinaryFile(aPath, PLAT_CLIENT_EXEC);
-#if !defined(CONF_FAMILY_WINDOWS)
+#if !defined(CONF_FAMILY_WINDOWS) && !defined(CONF_PLATFORM_IOS)
 	m_pStorage->GetBinaryPath(PLAT_CLIENT_EXEC, aPath, sizeof(aPath));
 	char aBuf[512];
 	str_format(aBuf, sizeof(aBuf), "chmod +x %s", aPath);
@@ -259,7 +259,7 @@ bool CUpdater::ReplaceServer()
 	Success &= m_pStorage->RenameBinaryFile(PLAT_SERVER_EXEC, SERVER_EXEC ".old");
 	str_format(aPath, sizeof(aPath), "update/%s", m_aServerExecTmp);
 	Success &= m_pStorage->RenameBinaryFile(aPath, PLAT_SERVER_EXEC);
-#if !defined(CONF_FAMILY_WINDOWS)
+#if !defined(CONF_FAMILY_WINDOWS) && !defined(CONF_PLATFORM_IOS)
 	m_pStorage->GetBinaryPath(PLAT_SERVER_EXEC, aPath, sizeof(aPath));
 	char aBuf[512];
 	str_format(aBuf, sizeof(aBuf), "chmod +x %s", aPath);

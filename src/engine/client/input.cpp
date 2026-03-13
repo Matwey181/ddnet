@@ -866,6 +866,18 @@ int CInput::Update()
 			}
 			break;
 
+#if defined(CONF_PLATFORM_IOS)
+		case SDL_APP_TERMINATING:
+		case SDL_APP_LOWMEMORY:
+		case SDL_APP_WILLENTERBACKGROUND:
+		case SDL_APP_DIDENTERBACKGROUND:
+			m_pConfigManager->Save();
+			break;
+		case SDL_APP_WILLENTERFOREGROUND:
+		case SDL_APP_DIDENTERFOREGROUND:
+			break;
+#endif
+
 		// other messages
 		case SDL_QUIT:
 			return 1;

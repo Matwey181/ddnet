@@ -118,7 +118,30 @@ export EMSCRIPTEN_WASM_CFLAGS="-pthread -O3 -g -s USE_PTHREADS=1"
 export EMSCRIPTEN_WASM_LDFLAGS="-pthread -O3 -g -s USE_PTHREADS=1 -s ASYNCIFY=1 -s WASM=1"
 export EMSCRIPTEN_EXTRA_RELEASE_CFLAGS="-g0"
 
-BUILD_FLAGS="${BUILD_FLAGS:--j$(nproc)}"
+# iOS (device + simulator)
+export IOS_DEPLOYMENT_TARGET="${IOS_DEPLOYMENT_TARGET:-12.0}"
+export IOS_COMMON_CFLAGS="-O3 -DNDEBUG"
+export IOS_EXTRA_RELEASE_CFLAGS="-g0"
+
+export IOS_DEVICE_ARCH="arm64"
+export IOS_SIM_ARM64_ARCH="arm64"
+export IOS_SIM_X64_ARCH="x86_64"
+
+export IOS_DEVICE_BUILD_FOLDER="build_ios_device"
+export IOS_SIM_ARM64_BUILD_FOLDER="build_ios_sim_arm64"
+export IOS_SIM_X64_BUILD_FOLDER="build_ios_sim_x86_64"
+
+function cpu_count() {
+	if command -v nproc > /dev/null 2>&1; then
+		nproc
+	elif command -v sysctl > /dev/null 2>&1; then
+		sysctl -n hw.ncpu
+	else
+		echo 4
+	fi
+}
+
+BUILD_FLAGS="${BUILD_FLAGS:--j$(cpu_count)}"
 export BUILD_FLAGS
 
 # For reproducible builds, zero all timestamps. See https://reproducible-builds.org/docs/source-date-epoch/
@@ -135,6 +158,21 @@ function assert_emscripten_sdk_found() {
 	if [ -z ${EMSDK+x} ]; then
 		log_error "ERROR: Emscripten SDK was not found. Expected EMSDK environment variable to be set."
 		log_error "Run 'source ~/emsdk/emsdk_env.sh' with the path to the Emscripten SDK."
+		exit 1
+	fi
+}
+
+function assert_xcode_found() {
+	if [[ "${HOST_OS}" != "darwin" ]]; then
+		log_error "ERROR: iOS builds require macOS."
+		exit 1
+	fi
+	if ! command -v xcrun > /dev/null 2>&1; then
+		log_error "ERROR: Xcode command line tools were not found. Install Xcode or the CLT."
+		exit 1
+	fi
+	if ! xcrun --sdk iphoneos --show-sdk-path > /dev/null 2>&1; then
+		log_error "ERROR: iOS SDK not found. Ensure Xcode is installed and selected."
 		exit 1
 	fi
 }
