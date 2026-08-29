@@ -1,0 +1,117 @@
+name: Build iOS IPA (unsigned)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build"
+        required: false
+        default: "ddnet-ios"
+      app_name:
+        description: "App display name"
+        required: false
+        default: "DDNet"
+      bundle_id:
+        description: "Bundle identifier"
+        required: false
+        default: "org.ddnet.client"
+      deployment_target:
+        description: "iOS deployment target"
+        required: false
+        default: "13.0"
+
+jobs:
+  build-libs:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          submodules: recursive
+
+      - name: Install build tools
+        run: |
+          brew update
+          brew install autoconf automake cmake libtool m4 ninja pkg-config autoconf-archive
+
+      - name: Build iOS libraries
+        run: |
+          export M4="$(brew --prefix m4)/bin/m4"
+          export LIBTOOLIZE=glibtoolize
+          export PATH="$(brew --prefix automake)/bin:$(brew --prefix autoconf)/bin:$PATH"
+          scripts/compile_libs/gen_libs.sh build-ios-libs ios
+
+      - name: Merge libs into ddnet-libs
+        run: |
+          find ddnet-libs -type d -name ios -exec rm -r {} + -prune || true
+          cp -r build-ios-libs/ddnet-libs/. ddnet-libs/
+
+      - name: Upload merged libs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ddnet-libs-ios
+          path: ddnet-libs
+
+  build-ipa:
+    needs: build-libs
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          submodules: recursive
+
+      - name: Download merged libs
+        uses: actions/download-artifact@v4
+        with:
+          name: ddnet-libs-ios
+          path: ddnet-libs
+
+      - name: Install Rust iOS target
+        run: rustup target add aarch64-apple-ios
+
+      - name: Configure CMake (device, unsigned)
+        run: |
+          cmake -S . -B build-ios -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="${{ github.event.inputs.deployment_target }}" \
+            -DCMAKE_RUST_COMPILER_TARGET=aarch64-apple-ios \
+            -DCLIENT_EXECUTABLE="${{ github.event.inputs.app_name }}" \
+            -DIOS_BUNDLE_IDENTIFIER="${{ github.event.inputs.bundle_id }}" \
+            -DIOS_BUNDLE_NAME="${{ github.event.inputs.app_name }}" \
+            -DPREFER_BUNDLED_LIBS=ON \
+            -DSERVER=OFF \
+            -DTOOLS=OFF \
+            -DVULKAN=OFF \
+            -DVIDEORECORDER=OFF \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=""
+
+      - name: Build client
+        run: cmake --build build-ios --config Release --target game-client
+
+      - name: Package unsigned IPA
+        run: |
+          set -e
+          APP_PATH=$(find build-ios -name "*.app" -path "*Release-iphoneos*" | head -n1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: .app bundle not found, build likely failed."
+            find build-ios -maxdepth 4
+            exit 1
+          fi
+          echo "Found app bundle: $APP_PATH"
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r "${{ github.event.inputs.app_name }}-unsigned.ipa" Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-unsigned
+          path: "*.ipa"
