@@ -12,23 +12,20 @@
 #include <string>
 
 /**
- * Presents the native iOS document picker (Files app, iCloud Drive, and any
- * third-party providers like a Photos-export extension) filtered to image
- * files, so the user can pick a texture/skin PNG without needing a
- * jailbreak or a file manager app that can reach the sandboxed app
- * directory directly.
+ * Shows a system dialog that lets the player import a texture image either
+ * from the Photos gallery or from the Files app (incl. iCloud Drive and
+ * third-party file providers).
  *
- * The picker is presented asynchronously on the main thread. `Callback` is
- * invoked on the main thread once the user picks a file or cancels.
+ * The callback is invoked exactly once on the main thread with the path of a
+ * readable PNG file inside the app's temporary directory:
+ *  - PNG files are passed through unchanged (the picker copies them into
+ *    the tmp directory, no security-scoped resource handling required).
+ *  - Any other image format that iOS can decode (JPEG, HEIC, ...) is
+ *    re-encoded as PNG, because the game's image loader only supports PNG.
  *
- * IMPORTANT: `Callback` is invoked while the picked file's security-scoped
- * resource access is still active. If `Path` is non-empty, the callback
- * MUST synchronously read or copy the file's contents before returning -
- * the path is not guaranteed to remain readable afterwards.
- *
- * On cancel or failure, `Path` is empty and an error is logged for failures.
- * Calling this while a picker is already being presented has no effect
- * (the new request is ignored) to avoid stacking modal pickers.
+ * On cancel or failure the path is empty and details are logged. Requires
+ * iOS 14 or newer; on older systems the callback is invoked immediately
+ * with an empty path.
  */
 void IosPickImageFile(std::function<void(const std::string &Path)> Callback);
 

@@ -793,10 +793,14 @@ elseif(TARGET_OS STREQUAL "ios")
   find_library(SECURITY Security)
   find_library(SYSTEMCONFIGURATION SystemConfiguration)
   find_library(UNIFORMTYPEIDENTIFIERS UniformTypeIdentifiers)
+  find_library(PHOTOSUI PhotosUI)
   set(PLATFORM_CLIENT
     src/ios/ios_main.cpp
     src/ios/ios_file_picker.mm
   )
+  # The iOS file picker bridge is written for ARC; the rest of the
+  # project is compiled with manual retain/release.
+  set_source_files_properties(src/ios/ios_file_picker.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
   set(PLATFORM_CLIENT_LIBS
     ${UIKIT}
     ${FOUNDATION}
@@ -814,6 +818,7 @@ elseif(TARGET_OS STREQUAL "ios")
     ${SECURITY}
     ${SYSTEMCONFIGURATION}
     ${UNIFORMTYPEIDENTIFIERS}
+    ${PHOTOSUI}
   )
   set(PLATFORM_LIBS)
   set(PLATFORM_CLIENT_INCLUDE_DIRS)
