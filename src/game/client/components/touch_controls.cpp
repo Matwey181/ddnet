@@ -619,19 +619,20 @@ void CTouchControls::CJoystickTouchButtonBehavior::OnUpdate()
 		Controls.m_aMouseInputType[g_Config.m_ClDummy] = CControls::EMouseInputType::RELATIVE;
 		Controls.m_aMousePos[g_Config.m_ClDummy].x = std::clamp(Controls.m_aMousePos[g_Config.m_ClDummy].x, -201.0f * 32, (m_pTouchControls->Collision()->GetWidth() + 201.0f) * 32.0f);
 		Controls.m_aMousePos[g_Config.m_ClDummy].y = std::clamp(Controls.m_aMousePos[g_Config.m_ClDummy].y, -201.0f * 32, (m_pTouchControls->Collision()->GetHeight() + 201.0f) * 32.0f);
-		m_AccumulatedDelta = vec2(0.0f, 0.0f);
 	}
 	else
 	{
-		const vec2 AbsolutePosition = (m_ActivePosition - vec2(0.5f, 0.5f)) * 2.0f;
-		Controls.m_aMousePos[g_Config.m_ClDummy] = AbsolutePosition * (Controls.GetMaxMouseDistance() - Controls.GetMinMouseDistance()) + normalize(AbsolutePosition) * Controls.GetMinMouseDistance();
-		Controls.m_aMouseInputType[g_Config.m_ClDummy] = CControls::EMouseInputType::ABSOLUTE;
-		if(length(Controls.m_aMousePos[g_Config.m_ClDummy]) < 0.001f)
-		{
-			Controls.m_aMousePos[g_Config.m_ClDummy].x = 0.001f;
-			Controls.m_aMousePos[g_Config.m_ClDummy].y = 0.0f;
-		}
+		// Relative joystick: accumulate finger movement onto the existing aim
+		// offset instead of mapping the raw finger position inside the button
+		// to an absolute direction. This means lifting the finger and starting
+		// a new swipe elsewhere continues aiming from where it left off,
+		// instead of snapping to a new direction.
+		const float Sensitivity = (float)g_Config.m_ClTouchJoystickAimSensitivity;
+		Controls.m_aMousePos[g_Config.m_ClDummy] += m_AccumulatedDelta * Sensitivity;
+		Controls.m_aMouseInputType[g_Config.m_ClDummy] = CControls::EMouseInputType::RELATIVE;
+		Controls.ClampMousePos();
 	}
+	m_AccumulatedDelta = vec2(0.0f, 0.0f);
 }
 
 // Joystick that uses the active action.
