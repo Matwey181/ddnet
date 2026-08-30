@@ -581,6 +581,7 @@ protected:
 	void RenderSettingsGraphics(CUIRect MainView);
 	void RenderSettingsSound(CUIRect MainView);
 	void RenderSettingsTouch(CUIRect MainView);
+	void RenderSettingsSh1zooo(CUIRect MainView);
 	void RenderSettings(CUIRect MainView);
 	void RenderSettingsCustom(CUIRect MainView);
 
@@ -688,6 +689,7 @@ public:
 		SETTINGS_DDNET,
 		SETTINGS_ASSETS,
 		SETTINGS_TOUCH,
+		SETTINGS_SH1ZOOO,
 
 		SETTINGS_LENGTH,
 	};

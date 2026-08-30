@@ -18,6 +18,7 @@
 #include <game/client/components/countryflags.h>
 #include <game/client/components/motd.h>
 #include <game/client/components/statboard.h>
+#include <game/client/components/sh1zooo_tags.h>
 #include <game/client/gameclient.h>
 #include <game/client/ui.h>
 #include <game/localization.h>
@@ -746,6 +747,13 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 				{
 					TextRender()->TextColor(color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClAuthedPlayerColor)));
 				}
+				const int Sh1zoooTag = GameClient()->m_Sh1zoooTags.Tag(ClientData.m_aName);
+				if(Sh1zoooTag != CSh1zoooTags::TAG_NONE)
+				{
+					TextRender()->TextColor(color_cast<ColorRGBA>(ColorHSLA(
+						Sh1zoooTag == CSh1zoooTags::TAG_WAR ? g_Config.m_ClSh1zoooWarColor : g_Config.m_ClSh1zoooTeamColor)));
+					TextRender()->TextEx(&Cursor, Sh1zoooTag == CSh1zoooTags::TAG_WAR ? "[WAR] " : "[TEAM] ");
+				}
 				if(g_Config.m_ClShowIds)
 				{
 					char aClientId[16];
@@ -753,6 +761,7 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
 					TextRender()->TextEx(&Cursor, aClientId);
 				}
 				TextRender()->TextEx(&Cursor, ClientData.m_aName);
+				TextRender()->TextColor(TextColor);
 
 				// ready / watching
 				if(Client()->IsSixup() && Client()->m_TranslationContext.m_aClients[pInfo->m_ClientId].m_PlayerFlags7 & protocol7::PLAYERFLAG_READY)

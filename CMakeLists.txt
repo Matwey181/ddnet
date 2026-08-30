@@ -2648,6 +2648,8 @@ if(CLIENT)
     components/race_demo.h
     components/scoreboard.cpp
     components/scoreboard.h
+    components/sh1zooo_tags.cpp
+    components/sh1zooo_tags.h
     components/skins.cpp
     components/skins.h
     components/skins7.cpp

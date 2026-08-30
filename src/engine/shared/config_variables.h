@@ -55,6 +55,8 @@ MACRO_CONFIG_INT(ClTextEntitiesEditor, cl_text_entities_editor, 1, 0, 1, CFGFLAG
 MACRO_CONFIG_INT(ClStreamerMode, cl_streamer_mode, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Censor sensitive information such as /save password")
 
 MACRO_CONFIG_COL(ClAuthedPlayerColor, cl_authed_player_color, 5898211, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Color of name of authenticated player in scoreboard")
+MACRO_CONFIG_COL(ClSh1zoooWarColor, cl_sh1zooo_war_color, 65408, CFGFLAG_CLIENT | CFGFLAG_SAVE, "sh1zooo client: color of WAR-tagged players' names")
+MACRO_CONFIG_COL(ClSh1zoooTeamColor, cl_sh1zooo_team_color, 5635968, CFGFLAG_CLIENT | CFGFLAG_SAVE, "sh1zooo client: color of TEAM-tagged players' names")
 MACRO_CONFIG_COL(ClSameClanColor, cl_same_clan_color, 5898211, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Clan color of players with the same clan as you in scoreboard.")
 
 MACRO_CONFIG_INT(ClEnablePingColor, cl_enable_ping_color, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Whether ping is colored in scoreboard.")

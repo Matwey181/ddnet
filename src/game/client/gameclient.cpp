@@ -373,6 +373,8 @@ void CGameClient::OnInit()
 	const char *pLoadingMessageComponentsSpecial = Localize("Why are you slowmo replaying to read this?");
 	char aLoadingMessage[256];
 
+	m_Sh1zoooTags.Load(Storage());
+
 	// init all components
 	int SkippedComps = 1;
 	int CompCounter = 1;

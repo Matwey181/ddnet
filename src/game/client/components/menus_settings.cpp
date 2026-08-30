@@ -1434,6 +1434,198 @@ bool CMenus::RenderLanguageSelection(CUIRect MainView)
 	return s_ListBox.WasItemActivated();
 }
 
+void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
+{
+	CUIRect Button;
+
+	MainView.HSplitTop(24.0f, &Button, &MainView);
+	Ui()->DoLabel(&Button, "sh1zooo client", 22.0f, TEXTALIGN_ML);
+
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	Ui()->DoLabel(&Button, Localize("Visuals"), 15.0f, TEXTALIGN_ML);
+
+	// --- War list ------------------------------------------------------------
+	static bool s_WarListOpen = false;
+	static CButtonContainer s_WarListButton;
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+	MainView.HSplitTop(24.0f, &Button, &MainView);
+	if(DoButton_Menu(&s_WarListButton, s_WarListOpen ? Localize("War list (close)") : Localize("War list"), 0, &Button))
+		s_WarListOpen = !s_WarListOpen;
+
+	MainView.HSplitTop(4.0f, nullptr, &MainView);
+	MainView.HSplitTop(14.0f, &Button, &MainView);
+	TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+	Ui()->DoLabel(&Button, Localize("Tag players as WAR or TEAM: they get a colored name prefix and an angry or happy tee."), 11.0f, TEXTALIGN_ML);
+	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+	// --- Tag colors ----------------------------------------------------------
+	MainView.HSplitTop(12.0f, nullptr, &MainView);
+	static CButtonContainer s_WarColorResetId;
+	static CButtonContainer s_TeamColorResetId;
+	DoLine_ColorPicker(&s_WarColorResetId, 25.0f, 13.0f, 2.0f, &MainView, Localize("WAR name color"), &g_Config.m_ClSh1zoooWarColor, color_cast<ColorRGBA>(ColorHSLA(65408)), false);
+	DoLine_ColorPicker(&s_TeamColorResetId, 25.0f, 13.0f, 2.0f, &MainView, Localize("TEAM name color"), &g_Config.m_ClSh1zoooTeamColor, color_cast<ColorRGBA>(ColorHSLA(5635968)), false);
+
+	if(!s_WarListOpen)
+		return;
+
+	// --- Player list ---------------------------------------------------------
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+
+	int aPlayerIds[MAX_CLIENTS];
+	int NumPlayers = 0;
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		if(GameClient()->m_Snap.m_apPlayerInfos[i])
+			aPlayerIds[NumPlayers++] = i;
+	}
+
+	if(NumPlayers == 0)
+	{
+		MainView.HSplitTop(10.0f, nullptr, &MainView);
+		TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+		Ui()->DoLabel(&MainView, Localize("You are not on a server. Join a server to tag players."), 12.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		return;
+	}
+
+	static CScrollRegion s_ScrollRegion;
+	vec2 ScrollOffset(0.0f, 0.0f);
+	CScrollRegionParams ScrollParams;
+	ScrollParams.m_ScrollUnit = 40.0f;
+	s_ScrollRegion.Begin(&MainView, &ScrollOffset, &ScrollParams);
+	MainView.y += ScrollOffset.y;
+
+	static int s_SelectedClientId = -1;
+	static float s_AnimValue = 0.0f;
+	static float s_LastTime = -1.0f;
+
+	const float NowTime = Client()->GlobalTime();
+	float TimeDelta = 0.016f;
+	if(s_LastTime >= 0.0f)
+		TimeDelta = minimum(NowTime - s_LastTime, 0.1f);
+	s_LastTime = NowTime;
+
+	const float AnimTarget = s_SelectedClientId >= 0 ? 1.0f : 0.0f;
+	s_AnimValue += (AnimTarget - s_AnimValue) * minimum(TimeDelta * 10.0f, 1.0f);
+	if(absolute(AnimTarget - s_AnimValue) < 0.005f)
+		s_AnimValue = AnimTarget;
+
+	const float RowHeight = 36.0f;
+	const float PanelFullHeight = 32.0f;
+
+	static CButtonContainer s_aRowButtons[MAX_CLIENTS];
+	static CButtonContainer s_WarTagButton;
+	static CButtonContainer s_TeamTagButton;
+	static CButtonContainer s_RemoveTagButton;
+
+	if(s_SelectedClientId >= 0 && !GameClient()->m_Snap.m_apPlayerInfos[s_SelectedClientId])
+		s_SelectedClientId = -1; // the selected player left the server
+
+	for(int PlayerIndex = 0; PlayerIndex < NumPlayers; PlayerIndex++)
+	{
+		const int ClientId = aPlayerIds[PlayerIndex];
+		const CGameClient::CClientData &ClientData = GameClient()->m_aClients[ClientId];
+		const int Tag = GameClient()->m_Sh1zoooTags.Tag(ClientData.m_aName);
+		const bool Selected = ClientId == s_SelectedClientId;
+
+		CUIRect Row;
+		MainView.HSplitTop(RowHeight, &Row, &MainView);
+		Row.VMargin(2.0f, &Row);
+		Row.Draw(Selected ? ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f) : ColorRGBA(0.0f, 0.0f, 0.0f, 0.15f), IGraphics::CORNER_ALL, 4.0f);
+		s_ScrollRegion.AddRect(Row);
+
+		if(Ui()->DoButtonLogic(&s_aRowButtons[ClientId], 0, &Row, BUTTONFLAG_LEFT))
+		{
+			if(Selected)
+			{
+				s_SelectedClientId = -1;
+			}
+			else
+			{
+				if(s_SelectedClientId < 0)
+					s_AnimValue = 0.0f;
+				s_SelectedClientId = ClientId;
+			}
+		}
+
+		// tee preview with the tag's mood
+		CUIRect TeeRect, LabelRect;
+		Row.VSplitLeft(RowHeight, &TeeRect, &LabelRect);
+		{
+			CTeeRenderInfo TeeInfo = ClientData.m_RenderInfo;
+			TeeInfo.m_Size = RowHeight - 14.0f;
+			vec2 OffsetToMid;
+			CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &TeeInfo, OffsetToMid);
+			const vec2 TeeRenderPos = vec2(TeeRect.x + TeeRect.w / 2.0f, TeeRect.y + TeeRect.h / 2.0f + OffsetToMid.y);
+			const int TeeEmote = Tag == CSh1zoooTags::TAG_WAR ? EMOTE_ANGRY : Tag == CSh1zoooTags::TAG_TEAM ? EMOTE_HAPPY : EMOTE_NORMAL;
+			RenderTools()->RenderTee(CAnimState::GetIdle(), &TeeInfo, TeeEmote, vec2(1.0f, 0.0f), TeeRenderPos);
+		}
+
+		// name with tag prefix and color
+		LabelRect.VMargin(6.0f, &LabelRect);
+		{
+			char aName[64];
+			if(Tag != CSh1zoooTags::TAG_NONE)
+			{
+				str_format(aName, sizeof(aName), "%s %s",
+					Tag == CSh1zoooTags::TAG_WAR ? "[WAR]" : "[TEAM]",
+					ClientData.m_aName);
+				TextRender()->TextColor(color_cast<ColorRGBA>(ColorHSLA(
+					Tag == CSh1zoooTags::TAG_WAR ? g_Config.m_ClSh1zoooWarColor : g_Config.m_ClSh1zoooTeamColor)));
+			}
+			else
+			{
+				str_copy(aName, ClientData.m_aName, sizeof(aName));
+			}
+			Ui()->DoLabel(&LabelRect, aName, 13.0f, TEXTALIGN_ML);
+			if(Tag != CSh1zoooTags::TAG_NONE)
+				TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+
+		// expandable tag buttons below the selected player
+		if(Selected)
+		{
+			CUIRect Panel;
+			MainView.HSplitTop(PanelFullHeight * s_AnimValue, &Panel, &MainView);
+			s_ScrollRegion.AddRect(Panel);
+
+			if(s_AnimValue > 0.99f)
+			{
+				Panel.VMargin(RowHeight + 8.0f, &Panel);
+				Panel.HSplitTop(26.0f, &Panel, nullptr);
+
+				const bool HasTag = Tag != CSh1zoooTags::TAG_NONE;
+				CUIRect WarButton, TeamButton, RemoveButton;
+				if(HasTag)
+				{
+					CUIRect Rest;
+						Panel.VSplitLeft(Panel.w / 3.0f, &WarButton, &Rest);
+						Rest.VSplitLeft(Rest.w / 2.0f, &TeamButton, &RemoveButton);
+						WarButton.VMargin(2.0f, &WarButton);
+						TeamButton.VMargin(2.0f, &TeamButton);
+						RemoveButton.VMargin(2.0f, &RemoveButton);
+				}
+				else
+				{
+					Panel.VSplitMid(&WarButton, &TeamButton);
+					WarButton.VMargin(2.0f, &WarButton);
+					TeamButton.VMargin(2.0f, &TeamButton);
+				}
+
+				if(DoButton_Menu(&s_WarTagButton, "WAR", 0, &WarButton))
+					GameClient()->m_Sh1zoooTags.SetTag(ClientData.m_aName, CSh1zoooTags::TAG_WAR);
+				if(DoButton_Menu(&s_TeamTagButton, "TEAM", 0, &TeamButton))
+					GameClient()->m_Sh1zoooTags.SetTag(ClientData.m_aName, CSh1zoooTags::TAG_TEAM);
+				if(HasTag && DoButton_Menu(&s_RemoveTagButton, Localize("Remove tag"), 0, &RemoveButton))
+					GameClient()->m_Sh1zoooTags.SetTag(ClientData.m_aName, CSh1zoooTags::TAG_NONE);
+			}
+		}
+	}
+
+	s_ScrollRegion.End();
+}
+
 void CMenus::RenderSettings(CUIRect MainView)
 {
 	// render background
@@ -1463,7 +1655,8 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Sound"),
 		Localize("DDNet"),
 		Localize("Assets"),
-		Localize("Touch")};
+		Localize("Touch"),
+		"sh1zooo client"};
 	static CButtonContainer s_aTabButtons[SETTINGS_LENGTH];
 
 	for(int i = 0; i < SETTINGS_LENGTH; i++)
@@ -1531,6 +1724,11 @@ void CMenus::RenderSettings(CUIRect MainView)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
 		RenderSettingsTouch(MainView);
+	}
+	else if(g_Config.m_UiSettingsPage == SETTINGS_SH1ZOOO)
+	{
+		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
+		RenderSettingsSh1zooo(MainView);
 	}
 	else
 	{

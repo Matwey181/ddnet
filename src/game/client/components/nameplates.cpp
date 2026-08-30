@@ -10,6 +10,7 @@
 
 #include <game/client/animstate.h>
 #include <game/client/gameclient.h>
+#include <game/client/components/sh1zooo_tags.h>
 #include <game/client/prediction/entities/character.h>
 
 #include <memory>
@@ -28,7 +29,7 @@ public:
 	bool m_InGame;
 	ColorRGBA m_Color;
 	bool m_ShowName;
-	char m_aName[std::max<size_t>(MAX_NAME_LENGTH, protocol7::MAX_NAME_ARRAY_SIZE)];
+	char m_aName[64]; // enlarged so [WAR]/[TEAM] tag prefixes fit
 	bool m_ShowFriendMark;
 	bool m_ShowClientId;
 	int m_ClientId;
@@ -340,7 +341,7 @@ public:
 class CNamePlatePartName : public CNamePlatePartText
 {
 private:
-	char m_aText[std::max<size_t>(MAX_NAME_LENGTH, protocol7::MAX_NAME_ARRAY_SIZE)] = "";
+	char m_aText[64] = ""; // enlarged so [WAR]/[TEAM] tag prefixes fit
 	float m_FontSize = -INFINITY;
 
 protected:
@@ -645,6 +646,15 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 
 	Data.m_ShowName = pPlayerInfo->m_Local ? g_Config.m_ClNamePlatesOwn : g_Config.m_ClNamePlates;
 	str_copy(Data.m_aName, GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aName);
+	const int Sh1zoooTag = GameClient()->m_Sh1zoooTags.Tag(Data.m_aName);
+	if(Sh1zoooTag != CSh1zoooTags::TAG_NONE)
+	{
+		char aTaggedName[64];
+		str_format(aTaggedName, sizeof(aTaggedName), "%s %s",
+			Sh1zoooTag == CSh1zoooTags::TAG_WAR ? "[WAR]" : "[TEAM]",
+			Data.m_aName);
+		str_copy(Data.m_aName, aTaggedName, sizeof(Data.m_aName));
+	}
 	Data.m_ShowFriendMark = Data.m_ShowName && g_Config.m_ClNamePlatesFriendMark && GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_Friend;
 	Data.m_ShowClientId = Data.m_ShowName && (g_Config.m_Debug || g_Config.m_ClNamePlatesIds);
 	Data.m_FontSize = 18.0f + 20.0f * g_Config.m_ClNamePlatesSize / 100.0f;
@@ -681,6 +691,11 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 			if(Team)
 				Data.m_Color = GameClient()->GetDDTeamColor(Team, 0.75f);
 		}
+	}
+	if(Sh1zoooTag != CSh1zoooTags::TAG_NONE)
+	{
+		Data.m_Color = color_cast<ColorRGBA>(ColorHSLA(
+			Sh1zoooTag == CSh1zoooTags::TAG_WAR ? g_Config.m_ClSh1zoooWarColor : g_Config.m_ClSh1zoooTeamColor));
 	}
 	Data.m_Color.a = Alpha;
 

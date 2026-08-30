@@ -60,6 +60,7 @@
 #include "components/players.h"
 #include "components/race_demo.h"
 #include "components/scoreboard.h"
+#include "components/sh1zooo_tags.h"
 #include "components/skins.h"
 #include "components/skins7.h"
 #include "components/sounds.h"
@@ -153,6 +154,7 @@ public:
 	CKeyBinder m_KeyBinder;
 	CParticles m_Particles;
 	CMenus m_Menus;
+	CSh1zoooTags m_Sh1zoooTags;
 	CSkins m_Skins;
 	CSkins7 m_Skins7;
 	CCountryFlags m_CountryFlags;
