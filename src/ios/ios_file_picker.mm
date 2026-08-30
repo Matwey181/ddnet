@@ -8,74 +8,82 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <PhotosUI/PhotosUI.h>
 
-#include <mutex>
-#include <vector>
-
 // ---------------------------------------------------------------------------
-// Threading model
+// How this works
 //
-// The whole game (menu rendering, SDL event pump) runs on the iOS main
-// thread; the main run loop is only serviced in tiny bursts from SDL's
-// UIKit_PumpEvents. UIKit therefore works, but every delegate callback
-// arrives inside one of those bursts, i.e. in the middle of SDL_PollEvent -
-// a very unsafe place to run game code (handing the picked file to the game
-// directly from the document picker delegate crashed the app).
+// DDNet runs its whole game loop on the iOS main thread (SDL runs SDL_main
+// inside application:didFinishLaunching) and never hands the main run loop
+// back to the system - the run loop is only serviced in tiny two
+// microsecond bursts from SDL's UIKit_PumpEvents, deep inside SDL_PollEvent.
 //
-// This implementation keeps all work away from that context:
-//  1. The pickers are presented on a dedicated overlay UIWindow from its own
-//     root view controller. The overlay window is made key while the pickers
-//     are on screen and the alert -> picker transition is non-animated and
-//     runs in the dismissal completion, which makes the presentation
-//     deterministic (no "presentation while dismissing" race that silently
-//     swallowed the Photos picker before).
-//  2. Image conversion (decoding, downscaling, PNG encoding, file copying)
-//     runs on a background GCD queue.
-//  3. The finished result is pushed into a mutex protected queue which the
-//     game drains via IosProcessPendingImportCallbacks() from CMenus::Render
-//     - a safe point in the frame where all the other menu button handlers
-//     run as well.
+// That is enough for plain local UIKit controls (the source-selection alert
+// worked fine), but it is NOT enough for system pickers: their interfaces
+// are driven by other iOS processes and talk to the host app over XPC,
+// which requires a properly serviced main run loop. With the old approach
+// the Photos picker showed no confirm button and ignored Cancel, and
+// picking a file in the Files picker crashed the app inside the XPC
+// completion machinery.
+//
+// So while an import dialog is on screen we run the real main run loop
+// ourselves - the classic nested "modal" run loop. IosPickImageFile blocks
+// the calling game frame until the user is done, which is fine: it is
+// called from a settings-menu button handler, the dialog covers the
+// screen and no game code can run in parallel on the same thread. When the
+// dialog finishes, the image is converted and the callback is invoked
+// directly - in exactly the same (game frame) context in which every other
+// menu button handler runs.
+//
+// The Photos picker is UIImagePickerController (fully in-process UIKit,
+// battle tested since the first iPhone) instead of the remote
+// PHPickerViewController, the Files picker stays UIDocumentPickerViewController.
 //
 // This file is compiled with -fobjc-arc (see CMakeLists.txt).
 
 // ------------------------------------------------------------------
-// Pending import queue (filled from any thread, drained on the main thread)
+// Modal session state (main thread only)
 // ------------------------------------------------------------------
 
-struct SIosPendingImport
+static const NSTimeInterval IosModalTimeoutSeconds = 10 * 60;
+
+enum EIosImportChoice
 {
-	std::function<void(const std::string &)> m_Callback;
-	std::string m_Path;
+	IOS_IMPORT_CHOICE_NONE,
+	IOS_IMPORT_CHOICE_PHOTOS,
+	IOS_IMPORT_CHOICE_FILES,
+	IOS_IMPORT_CHOICE_CANCEL,
 };
 
-static std::mutex s_PendingImportsMutex;
-static std::vector<SIosPendingImport> s_apPendingImports;
+static BOOL s_ModalDone = NO;
+static int s_ImportChoice = IOS_IMPORT_CHOICE_NONE;
+static NSURL *s_pPickedUrl = nil;
+static UIImage *s_pPickedImage = nil;
 
-static void IosQueueResult(const std::function<void(const std::string &)> &Callback, const std::string &Path)
+// Runs the real main run loop until s_ModalDone is set. Returns NO if the
+// safety timeout expired (in that case everything still on screen is
+// dismissed so the game stays usable).
+static BOOL IosRunMainRunLoopUntilDone(UIViewController *pRoot)
 {
-	std::lock_guard<std::mutex> Lock(s_PendingImportsMutex);
-	s_apPendingImports.push_back(SIosPendingImport{Callback, Path});
-}
-
-void IosProcessPendingImportCallbacks()
-{
-	std::vector<SIosPendingImport> apImports;
+	s_ModalDone = NO;
+	const NSTimeInterval Deadline = [NSDate timeIntervalSinceReferenceDate] + IosModalTimeoutSeconds;
+	while(!s_ModalDone)
 	{
-		std::lock_guard<std::mutex> Lock(s_PendingImportsMutex);
-		apImports.swap(s_apPendingImports);
+		if([NSDate timeIntervalSinceReferenceDate] >= Deadline)
+		{
+			log_error("ios", "Import dialog timed out");
+			[pRoot dismissViewControllerAnimated:NO completion:nil];
+			return NO;
+		}
+		// One pass through the run loop: processes every pending source
+		// (touches, XPC replies, main queue blocks) and blocks for at
+		// most a second before the condition is re-checked.
+		[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+			beforeDate:[NSDate dateWithTimeIntervalSinceNow:1.0]];
 	}
-	for(const SIosPendingImport &Import : apImports)
-	{
-		Import.m_Callback(Import.m_Path);
-	}
+	// Give UIKit a moment to finish in-flight transitions.
+	[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+		beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+	return YES;
 }
-
-// ------------------------------------------------------------------
-// Picker session state (main thread only)
-// ------------------------------------------------------------------
-
-static UIWindow *s_pGameWindow = nil;
-static UIWindow *s_pOverlayWindow = nil;
-static bool s_ImportActive = false;
 
 // ------------------------------------------------------------------
 // Helpers
@@ -110,8 +118,8 @@ static UIWindow *IosFindGameWindow()
 }
 
 // Downscales the image so its longest side is at most MaxDimension pixels.
-// Camera photos can be 12-48 MP; decoding and re-encoding those at full size
-// allocates hundreds of megabytes and gets the app killed by the OS.
+// Camera photos can be 12-48 MP; re-encoding those at full size allocates
+// hundreds of megabytes, so imports are capped at a sane size.
 static UIImage *IosDownscaleImage(UIImage *pImage, CGFloat MaxDimension)
 {
 	const CGFloat Width = pImage.size.width;
@@ -169,9 +177,10 @@ static std::string IosCopyPngFile(NSURL *pUrl)
 	return std::string(pDestPath.UTF8String);
 }
 
-// Runs on a background queue. The document picker (used with asCopy:YES)
-// hands us a plain readable copy of the picked file inside our tmp
-// directory - no security-scoped resource bookkeeping is needed.
+// Converts a file that came from the Files picker. The document picker
+// (used with asCopy:YES) hands us a plain readable copy of the picked file
+// inside our tmp directory - no security-scoped resource bookkeeping is
+// needed.
 static std::string IosConvertImportedFile(NSURL *pUrl)
 {
 	NSString *pPath = pUrl.path;
@@ -190,346 +199,232 @@ static std::string IosConvertImportedFile(NSURL *pUrl)
 	return IosWriteImageAsPng(pImage, "import");
 }
 
-// Runs on a background queue. Converts an image that came from the Photos
-// picker (UIImage, possibly HEIC encoded and huge) into a downscaled PNG.
+// Converts an image that came from the Photos picker (UIImage, possibly
+// huge) into a downscaled PNG.
 static std::string IosConvertImportedImage(UIImage *pImage)
 {
 	pImage = IosDownscaleImage(pImage, 2048.0);
 	return IosWriteImageAsPng(pImage, "photo");
 }
 
-static void IosTeardownOverlay()
-{
-	if(s_pOverlayWindow != nil)
-	{
-		s_pOverlayWindow.hidden = YES;
-		s_pOverlayWindow.rootViewController = nil;
-		s_pOverlayWindow = nil;
-	}
-	if(s_pGameWindow != nil)
-	{
-		[s_pGameWindow makeKeyWindow];
-		s_pGameWindow = nil;
-	}
-}
-
-// Main thread. Called exactly once when the picker flow ends (picked,
-// cancelled or failed). Closes the overlay window and starts the background
-// conversion. The game callback is delivered later, from
-// IosProcessPendingImportCallbacks(). Forward declared so the picker
-// delegates below can call it.
-static void IosFinishImport(NSURL *pUrl, UIImage *pImage, const std::function<void(const std::string &)> &Callback);
-
 // ------------------------------------------------------------------
 // Files app picker (UIDocumentPickerViewController)
 // ------------------------------------------------------------------
 
 @interface CIosFilePickerDelegate : NSObject <UIDocumentPickerDelegate>
-{
-@public
-	std::function<void(const std::string &)> m_Callback;
-}
 @end
 
 @implementation CIosFilePickerDelegate
 
+// The delegate callbacks run inside our own run loop, i.e. in a completely
+// normal UIKit context - dismissing the picker from here is the standard
+// pattern. They only record the result and end the modal loop; the actual
+// import happens after the loop, in the game frame.
+
 - (void)documentPicker:(UIDocumentPickerViewController *)pController didPickDocumentsAtURLs:(NSArray<NSURL *> *)pUrls
 {
-	(void)pController;
 	log_info("ios", "Files picker: %d document(s) selected", (int)pUrls.count);
-	NSURL *pUrl = pUrls.count > 0 ? pUrls[0] : nil;
-	// Copy the callback into a local so it stays alive even if the static
-	// delegate reference is cleared while the blocks below are running.
-	std::function<void(const std::string &)> Callback = m_Callback;
-	UIViewController *pPresenter = pController.presentingViewController;
-	void (^pFinish)(void) = ^
-	{
-		IosFinishImport(pUrl, nil, Callback);
-	};
-	if(pPresenter != nil)
-	{
-		[pPresenter dismissViewControllerAnimated:NO completion:pFinish];
-	}
-	else
-	{
-		// Already dismissed (e.g. interactive swipe-to-cancel).
-		pFinish();
-	}
+	s_pPickedUrl = pUrls.count > 0 ? pUrls[0] : nil;
+	[pController dismissViewControllerAnimated:NO completion:nil];
+	s_ModalDone = YES;
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)pController
 {
 	log_info("ios", "Files picker: cancelled");
-	std::function<void(const std::string &)> Callback = m_Callback;
-	UIViewController *pPresenter = pController.presentingViewController;
-	void (^pFinish)(void) = ^
-	{
-		IosFinishImport(nil, nil, Callback);
-	};
-	if(pPresenter != nil)
-	{
-		[pPresenter dismissViewControllerAnimated:NO completion:pFinish];
-	}
-	else
-	{
-		pFinish();
-	}
+	s_pPickedUrl = nil;
+	[pController dismissViewControllerAnimated:NO completion:nil];
+	s_ModalDone = YES;
 }
 
 @end
 
 // ------------------------------------------------------------------
-// Photos gallery picker (PHPickerViewController)
+// Photos gallery picker (UIImagePickerController, fully in-process)
 // ------------------------------------------------------------------
 
-API_AVAILABLE(ios(14.0))
-@interface CIosPhotoPickerDelegate : NSObject <PHPickerViewControllerDelegate>
-{
-@public
-	std::function<void(const std::string &)> m_Callback;
-}
+@interface CIosPhotoPickerDelegate : NSObject <UIImagePickerControllerDelegate, UINavigationControllerDelegate>
 @end
 
 @implementation CIosPhotoPickerDelegate
 
-- (void)picker:(PHPickerViewController *)pPicker didFinishPickingWithResults:(NSArray<PHPickerResult *> *)pResults
+- (void)imagePickerController:(UIImagePickerController *)pController didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> *)pInfo
 {
-	log_info("ios", "Photos picker: %d result(s)", (int)pResults.count);
-	std::function<void(const std::string &)> Callback = m_Callback;
-	UIViewController *pPresenter = pPicker.presentingViewController;
-	void (^pFinish)(void) = ^
-	{
-		PHPickerResult *pResult = pResults.count > 0 ? pResults[0] : nil;
-		if(pResult == nil)
-		{
-			// Cancel button or swipe-to-dismiss: empty results.
-			IosFinishImport(nil, nil, Callback);
-			return;
-		}
-		// The image data loads asynchronously; the completion handler may
-		// be called on any thread, so marshal back to the main thread
-		// before touching UIKit (IosFinishImport tears down a UIWindow).
-		[pResult.itemProvider loadObjectOfClass:[UIImage class] completionHandler:^(id<NSSecureCoding> _Nullable pObject, NSError *_Nullable pError)
-		{
-			UIImage *pImage = (UIImage *)pObject;
-			if(pImage == nil)
-			{
-				log_error("ios", "Photos picker: could not load image (%s)",
-					pError != nil ? pError.localizedDescription.UTF8String : "unknown error");
-			}
-			dispatch_async(dispatch_get_main_queue(), ^
-			{
-				IosFinishImport(nil, pImage, Callback);
-			});
-		}];
-	};
-	if(pPresenter != nil)
-	{
-		[pPresenter dismissViewControllerAnimated:NO completion:pFinish];
-	}
-	else
-	{
-		pFinish();
-	}
+	log_info("ios", "Photos picker: image picked");
+	s_pPickedImage = pInfo[UIImagePickerControllerOriginalImage];
+	[pController dismissViewControllerAnimated:NO completion:nil];
+	s_ModalDone = YES;
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)pController
+{
+	log_info("ios", "Photos picker: cancelled");
+	s_pPickedImage = nil;
+	[pController dismissViewControllerAnimated:NO completion:nil];
+	s_ModalDone = YES;
 }
 
 @end
 
-// Keeps the delegates (and thus the game callbacks) alive while the pickers
-// are on screen. Only one import flow can be active at a time.
+// Keeps the delegates alive while the pickers are on screen (the pickers
+// hold their delegates weakly).
 static CIosFilePickerDelegate *s_pFilePickerDelegate = nil;
-static CIosPhotoPickerDelegate *s_pPhotoPickerDelegate API_AVAILABLE(ios(14.0)) = nil;
-
-static void IosFinishImport(NSURL *pUrl, UIImage *pImage, const std::function<void(const std::string &)> &Callback)
-{
-	IosTeardownOverlay();
-	s_pFilePickerDelegate = nil;
-	if(@available(iOS 14.0, *))
-	{
-		s_pPhotoPickerDelegate = nil;
-	}
-	s_ImportActive = false;
-
-	if(pUrl == nil && pImage == nil)
-	{
-		// Cancelled: deliver an empty path so the game callback can return
-		// early.
-		IosQueueResult(Callback, std::string());
-		return;
-	}
-
-	// Convert the image on a background queue so neither the main thread nor
-	// the SDL event pump is blocked.
-	dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^
-	{
-		std::string Path;
-		if(pUrl != nil)
-		{
-			Path = IosConvertImportedFile(pUrl);
-		}
-		else
-		{
-			Path = IosConvertImportedImage(pImage);
-		}
-		if(Path.empty())
-		{
-			log_error("ios", "Import failed: could not prepare the image");
-		}
-		IosQueueResult(Callback, Path);
-	});
-}
+static CIosPhotoPickerDelegate *s_pPhotoPickerDelegate = nil;
 
 // ------------------------------------------------------------------
-// Picker presentation
+// Import flow
 // ------------------------------------------------------------------
-
-API_AVAILABLE(ios(14.0))
-static void IosPresentFilesPicker(UIViewController *pRoot, const std::function<void(const std::string &)> &Callback)
-{
-	// asCopy:YES gives us a plain readable copy of the file inside our tmp
-	// directory - no security-scoped resource handling required.
-	NSArray<UTType *> *apContentTypes = @[ UTTypeImage ];
-	UIDocumentPickerViewController *pPicker =
-		[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:apContentTypes asCopy:YES];
-	pPicker.allowsMultipleSelection = NO;
-	pPicker.modalPresentationStyle = UIModalPresentationFormSheet;
-
-	s_pFilePickerDelegate = [[CIosFilePickerDelegate alloc] init];
-	s_pFilePickerDelegate->m_Callback = Callback;
-	pPicker.delegate = s_pFilePickerDelegate;
-	log_info("ios", "Presenting Files picker");
-	[pRoot presentViewController:pPicker animated:NO completion:nil];
-}
-
-API_AVAILABLE(ios(14.0))
-static void IosPresentPhotosPicker(UIViewController *pRoot, const std::function<void(const std::string &)> &Callback)
-{
-	PHPickerConfiguration *pConfig = [[PHPickerConfiguration alloc] init];
-	pConfig.filter = [PHPickerFilter imagesFilter];
-	pConfig.selectionLimit = 1;
-	PHPickerViewController *pPicker = [[PHPickerViewController alloc] initWithConfiguration:pConfig];
-	pPicker.modalPresentationStyle = UIModalPresentationPageSheet;
-
-	s_pPhotoPickerDelegate = [[CIosPhotoPickerDelegate alloc] init];
-	s_pPhotoPickerDelegate->m_Callback = Callback;
-	pPicker.delegate = s_pPhotoPickerDelegate;
-	log_info("ios", "Presenting Photos picker");
-	[pRoot presentViewController:pPicker animated:NO completion:nil];
-}
-
-// Creates a transparent window above the game window. The pickers are
-// presented from its root view controller, which keeps them independent
-// from whatever presentation state the game window is in. While the window
-// is key and nothing is presented on it, its non-interactive root view lets
-// touches fall through to the game window below.
-static UIWindow *IosCreateOverlayWindow(UIWindow *pGameWindow)
-{
-	UIWindow *pOverlay = nil;
-	if(@available(iOS 13.0, *))
-	{
-		if(pGameWindow.windowScene != nil)
-		{
-			pOverlay = [[UIWindow alloc] initWithWindowScene:pGameWindow.windowScene];
-		}
-	}
-	if(pOverlay == nil)
-	{
-		pOverlay = [[UIWindow alloc] initWithFrame:pGameWindow.bounds];
-	}
-	pOverlay.windowLevel = UIWindowLevelNormal + 1.0;
-	pOverlay.backgroundColor = [UIColor clearColor];
-
-	UIViewController *pRoot = [[UIViewController alloc] init];
-	pRoot.view.backgroundColor = [UIColor clearColor];
-	pRoot.view.userInteractionEnabled = NO;
-	pOverlay.rootViewController = pRoot;
-	[pOverlay makeKeyAndVisible];
-	return pOverlay;
-}
 
 void IosPickImageFile(std::function<void(const std::string &Path)> Callback)
 {
-	dispatch_async(dispatch_get_main_queue(), ^
+	// Must be called from the game frame on the main thread - the whole
+	// flow is synchronous and delivers the callback in the caller's
+	// context.
+	if(![NSThread isMainThread])
 	{
-		if(!@available(iOS 14.0, *))
-		{
-			log_error("ios", "Importing images requires iOS 14 or newer");
-			IosQueueResult(Callback, std::string());
-			return;
-		}
+		log_error("ios", "IosPickImageFile must be called on the main thread");
+		Callback(std::string());
+		return;
+	}
 
-		if(s_ImportActive || s_pOverlayWindow != nil)
-		{
-			log_error("ios", "An import picker is already open, ignoring request");
-			IosQueueResult(Callback, std::string());
-			return;
-		}
+	if(!@available(iOS 14.0, *))
+	{
+		log_error("ios", "Importing images requires iOS 14 or newer");
+		Callback(std::string());
+		return;
+	}
 
-		UIWindow *pGameWindow = IosFindGameWindow();
-		if(pGameWindow == nil)
-		{
-			log_error("ios", "Import failed: no game window found");
-			IosQueueResult(Callback, std::string());
-			return;
-		}
+	UIWindow *pGameWindow = IosFindGameWindow();
+	UIViewController *pRoot = pGameWindow.rootViewController;
+	if(pRoot == nil)
+	{
+		log_error("ios", "Import failed: no root view controller");
+		Callback(std::string());
+		return;
+	}
 
-		UIWindow *pOverlay = IosCreateOverlayWindow(pGameWindow);
-		if(pOverlay == nil)
-		{
-			log_error("ios", "Import failed: could not create the picker window");
-			IosQueueResult(Callback, std::string());
-			return;
-		}
-		s_pGameWindow = pGameWindow;
-		s_pOverlayWindow = pOverlay;
-		s_ImportActive = true;
+	s_pPickedUrl = nil;
+	s_pPickedImage = nil;
+	s_ImportChoice = IOS_IMPORT_CHOICE_NONE;
 
-		UIViewController *pRoot = pOverlay.rootViewController;
-		UIAlertController *pSheet =
-			[UIAlertController alertControllerWithTitle:@"Import image"
-				message:nil
-				preferredStyle:UIAlertControllerStyleActionSheet];
-		// iPad requires a source view for action sheets, otherwise
-		// presenting them crashes.
-		pSheet.popoverPresentationController.sourceView = pRoot.view;
-		pSheet.popoverPresentationController.sourceRect =
-			CGRectMake(pRoot.view.bounds.size.width / 2.0, pRoot.view.bounds.size.height / 2.0, 1.0, 1.0);
+	// ------------------------------------------------------------------
+	// Step 1: ask where to import from.
+	// ------------------------------------------------------------------
+	UIAlertController *pSheet =
+		[UIAlertController alertControllerWithTitle:@"Import image"
+			message:nil
+			preferredStyle:UIAlertControllerStyleActionSheet];
+	[pSheet addAction:[UIAlertAction actionWithTitle:@"Choose from Photos"
+		style:UIAlertActionStyleDefault
+		handler:^(UIAlertAction *pAction)
+	{
+		(void)pAction;
+		s_ImportChoice = IOS_IMPORT_CHOICE_PHOTOS;
+		[pRoot dismissViewControllerAnimated:NO completion:nil];
+		s_ModalDone = YES;
+	}]];
+	[pSheet addAction:[UIAlertAction actionWithTitle:@"Choose from Files"
+		style:UIAlertActionStyleDefault
+		handler:^(UIAlertAction *pAction)
+	{
+		(void)pAction;
+		s_ImportChoice = IOS_IMPORT_CHOICE_FILES;
+		[pRoot dismissViewControllerAnimated:NO completion:nil];
+		s_ModalDone = YES;
+	}]];
+	[pSheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
+		style:UIAlertActionStyleCancel
+		handler:^(UIAlertAction *pAction)
+	{
+		(void)pAction;
+		s_ImportChoice = IOS_IMPORT_CHOICE_CANCEL;
+		[pRoot dismissViewControllerAnimated:NO completion:nil];
+		s_ModalDone = YES;
+	}]];
+	log_info("ios", "Presenting import source selection");
+	[pRoot presentViewController:pSheet animated:NO completion:nil];
+	IosRunMainRunLoopUntilDone(pRoot);
 
-		[pSheet addAction:[UIAlertAction actionWithTitle:@"Choose from Photos"
-			style:UIAlertActionStyleDefault
-			handler:^(UIAlertAction *pAction)
-		{
-			(void)pAction;
-			// Present the picker only after the action sheet has fully
-			// dismissed, otherwise UIKit may silently reject the
-			// presentation (this is what made the Photos picker appear
-			// dead before).
-			[pRoot dismissViewControllerAnimated:NO completion:^
-			{
-				IosPresentPhotosPicker(pRoot, Callback);
-			}];
-		}]];
-		[pSheet addAction:[UIAlertAction actionWithTitle:@"Choose from Files"
-			style:UIAlertActionStyleDefault
-			handler:^(UIAlertAction *pAction)
-		{
-			(void)pAction;
-			[pRoot dismissViewControllerAnimated:NO completion:^
-			{
-				IosPresentFilesPicker(pRoot, Callback);
-			}];
-		}]];
-		[pSheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
-			style:UIAlertActionStyleCancel
-			handler:^(UIAlertAction *pAction)
-		{
-			(void)pAction;
-			[pRoot dismissViewControllerAnimated:NO completion:^
-			{
-				IosFinishImport(nil, nil, Callback);
-			}];
-		}]];
-		log_info("ios", "Presenting import source selection");
-		[pRoot presentViewController:pSheet animated:NO completion:nil];
-	});
+	if(s_ImportChoice != IOS_IMPORT_CHOICE_PHOTOS && s_ImportChoice != IOS_IMPORT_CHOICE_FILES)
+	{
+		// Cancelled or timed out.
+		log_info("ios", "Import cancelled");
+		Callback(std::string());
+		return;
+	}
+
+	// Let the alert dismissal fully finish before presenting the picker.
+	[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+		beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+
+	// ------------------------------------------------------------------
+	// Step 2: the picker itself.
+	// ------------------------------------------------------------------
+	s_pPickedUrl = nil;
+	s_pPickedImage = nil;
+	if(s_ImportChoice == IOS_IMPORT_CHOICE_PHOTOS)
+	{
+		UIImagePickerController *pPicker = [[UIImagePickerController alloc] init];
+		pPicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
+		pPicker.mediaTypes = @[ UTTypeImage.identifier ];
+		pPicker.modalPresentationStyle = UIModalPresentationFullScreen;
+		s_pPhotoPickerDelegate = [[CIosPhotoPickerDelegate alloc] init];
+		pPicker.delegate = s_pPhotoPickerDelegate;
+		log_info("ios", "Presenting Photos picker");
+		[pRoot presentViewController:pPicker animated:NO completion:nil];
+	}
+	else
+	{
+		// asCopy:YES gives us a plain readable copy of the file inside
+		// our tmp directory - no security-scoped resource handling
+		// required.
+		NSArray<UTType *> *apContentTypes = @[ UTTypeImage ];
+		UIDocumentPickerViewController *pPicker =
+			[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:apContentTypes asCopy:YES];
+		pPicker.allowsMultipleSelection = NO;
+		pPicker.modalPresentationStyle = UIModalPresentationFormSheet;
+		s_pFilePickerDelegate = [[CIosFilePickerDelegate alloc] init];
+		pPicker.delegate = s_pFilePickerDelegate;
+		log_info("ios", "Presenting Files picker");
+		[pRoot presentViewController:pPicker animated:NO completion:nil];
+	}
+
+	IosRunMainRunLoopUntilDone(pRoot);
+
+	// Belt and suspenders: make sure nothing stays on screen even if the
+	// loop ended through the timeout (the delegates dismiss their pickers
+	// themselves on the normal paths).
+	[pRoot dismissViewControllerAnimated:NO completion:nil];
+	[[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
+		beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+
+	s_pFilePickerDelegate = nil;
+	s_pPhotoPickerDelegate = nil;
+
+	// ------------------------------------------------------------------
+	// Step 3: convert the result and deliver it - we are back in the
+	// game frame, in the same context as every other menu button
+	// handler.
+	// ------------------------------------------------------------------
+	std::string Path;
+	if(s_pPickedUrl != nil)
+	{
+		Path = IosConvertImportedFile(s_pPickedUrl);
+	}
+	else if(s_pPickedImage != nil)
+	{
+		Path = IosConvertImportedImage(s_pPickedImage);
+	}
+	else
+	{
+		log_info("ios", "Import cancelled");
+	}
+	s_pPickedUrl = nil;
+	s_pPickedImage = nil;
+
+	if(!Path.empty())
+	{
+		log_info("ios", "Import ready: '%s'", Path.c_str());
+	}
+	Callback(Path);
 }

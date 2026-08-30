@@ -51,6 +51,8 @@
 				<false/>
 			</dict>
 		</dict>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Allows importing images for custom game assets from your photo library. Разрешает импортировать изображения для игровых скинов из фотогалереи.</string>
 		<key>UIFileSharingEnabled</key>
 		<true/>
 		<key>LSSupportsOpeningDocumentsInPlace</key>
