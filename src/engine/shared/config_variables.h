@@ -438,6 +438,12 @@ MACRO_CONFIG_INT(GfxQuadAsTriangle, gfx_quad_as_triangle, 0, 0, 1, CFGFLAG_SAVE 
 
 MACRO_CONFIG_INT(InpMousesens, inp_mousesens, 200, 1, 100000, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Mouse sensitivity")
 MACRO_CONFIG_INT(ClTouchJoystickAimSensitivity, cl_touch_joystick_aim_sensitivity, 500, 1, 20000, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Touch joystick aim sensitivity (relative, like a trackpad; world units of aim movement per full swipe across the button)")
+MACRO_CONFIG_INT(ClTouchJoystickMove, cl_touch_joystick_move, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Use a dynamic movement joystick instead of the move left/right touch buttons")
+MACRO_CONFIG_INT(ClTouchJoystickMoveZoneX, cl_touch_joystick_move_zone_x, 0, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: left edge in percent of the screen width")
+MACRO_CONFIG_INT(ClTouchJoystickMoveZoneY, cl_touch_joystick_move_zone_y, 0, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: top edge in percent of the screen height")
+MACRO_CONFIG_INT(ClTouchJoystickMoveZoneW, cl_touch_joystick_move_zone_w, 50, 1, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: width in percent of the screen width")
+MACRO_CONFIG_INT(ClTouchJoystickMoveZoneH, cl_touch_joystick_move_zone_h, 100, 1, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: height in percent of the screen height")
+MACRO_CONFIG_INT(ClTouchJoystickMoveSize, cl_touch_joystick_move_size, 13, 5, 25, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick: radius in percent of the screen height")
 MACRO_CONFIG_INT(InpTranslatedKeys, inp_translated_keys, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Translate keys before interpreting them, respects keyboard layouts")
 MACRO_CONFIG_INT(InpIgnoredModifiers, inp_ignored_modifiers, 0, 0, 65536, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Ignored keyboard modifier mask")
 #if defined(CONF_FAMILY_WINDOWS)

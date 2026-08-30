@@ -1333,15 +1333,111 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 
 	MainView.HSplitTop(10.0f, nullptr, &MainView);
 
+	static CScrollRegion s_ScrollRegion;
+	vec2 ScrollOffset(0.0f, 0.0f);
+	CScrollRegionParams ScrollParams;
+	ScrollParams.m_ScrollUnit = 20.0f;
+	s_ScrollRegion.Begin(&MainView, &ScrollOffset, &ScrollParams);
+	MainView.y += ScrollOffset.y;
+
 	MainView.HSplitTop(20.0f, &Button, &MainView);
+	s_ScrollRegion.AddRect(Button);
 	Ui()->DoScrollbarOption(&g_Config.m_ClTouchJoystickAimSensitivity, &g_Config.m_ClTouchJoystickAimSensitivity, &Button, Localize("Aim sensitivity (joystick)"), 1, 20000,
 		&CUi::ms_LogarithmicScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
 
 	MainView.HSplitTop(5.0f, nullptr, &MainView);
 	MainView.HSplitTop(16.0f, &Button, &MainView);
+	s_ScrollRegion.AddRect(Button);
 	TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
 	Ui()->DoLabel(&Button, Localize("How far the aim moves per full swipe across the joystick button. Higher = more sensitive."), 12.0f, TEXTALIGN_ML);
 	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+	// ---- dynamic movement joystick ----------------------------------------
+	MainView.HSplitTop(16.0f, nullptr, &MainView);
+	MainView.HSplitTop(22.0f, &Button, &MainView);
+	s_ScrollRegion.AddRect(Button);
+	{
+		CUIRect Icon, Title;
+		Button.VSplitLeft(Button.h + 8.0f, &Icon, &Title);
+		TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+		const unsigned OldFlags = TextRender()->GetRenderFlags();
+		TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | TEXT_RENDER_FLAG_NO_X_BEARING | TEXT_RENDER_FLAG_NO_Y_BEARING | TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | TEXT_RENDER_FLAG_NO_OVERSIZE);
+		TextRender()->TextColor(0.35f, 0.62f, 1.0f, 1.0f);
+		Ui()->DoLabel(&Icon, FontIcon::ARROWS_LEFT_RIGHT, 15.0f, TEXTALIGN_ML);
+		TextRender()->SetRenderFlags(OldFlags);
+		TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		Ui()->DoLabel(&Title, Localize("Movement joystick"), 16.0f, TEXTALIGN_ML);
+	}
+
+	MainView.HSplitTop(6.0f, nullptr, &MainView);
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	s_ScrollRegion.AddRect(Button);
+	static CButtonContainer s_JoystickMoveCheckBox;
+	if(DoButton_CheckBox(&s_JoystickMoveCheckBox, Localize("Use dynamic joystick instead of move buttons"), g_Config.m_ClTouchJoystickMove, &Button))
+	{
+		g_Config.m_ClTouchJoystickMove ^= 1;
+	}
+
+	if(g_Config.m_ClTouchJoystickMove)
+	{
+		// Live preview of the joystick activation zone.
+		MainView.HSplitTop(8.0f, nullptr, &MainView);
+		const float PreviewHeight = std::clamp(MainView.w / maximum(Graphics()->ScreenAspect(), 0.01f), 90.0f, 170.0f);
+		CUIRect Preview;
+		MainView.HSplitTop(PreviewHeight, &Preview, &MainView);
+		s_ScrollRegion.AddRect(Preview);
+		Preview.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.35f), IGraphics::CORNER_ALL, 8.0f);
+		CUIRect ScreenRect;
+		Preview.Margin(3.0f, &ScreenRect);
+
+		CUIRect Zone;
+		Zone.x = ScreenRect.x + ScreenRect.w * g_Config.m_ClTouchJoystickMoveZoneX / 100.0f;
+		Zone.y = ScreenRect.y + ScreenRect.h * g_Config.m_ClTouchJoystickMoveZoneY / 100.0f;
+		Zone.w = ScreenRect.w * g_Config.m_ClTouchJoystickMoveZoneW / 100.0f;
+		Zone.h = ScreenRect.h * g_Config.m_ClTouchJoystickMoveZoneH / 100.0f;
+		Zone.Draw(ColorRGBA(0.16f, 0.56f, 1.0f, 0.12f), IGraphics::CORNER_ALL, 5.0f);
+		CUIRect ZoneBorder = Zone;
+		ZoneBorder.Margin(1.5f, &ZoneBorder);
+		ZoneBorder.Draw(ColorRGBA(0.16f, 0.56f, 1.0f, 0.35f), IGraphics::CORNER_ALL, 5.0f);
+
+		// Joystick illustration at the center of the zone.
+		const vec2 ZoneCenter = Zone.Center();
+		const float StickRadius = std::clamp(ScreenRect.h * g_Config.m_ClTouchJoystickMoveSize / 100.0f, 5.0f, Zone.h * 0.45f);
+		Graphics()->TextureClear();
+		Graphics()->QuadsBegin();
+		Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.35f);
+		Graphics()->DrawCircle(ZoneCenter.x, ZoneCenter.y, StickRadius, 32);
+		Graphics()->SetColor(0.0f, 0.0f, 0.0f, 0.30f);
+		Graphics()->DrawCircle(ZoneCenter.x, ZoneCenter.y, maximum(StickRadius - 2.0f, 1.0f), 32);
+		const vec2 KnobPos = ZoneCenter + vec2(StickRadius * 0.35f, 0.0f);
+		const float KnobRadius = maximum(StickRadius * 0.4f, 2.0f);
+		Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.85f);
+		Graphics()->DrawCircle(KnobPos.x, KnobPos.y, KnobRadius, 24);
+		Graphics()->QuadsEnd();
+
+		const auto JoystickSlider = [&](int *pValue, const char *pLabel, int Min, int Max)
+		{
+			MainView.HSplitTop(5.0f, nullptr, &MainView);
+			MainView.HSplitTop(20.0f, &Button, &MainView);
+			s_ScrollRegion.AddRect(Button);
+			Ui()->DoScrollbarOption(pValue, pValue, &Button, pLabel, Min, Max, &CUi::ms_LinearScrollbarScale, 0u, "%");
+		};
+		JoystickSlider(&g_Config.m_ClTouchJoystickMoveZoneX, Localize("Zone position (left)"), 0, 100);
+		JoystickSlider(&g_Config.m_ClTouchJoystickMoveZoneY, Localize("Zone position (top)"), 0, 100);
+		JoystickSlider(&g_Config.m_ClTouchJoystickMoveZoneW, Localize("Zone width"), 1, 100);
+		JoystickSlider(&g_Config.m_ClTouchJoystickMoveZoneH, Localize("Zone height"), 1, 100);
+		JoystickSlider(&g_Config.m_ClTouchJoystickMoveSize, Localize("Joystick size"), 5, 25);
+
+		MainView.HSplitTop(6.0f, nullptr, &MainView);
+		MainView.HSplitTop(16.0f, &Button, &MainView);
+		s_ScrollRegion.AddRect(Button);
+		TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+		Ui()->DoLabel(&Button, Localize("Touch inside the zone and the joystick appears under your finger. Drag it left and right to move."), 12.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
+	s_ScrollRegion.End();
 }
 
 void CMenus::RenderLanguageSettings(CUIRect MainView)

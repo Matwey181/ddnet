@@ -237,6 +237,12 @@ public:
 		void SetInactive(bool ByFinger);
 		bool IsActive() const;
 		bool IsActive(const IInput::CTouchFinger &Finger) const;
+		/**
+		 * Whether this behavior is a bind button which controls the horizontal movement
+		 * direction and is therefore replaced by the dynamic movement joystick while the
+		 * joystick is enabled.
+		 */
+		virtual bool IsMoveDirectionBind() const { return false; }
 
 		virtual CButtonLabel GetLabel() const = 0;
 		virtual void OnActivate() {}
@@ -433,6 +439,7 @@ public:
 
 		CButtonLabel GetLabel() const override;
 		const char *GetCommand() const { return m_Command.c_str(); }
+		bool IsMoveDirectionBind() const override { return m_Command == "+left" || m_Command == "+right"; }
 		void OnActivate() override;
 		void OnDeactivate(bool ByFinger) override;
 		void OnUpdate() override;
@@ -563,6 +570,49 @@ private:
 	std::vector<IInput::CTouchFinger> m_vStaleFingers;
 
 	/**
+	 * Whether the dynamic movement joystick is currently active, i.e. whether a finger
+	 * is currently controlling the movement direction with the joystick.
+	 */
+	bool m_JoystickMoveActive = false;
+
+	/**
+	 * The finger which controls the dynamic movement joystick.
+	 */
+	IInput::CTouchFinger m_JoystickMoveFinger;
+
+	/**
+	 * The center of the joystick base in screen coordinates. The joystick dynamically
+	 * appears at the position where the finger is pressed down inside the zone.
+	 */
+	vec2 m_JoystickMoveCenter = vec2(0.0f, 0.0f);
+
+	/**
+	 * The current offset of the joystick stick from the center, clamped to the radius.
+	 */
+	vec2 m_JoystickMoveOffset = vec2(0.0f, 0.0f);
+
+	/**
+	 * Render alpha of the dynamic movement joystick, smoothly animated.
+	 */
+	float m_JoystickMoveAlpha = 0.0f;
+
+	/**
+	 * Base scale of the dynamic movement joystick for a pop-in/pop-out animation.
+	 */
+	float m_JoystickMoveScale = 0.0f;
+
+	/**
+	 * The last time the dynamic movement joystick became inactive or unavailable. Only
+	 * fingers which were pressed down afterwards can activate the joystick.
+	 */
+	std::chrono::nanoseconds m_JoystickMoveReadyTime{0};
+
+	/**
+	 * The last time the joystick was rendered, used to get the time delta for animations.
+	 */
+	std::chrono::nanoseconds m_JoystickMoveLastRenderTime{0};
+
+	/**
 	 * Whether editing mode is currently active.
 	 */
 	bool m_EditingActive = false;
@@ -577,6 +627,13 @@ private:
 	int NextDirectTouchAction() const;
 	void UpdateButtonsGame(const std::vector<IInput::CTouchFingerState> &vTouchFingerStates);
 	void ResetButtons();
+	bool JoystickMoveEnabled() const;
+	bool JoystickMoveAvailable() const;
+	CUIRect JoystickMoveZoneRect() const;
+	float JoystickMoveRadius() const;
+	void UpdateJoystickMove(std::vector<IInput::CTouchFingerState> &vRemainingTouchFingerStates);
+	void DeactivateJoystickMove();
+	void RenderJoystickMove();
 	void RenderButtonsGame();
 	vec2 CalculateScreenSize() const;
 

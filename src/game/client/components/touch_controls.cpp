@@ -2,6 +2,7 @@
 
 #include <base/color.h>
 #include <base/log.h>
+#include <base/math.h>
 #include <base/system.h>
 
 #include <engine/client.h>
@@ -23,6 +24,7 @@
 #include <game/localization.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <iterator>
@@ -245,6 +247,11 @@ void CTouchControls::CTouchButton::UpdateVisibilityGame()
 	m_VisibilityCached = std::all_of(m_vVisibilities.begin(), m_vVisibilities.end(), [&](CButtonVisibility Visibility) {
 		return m_pTouchControls->m_aVisibilityFunctions[(int)Visibility.m_Type].m_Function() == Visibility.m_Parity;
 	});
+	// The dynamic movement joystick replaces the move left/right bind buttons.
+	if(m_VisibilityCached && m_pTouchControls->JoystickMoveEnabled() && m_pBehavior->IsMoveDirectionBind())
+	{
+		m_VisibilityCached = false;
+	}
 	if(m_VisibilityCached && !PrevVisibility)
 	{
 		m_VisibilityStartTime = time_get_nanoseconds();
@@ -1135,6 +1142,9 @@ void CTouchControls::UpdateButtonsGame(const std::vector<IInput::CTouchFingerSta
 		vRemainingTouchFingerStates.erase(ActiveFinger);
 	}
 
+	// Update the dynamic movement joystick with fingers which were not handled by touch buttons.
+	UpdateJoystickMove(vRemainingTouchFingerStates);
+
 	// TODO: Support standard gesture to zoom (enabled separately for ingame and spectator)
 
 	// Activate action if there is an unhandled pressed down finger.
@@ -1188,6 +1198,183 @@ void CTouchControls::ResetButtons()
 	{
 		ActionState.m_Active = false;
 	}
+	DeactivateJoystickMove();
+}
+
+bool CTouchControls::JoystickMoveEnabled() const
+{
+	return g_Config.m_ClTouchJoystickMove != 0;
+}
+
+bool CTouchControls::JoystickMoveAvailable() const
+{
+	return JoystickMoveEnabled() && !GameClient()->m_Snap.m_SpecInfo.m_Active;
+}
+
+CUIRect CTouchControls::JoystickMoveZoneRect() const
+{
+	const vec2 ScreenSize = CalculateScreenSize();
+	CUIRect ZoneRect;
+	ZoneRect.x = g_Config.m_ClTouchJoystickMoveZoneX / 100.0f * ScreenSize.x;
+	ZoneRect.y = g_Config.m_ClTouchJoystickMoveZoneY / 100.0f * ScreenSize.y;
+	ZoneRect.w = g_Config.m_ClTouchJoystickMoveZoneW / 100.0f * ScreenSize.x;
+	ZoneRect.h = g_Config.m_ClTouchJoystickMoveZoneH / 100.0f * ScreenSize.y;
+	return ZoneRect;
+}
+
+float CTouchControls::JoystickMoveRadius() const
+{
+	return g_Config.m_ClTouchJoystickMoveSize / 100.0f * CalculateScreenSize().y;
+}
+
+void CTouchControls::DeactivateJoystickMove()
+{
+	if(!m_JoystickMoveActive)
+	{
+		return;
+	}
+	m_JoystickMoveActive = false;
+	// Release the movement input when the joystick is deactivated.
+	GameClient()->m_Controls.m_aInputDirectionLeft[g_Config.m_ClDummy] = 0;
+	GameClient()->m_Controls.m_aInputDirectionRight[g_Config.m_ClDummy] = 0;
+	m_JoystickMoveReadyTime = time_get_nanoseconds();
+}
+
+void CTouchControls::UpdateJoystickMove(std::vector<IInput::CTouchFingerState> &vRemainingTouchFingerStates)
+{
+	if(!JoystickMoveAvailable())
+	{
+		if(m_JoystickMoveActive)
+		{
+			DeactivateJoystickMove();
+		}
+		m_JoystickMoveReadyTime = time_get_nanoseconds();
+		return;
+	}
+
+	if(m_JoystickMoveActive)
+	{
+		const auto ActiveFinger = std::find_if(vRemainingTouchFingerStates.begin(), vRemainingTouchFingerStates.end(), [&](const IInput::CTouchFingerState &TouchFingerState) {
+			return TouchFingerState.m_Finger == m_JoystickMoveFinger;
+		});
+		if(ActiveFinger == vRemainingTouchFingerStates.end())
+		{
+			// The finger controlling the joystick was released.
+			DeactivateJoystickMove();
+			return;
+		}
+		const vec2 ScreenSize = CalculateScreenSize();
+		vec2 Offset = ActiveFinger->m_Position * ScreenSize - m_JoystickMoveCenter;
+		const float Radius = JoystickMoveRadius();
+		const float OffsetLength = length(Offset);
+		if(OffsetLength > Radius)
+		{
+			const vec2 Direction = Offset / OffsetLength;
+			// Move the joystick base along with the finger when it is dragged past the edge
+			// of the joystick, so the stick always stays under the finger while dragging.
+			m_JoystickMoveCenter += Direction * (OffsetLength - Radius);
+			Offset = Direction * Radius;
+		}
+		m_JoystickMoveOffset = Offset;
+		// Set the movement input based on the horizontal position of the stick. Hysteresis
+		// prevents the direction from flickering while the stick is held near the dead zone.
+		CControls &Controls = GameClient()->m_Controls;
+		const bool Moving = Controls.m_aInputDirectionLeft[g_Config.m_ClDummy] != 0 || Controls.m_aInputDirectionRight[g_Config.m_ClDummy] != 0;
+		const float Threshold = Radius * (Moving ? 0.15f : 0.25f);
+		int Direction = 0;
+		if(Offset.x < -Threshold)
+		{
+			Direction = -1;
+		}
+		else if(Offset.x > Threshold)
+		{
+			Direction = 1;
+		}
+		Controls.m_aInputDirectionLeft[g_Config.m_ClDummy] = Direction < 0 ? 1 : 0;
+		Controls.m_aInputDirectionRight[g_Config.m_ClDummy] = Direction > 0 ? 1 : 0;
+		vRemainingTouchFingerStates.erase(ActiveFinger);
+		return;
+	}
+
+	// Activate the joystick with an unhandled finger which was pressed down inside the zone.
+	const CUIRect ZoneRect = JoystickMoveZoneRect();
+	const vec2 ScreenSize = CalculateScreenSize();
+	for(size_t i = 0; i < vRemainingTouchFingerStates.size(); i++)
+	{
+		const IInput::CTouchFingerState &FingerState = vRemainingTouchFingerStates[i];
+		if(m_JoystickMoveReadyTime >= FingerState.m_PressTime)
+		{
+			continue;
+		}
+		if(!ZoneRect.Inside(FingerState.m_Position * ScreenSize))
+		{
+			continue;
+		}
+		m_JoystickMoveActive = true;
+		m_JoystickMoveFinger = FingerState.m_Finger;
+		m_JoystickMoveCenter = FingerState.m_Position * ScreenSize;
+		m_JoystickMoveOffset = vec2(0.0f, 0.0f);
+		vRemainingTouchFingerStates.erase(vRemainingTouchFingerStates.begin() + i);
+		return;
+	}
+}
+
+void CTouchControls::RenderJoystickMove()
+{
+	if(!JoystickMoveEnabled())
+	{
+		m_JoystickMoveAlpha = 0.0f;
+		m_JoystickMoveScale = 0.0f;
+		m_JoystickMoveLastRenderTime = time_get_nanoseconds();
+		return;
+	}
+
+	// Smoothly animate the alpha and the scale of the joystick, independent of the framerate.
+	const auto Now = time_get_nanoseconds();
+	float Dt = 0.016f;
+	if(m_JoystickMoveLastRenderTime.count() != 0)
+	{
+		Dt = std::chrono::duration_cast<std::chrono::duration<float>>(Now - m_JoystickMoveLastRenderTime).count();
+		Dt = std::clamp(Dt, 0.0f, 0.1f);
+	}
+	m_JoystickMoveLastRenderTime = Now;
+	const float TargetAlpha = m_JoystickMoveActive ? 1.0f : 0.0f;
+	m_JoystickMoveAlpha += (TargetAlpha - m_JoystickMoveAlpha) * (1.0f - std::exp(-14.0f * Dt));
+	if(absolute(TargetAlpha - m_JoystickMoveAlpha) < 0.002f)
+	{
+		m_JoystickMoveAlpha = TargetAlpha;
+	}
+	const float TargetScale = m_JoystickMoveActive ? 1.0f : 0.0f;
+	m_JoystickMoveScale += (TargetScale - m_JoystickMoveScale) * (1.0f - std::exp(-18.0f * Dt));
+	if(absolute(TargetScale - m_JoystickMoveScale) < 0.002f)
+	{
+		m_JoystickMoveScale = TargetScale;
+	}
+
+	if(m_JoystickMoveAlpha <= 0.003f)
+	{
+		return;
+	}
+
+	const float Radius = JoystickMoveRadius() * (0.55f + 0.45f * m_JoystickMoveScale);
+	const float Alpha = m_JoystickMoveAlpha;
+	const int Segments = maximum(round_truncate(Radius / 4.0f) & ~1, 32);
+
+	// Base: light rim with a dark fill.
+	Graphics()->TextureClear();
+	Graphics()->QuadsBegin();
+	Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.30f * Alpha);
+	Graphics()->DrawCircle(m_JoystickMoveCenter.x, m_JoystickMoveCenter.y, Radius, Segments);
+	Graphics()->SetColor(0.0f, 0.0f, 0.0f, 0.15f * Alpha);
+	Graphics()->DrawCircle(m_JoystickMoveCenter.x, m_JoystickMoveCenter.y, maximum(Radius - 3.0f, 1.0f), Segments);
+	// Stick: light knob with a dark rim.
+	const vec2 KnobPos = m_JoystickMoveCenter + m_JoystickMoveOffset;
+	const float KnobRadius = maximum(Radius * 0.4f, 2.0f);
+	Graphics()->SetColor(0.0f, 0.0f, 0.0f, 0.25f * Alpha);
+	Graphics()->DrawCircle(KnobPos.x, KnobPos.y, KnobRadius, Segments);
+	Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.55f * Alpha);
+	Graphics()->DrawCircle(KnobPos.x, KnobPos.y, maximum(KnobRadius - 2.5f, 1.0f), Segments);
+	Graphics()->QuadsEnd();
 }
 
 void CTouchControls::RenderButtonsGame()
@@ -1206,6 +1393,7 @@ void CTouchControls::RenderButtonsGame()
 		TouchButton.UpdateScreenFromUnitRect();
 		TouchButton.Render();
 	}
+	RenderJoystickMove();
 }
 
 vec2 CTouchControls::CalculateScreenSize() const
