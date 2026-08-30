@@ -36,6 +36,10 @@
 #include <game/client/ui_listbox.h>
 #include <game/localization.h>
 
+#if defined(CONF_PLATFORM_IOS)
+#include <ios/ios_file_picker.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -1005,6 +1009,11 @@ bool CMenus::CanDisplayWarning() const
 
 void CMenus::Render()
 {
+#if defined(CONF_PLATFORM_IOS)
+	// Deliver finished image imports (Files/Photos pickers) at a safe
+	// point in the frame instead of from inside the UIKit event pump.
+	IosProcessPendingImportCallbacks();
+#endif
 	Ui()->MapScreen();
 	Ui()->SetMouseSlow(false);
 
