@@ -15,7 +15,9 @@
  * Shows a system dialog that lets the player import a texture image either
  * from the Photos gallery (UIImagePickerController) or from the Files app
  * (UIDocumentPickerViewController, incl. iCloud Drive and third-party file
- * providers).
+ * providers). After picking, a second dialog asks the player to name the
+ * asset; the imported file is named exactly like that, so the asset shows
+ * up under the entered name in the game.
  *
  * This function is SYNCHRONOUS and must be called on the main thread from
  * the game frame (e.g. a menu button handler). While the dialogs are on
@@ -31,6 +33,8 @@
  *  - Any other image format that iOS can decode (JPEG, HEIC, ...) is
  *    re-encoded as PNG and downscaled to at most 2048x2048 pixels, because
  *    the game's image loader only supports PNG.
+ *  - The file name is "<entered name>.png"; the name is sanitized (path
+ *    separators and control characters stripped, trimmed, max 48 chars).
  *
  * On cancel or failure the path is empty and details are logged. Requires
  * iOS 14 or newer; on older systems the callback is invoked immediately

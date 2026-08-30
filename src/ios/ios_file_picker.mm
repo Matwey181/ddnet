@@ -16,22 +16,21 @@
 // back to the system - the run loop is only serviced in tiny two
 // microsecond bursts from SDL's UIKit_PumpEvents, deep inside SDL_PollEvent.
 //
-// That is enough for plain local UIKit controls (the source-selection alert
-// worked fine), but it is NOT enough for system pickers: their interfaces
-// are driven by other iOS processes and talk to the host app over XPC,
-// which requires a properly serviced main run loop. With the old approach
-// the Photos picker showed no confirm button and ignored Cancel, and
-// picking a file in the Files picker crashed the app inside the XPC
-// completion machinery.
+// That is enough for plain local UIKit controls, but it is NOT enough for
+// system pickers: their interfaces are driven by other iOS processes and
+// talk to the host app over XPC, which requires a properly serviced main
+// run loop. So while an import dialog is on screen we run the real main
+// run loop ourselves - the classic nested "modal" run loop.
+// IosPickImageFile blocks the calling game frame until the user is done,
+// which is fine: it is called from a settings-menu button handler, the
+// dialog covers the screen and no game code can run in parallel on the
+// same thread.
 //
-// So while an import dialog is on screen we run the real main run loop
-// ourselves - the classic nested "modal" run loop. IosPickImageFile blocks
-// the calling game frame until the user is done, which is fine: it is
-// called from a settings-menu button handler, the dialog covers the
-// screen and no game code can run in parallel on the same thread. When the
-// dialog finishes, the image is converted and the callback is invoked
-// directly - in exactly the same (game frame) context in which every other
-// menu button handler runs.
+// The flow is: 1) source selection alert (Photos/Files), 2) the picker,
+// 3) a naming alert where the player enters the name the asset will show
+// up under in the game, 4) image conversion, 5) the callback - invoked
+// directly in the caller's (game frame) context, like every other menu
+// button handler.
 //
 // The Photos picker is UIImagePickerController (fully in-process UIKit,
 // battle tested since the first iPhone) instead of the remote
@@ -57,6 +56,8 @@ static BOOL s_ModalDone = NO;
 static int s_ImportChoice = IOS_IMPORT_CHOICE_NONE;
 static NSURL *s_pPickedUrl = nil;
 static UIImage *s_pPickedImage = nil;
+static UITextField *s_pNameField = nil;
+static NSString *s_pEnteredName = nil;
 
 // Runs the real main run loop until s_ModalDone is set. Returns NO if the
 // safety timeout expired (in that case everything still on screen is
@@ -117,6 +118,47 @@ static UIWindow *IosFindGameWindow()
 	return pKeyWindow;
 }
 
+// Strips characters that are problematic in file names and asset names and
+// trims/caps the result. Returns nil if nothing usable is left.
+static NSString *IosSanitizeName(NSString *pName)
+{
+	if(pName == nil)
+	{
+		return nil;
+	}
+	// Path separators, colons and friends are not usable in file names.
+	NSCharacterSet *pForbidden = [NSCharacterSet characterSetWithCharactersInString:@"/\\:?*\"<>|"];
+	NSString *pClean = [[pName componentsSeparatedByCharactersInSet:pForbidden] componentsJoinedByString:@"_"];
+	// Drop control characters (newlines, tabs, ...).
+	NSCharacterSet *pControl = [NSCharacterSet controlCharacterSet];
+	pClean = [[pClean componentsSeparatedByCharactersInSet:pControl] componentsJoinedByString:@""];
+	// Trim whitespace.
+	pClean = [pClean stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+	// No leading dots (hidden files).
+	while([pClean hasPrefix:@"."])
+	{
+		pClean = [pClean substringFromIndex:1];
+	}
+	// Cap the length so file paths stay well within all limits. Never cut
+	// between a surrogate pair (emoji).
+	if(pClean.length > 48)
+	{
+		NSRange Range = NSMakeRange(0, 48);
+		if([pClean characterAtIndex:47] >= 0xD800 && [pClean characterAtIndex:47] <= 0xDBFF)
+		{
+			Range.length = 47;
+		}
+		pClean = [pClean substringWithRange:Range];
+	}
+	// Trim again in case the cut left trailing whitespace.
+	pClean = [pClean stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+	if(pClean.length == 0)
+	{
+		return nil;
+	}
+	return pClean;
+}
+
 // Downscales the image so its longest side is at most MaxDimension pixels.
 // Camera photos can be 12-48 MP; re-encoding those at full size allocates
 // hundreds of megabytes, so imports are capped at a sane size.
@@ -143,14 +185,14 @@ static UIImage *IosDownscaleImage(UIImage *pImage, CGFloat MaxDimension)
 	return pScaled;
 }
 
-// Writes the image into the app's temporary directory as a PNG file and
+// Writes the image into the app's temporary directory as "<Name>.png" and
 // returns its path. The game's image loader only supports PNG, so every
-// import path that needs re-encoding funnels through here.
-static std::string IosWriteImageAsPng(UIImage *pImage, const char *pBaseName)
+// import path that needs re-encoding funnels through here. The name is
+// exactly the one the player entered in the naming dialog.
+static std::string IosWriteImageAsPng(UIImage *pImage, const std::string &Name)
 {
-	const long long TimeMs = (long long)([[NSDate date] timeIntervalSince1970] * 1000.0);
-	NSString *pFileName = [NSString stringWithFormat:@"%s_%lld.png", pBaseName, TimeMs];
-	NSString *pPath = [NSTemporaryDirectory() stringByAppendingPathComponent:pFileName];
+	NSString *pPath = [NSTemporaryDirectory() stringByAppendingPathComponent:
+		[NSString stringWithFormat:@"%s.png", Name.c_str()]];
 	NSData *pData = UIImagePNGRepresentation(pImage);
 	if(pData == nil || ![pData writeToFile:pPath atomically:YES])
 	{
@@ -160,13 +202,13 @@ static std::string IosWriteImageAsPng(UIImage *pImage, const char *pBaseName)
 	return std::string(pPath.UTF8String);
 }
 
-// Copies an already-PNG file into our own temporary directory without
-// decoding it: a plain file copy, no memory spike regardless of file size.
-static std::string IosCopyPngFile(NSURL *pUrl)
+// Copies an already-PNG file into our own temporary directory as
+// "<Name>.png" without decoding it: a plain file copy, no memory spike
+// regardless of file size.
+static std::string IosCopyPngFile(NSURL *pUrl, const std::string &Name)
 {
-	const long long TimeMs = (long long)([[NSDate date] timeIntervalSince1970] * 1000.0);
 	NSString *pDestPath = [NSTemporaryDirectory() stringByAppendingPathComponent:
-		[NSString stringWithFormat:@"import_%lld.png", TimeMs]];
+		[NSString stringWithFormat:@"%s.png", Name.c_str()]];
 	NSError *pError = nil;
 	if(![[NSFileManager defaultManager] copyItemAtURL:pUrl toURL:[NSURL fileURLWithPath:pDestPath] error:&pError])
 	{
@@ -181,13 +223,13 @@ static std::string IosCopyPngFile(NSURL *pUrl)
 // (used with asCopy:YES) hands us a plain readable copy of the picked file
 // inside our tmp directory - no security-scoped resource bookkeeping is
 // needed.
-static std::string IosConvertImportedFile(NSURL *pUrl)
+static std::string IosConvertImportedFile(NSURL *pUrl, const std::string &Name)
 {
 	NSString *pPath = pUrl.path;
 	NSString *pExt = [[pPath pathExtension] lowercaseString];
 	if([pExt isEqualToString:@"png"])
 	{
-		return IosCopyPngFile(pUrl);
+		return IosCopyPngFile(pUrl, Name);
 	}
 	UIImage *pImage = [UIImage imageWithContentsOfFile:pPath];
 	if(pImage == nil)
@@ -196,15 +238,15 @@ static std::string IosConvertImportedFile(NSURL *pUrl)
 		return std::string();
 	}
 	pImage = IosDownscaleImage(pImage, 2048.0);
-	return IosWriteImageAsPng(pImage, "import");
+	return IosWriteImageAsPng(pImage, Name);
 }
 
 // Converts an image that came from the Photos picker (UIImage, possibly
 // huge) into a downscaled PNG.
-static std::string IosConvertImportedImage(UIImage *pImage)
+static std::string IosConvertImportedImage(UIImage *pImage, const std::string &Name)
 {
 	pImage = IosDownscaleImage(pImage, 2048.0);
-	return IosWriteImageAsPng(pImage, "photo");
+	return IosWriteImageAsPng(pImage, Name);
 }
 
 // ------------------------------------------------------------------
@@ -270,6 +312,77 @@ static std::string IosConvertImportedImage(UIImage *pImage)
 // hold their delegates weakly).
 static CIosFilePickerDelegate *s_pFilePickerDelegate = nil;
 static CIosPhotoPickerDelegate *s_pPhotoPickerDelegate = nil;
+
+// ------------------------------------------------------------------
+// Naming dialog
+// ------------------------------------------------------------------
+
+// Presents a dialog that asks the player to name the imported asset and
+// runs the modal run loop until Done/Cancel is tapped. The text field is
+// pre-filled with the suggested name (the original file name for Files
+// imports, "photo" for Photos imports). Returns the sanitized name, or nil
+// if the dialog was cancelled or timed out.
+static NSString *IosAskName(NSString *pSuggestedName, UIViewController *pRoot)
+{
+	UIAlertController *pAlert =
+		[UIAlertController alertControllerWithTitle:@"Name the asset"
+			message:@"Enter a name for the imported image"
+			preferredStyle:UIAlertControllerStyleAlert];
+	s_pNameField = nil;
+	s_pEnteredName = nil;
+	[pAlert addTextFieldWithConfigurationHandler:^(UITextField *pField)
+	{
+		s_pNameField = pField;
+		pField.text = pSuggestedName;
+		pField.placeholder = @"Name";
+		pField.autocorrectionType = UITextAutocorrectionTypeNo;
+		pField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+		pField.clearButtonMode = UITextFieldViewModeWhileEditing;
+	}];
+	[pAlert addAction:[UIAlertAction actionWithTitle:@"Done"
+		style:UIAlertActionStyleDefault
+		handler:^(UIAlertAction *pAction)
+	{
+		(void)pAction;
+		NSString *pName = IosSanitizeName(s_pNameField.text);
+		if(pName == nil)
+		{
+			// Nothing (usable) was entered - fall back to the suggested
+			// name and ultimately to a generic default.
+			pName = IosSanitizeName(pSuggestedName);
+		}
+		if(pName == nil)
+		{
+			pName = @"import";
+		}
+		s_pEnteredName = pName;
+		[pRoot dismissViewControllerAnimated:NO completion:nil];
+		s_ModalDone = YES;
+	}]];
+	[pAlert addAction:[UIAlertAction actionWithTitle:@"Cancel"
+		style:UIAlertActionStyleCancel
+		handler:^(UIAlertAction *pAction)
+	{
+		(void)pAction;
+		s_pEnteredName = nil;
+		[pRoot dismissViewControllerAnimated:NO completion:nil];
+		s_ModalDone = YES;
+	}]];
+	log_info("ios", "Presenting name dialog");
+	[pRoot presentViewController:pAlert animated:NO completion:^
+	{
+		// Bring the keyboard up right away - the suggested name is
+		// pre-filled, so most of the time it is just a tap on Done.
+		[s_pNameField becomeFirstResponder];
+	}];
+	const BOOL Ok = IosRunMainRunLoopUntilDone(pRoot);
+	s_pNameField = nil;
+	if(!Ok)
+	{
+		return nil;
+	}
+	return s_pEnteredName;
+}
 
 // ------------------------------------------------------------------
 // Import flow
@@ -401,23 +514,54 @@ void IosPickImageFile(std::function<void(const std::string &Path)> Callback)
 	s_pFilePickerDelegate = nil;
 	s_pPhotoPickerDelegate = nil;
 
+	if(s_pPickedUrl == nil && s_pPickedImage == nil)
+	{
+		// Cancelled or timed out.
+		log_info("ios", "Import cancelled");
+		Callback(std::string());
+		return;
+	}
+
 	// ------------------------------------------------------------------
-	// Step 3: convert the result and deliver it - we are back in the
+	// Step 3: ask the player to name the asset. The suggested name is
+	// the original file name for Files imports and "photo" for Photos
+	// imports.
+	// ------------------------------------------------------------------
+	NSString *pSuggestedName = @"photo";
+	if(s_pPickedUrl != nil)
+	{
+		NSString *pBase = [[s_pPickedUrl.lastPathComponent stringByDeletingPathExtension]
+			stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+		if([pBase length] > 0)
+		{
+			pSuggestedName = pBase;
+		}
+	}
+	NSString *pName = IosAskName(pSuggestedName, pRoot);
+	if(pName == nil)
+	{
+		log_info("ios", "Import cancelled at the name dialog");
+		s_pPickedUrl = nil;
+		s_pPickedImage = nil;
+		Callback(std::string());
+		return;
+	}
+	const std::string Name(pName.UTF8String);
+
+	// ------------------------------------------------------------------
+	// Step 4: convert the result and deliver it - we are back in the
 	// game frame, in the same context as every other menu button
-	// handler.
+	// handler. The temporary file is named exactly like the player
+	// entered, so the asset shows up under that name in the game.
 	// ------------------------------------------------------------------
 	std::string Path;
 	if(s_pPickedUrl != nil)
 	{
-		Path = IosConvertImportedFile(s_pPickedUrl);
-	}
-	else if(s_pPickedImage != nil)
-	{
-		Path = IosConvertImportedImage(s_pPickedImage);
+		Path = IosConvertImportedFile(s_pPickedUrl, Name);
 	}
 	else
 	{
-		log_info("ios", "Import cancelled");
+		Path = IosConvertImportedImage(s_pPickedImage, Name);
 	}
 	s_pPickedUrl = nil;
 	s_pPickedImage = nil;
