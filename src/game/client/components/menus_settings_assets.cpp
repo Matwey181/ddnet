@@ -13,6 +13,10 @@
 
 #include <chrono>
 
+#if defined(CONF_PLATFORM_IOS)
+#include <ios/ios_file_picker.h>
+#endif
+
 using namespace std::chrono_literals;
 
 typedef std::function<void()> TMenuAssetScanLoadedFunc;
@@ -612,32 +616,109 @@ void CMenus::RenderSettingsCustom(CUIRect MainView)
 	}
 
 	DirectoryButton.HSplitTop(5.0f, nullptr, &DirectoryButton);
+#if defined(CONF_PLATFORM_IOS)
+	CUIRect ImportButton;
+	DirectoryButton.VSplitRight(150.0f, &DirectoryButton, &ImportButton);
+	DirectoryButton.VSplitRight(10.0f, &DirectoryButton, nullptr);
+#endif
 	DirectoryButton.VSplitRight(175.0f, nullptr, &DirectoryButton);
 	DirectoryButton.VSplitRight(25.0f, &DirectoryButton, &ReloadButton);
 	DirectoryButton.VSplitRight(10.0f, &DirectoryButton, nullptr);
+
+	// Shared by the "Assets directory" button and (on iOS) the "Import" button.
+	const auto GetCurTabAssetsFolder = [&]() -> const char * {
+		if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
+			return "assets/entities";
+		else if(s_CurCustomTab == ASSETS_TAB_GAME)
+			return "assets/game";
+		else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
+			return "assets/emoticons";
+		else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
+			return "assets/particles";
+		else if(s_CurCustomTab == ASSETS_TAB_HUD)
+			return "assets/hud";
+		else // ASSETS_TAB_EXTRAS
+			return "assets/extras";
+	};
+
 	static CButtonContainer s_AssetsDirId;
 	if(DoButton_Menu(&s_AssetsDirId, Localize("Assets directory"), 0, &DirectoryButton))
 	{
 		char aBuf[IO_MAX_PATH_LENGTH];
 		char aBufFull[IO_MAX_PATH_LENGTH + 7];
-		if(s_CurCustomTab == ASSETS_TAB_ENTITIES)
-			str_copy(aBufFull, "assets/entities");
-		else if(s_CurCustomTab == ASSETS_TAB_GAME)
-			str_copy(aBufFull, "assets/game");
-		else if(s_CurCustomTab == ASSETS_TAB_EMOTICONS)
-			str_copy(aBufFull, "assets/emoticons");
-		else if(s_CurCustomTab == ASSETS_TAB_PARTICLES)
-			str_copy(aBufFull, "assets/particles");
-		else if(s_CurCustomTab == ASSETS_TAB_HUD)
-			str_copy(aBufFull, "assets/hud");
-		else if(s_CurCustomTab == ASSETS_TAB_EXTRAS)
-			str_copy(aBufFull, "assets/extras");
+		str_copy(aBufFull, GetCurTabAssetsFolder());
 		Storage()->GetCompletePath(IStorage::TYPE_SAVE, aBufFull, aBuf, sizeof(aBuf));
 		Storage()->CreateFolder("assets", IStorage::TYPE_SAVE);
 		Storage()->CreateFolder(aBufFull, IStorage::TYPE_SAVE);
 		Client()->ViewFile(aBuf);
 	}
 	GameClient()->m_Tooltips.DoToolTip(&s_AssetsDirId, &DirectoryButton, Localize("Open the directory to add custom assets"));
+
+#if defined(CONF_PLATFORM_IOS)
+	static CButtonContainer s_AssetsImportId;
+	if(DoButton_Menu(&s_AssetsImportId, Localize("Import"), 0, &ImportButton))
+	{
+		char aAssetsFolder[IO_MAX_PATH_LENGTH];
+		str_copy(aAssetsFolder, GetCurTabAssetsFolder());
+		Storage()->CreateFolder("assets", IStorage::TYPE_SAVE);
+		Storage()->CreateFolder(aAssetsFolder, IStorage::TYPE_SAVE);
+
+		char aDestFolder[IO_MAX_PATH_LENGTH];
+		str_copy(aDestFolder, aAssetsFolder);
+		const int CurTabForCallback = s_CurCustomTab;
+
+		IosPickImageFile([this, aDestFolder = std::string(aDestFolder), CurTabForCallback](const std::string &SrcPath) {
+			if(SrcPath.empty())
+				return; // user cancelled or the picker failed
+
+			// Extract the file name from the picked path.
+			const char *pFileName = SrcPath.c_str();
+			for(const char *p = SrcPath.c_str(); *p; ++p)
+			{
+				if(*p == '/')
+					pFileName = p + 1;
+			}
+			if(pFileName[0] == '\0')
+			{
+				log_error("assets", "Import failed: picked path has no file name");
+				return;
+			}
+
+			IOHANDLE SrcFile = io_open(SrcPath.c_str(), IOFLAG_READ);
+			if(!SrcFile)
+			{
+				log_error("assets", "Import failed: could not open picked file '%s'", SrcPath.c_str());
+				return;
+			}
+			void *pData;
+			unsigned Length;
+			bool ReadOk = io_read_all(SrcFile, &pData, &Length);
+			io_close(SrcFile);
+			if(!ReadOk)
+			{
+				log_error("assets", "Import failed: could not read picked file '%s'", SrcPath.c_str());
+				return;
+			}
+
+			char aRelDest[IO_MAX_PATH_LENGTH];
+			str_format(aRelDest, sizeof(aRelDest), "%s/%s", aDestFolder.c_str(), pFileName);
+			IOHANDLE DstFile = Storage()->OpenFile(aRelDest, IOFLAG_WRITE, IStorage::TYPE_SAVE);
+			if(!DstFile)
+			{
+				free(pData);
+				log_error("assets", "Import failed: could not create '%s'", aRelDest);
+				return;
+			}
+			io_write(DstFile, pData, Length);
+			io_close(DstFile);
+			free(pData);
+
+			log_info("assets", "Imported '%s' to '%s'", pFileName, aRelDest);
+			ClearCustomItems(CurTabForCallback);
+		});
+	}
+	GameClient()->m_Tooltips.DoToolTip(&s_AssetsImportId, &ImportButton, Localize("Pick an image from Files or a Photos export to import as a custom asset"));
+#endif
 
 	TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
 	TextRender()->SetRenderFlags(ETextRenderFlags::TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | ETextRenderFlags::TEXT_RENDER_FLAG_NO_X_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_Y_BEARING | ETextRenderFlags::TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | ETextRenderFlags::TEXT_RENDER_FLAG_NO_OVERSIZE);

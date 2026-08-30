@@ -1323,7 +1323,25 @@ void CMenus::RenderSettingsSound(CUIRect MainView)
 	}
 }
 
-void CMenus::RenderLanguageSettings(CUIRect MainView)
+void CMenus::RenderSettingsTouch(CUIRect MainView)
+{
+	CUIRect Button;
+
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	Ui()->DoLabel(&Button, Localize("Touch controls"), 20.0f, TEXTALIGN_ML);
+
+	MainView.HSplitTop(10.0f, nullptr, &MainView);
+
+	MainView.HSplitTop(20.0f, &Button, &MainView);
+	Ui()->DoScrollbarOption(&g_Config.m_ClTouchJoystickAimSensitivity, &g_Config.m_ClTouchJoystickAimSensitivity, &Button, Localize("Aim sensitivity (joystick)"), 1, 20000,
+		&CUi::ms_LogarithmicScrollbarScale, CUi::SCROLLBAR_OPTION_NOCLAMPVALUE);
+
+	MainView.HSplitTop(5.0f, nullptr, &MainView);
+	MainView.HSplitTop(16.0f, &Button, &MainView);
+	TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+	Ui()->DoLabel(&Button, Localize("How far the aim moves per full swipe across the joystick button. Higher = more sensitive."), 12.0f, TEXTALIGN_ML);
+	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+}
 {
 	const float CreditsFontSize = 14.0f;
 	const float CreditsMargin = 10.0f;
@@ -1442,7 +1460,8 @@ void CMenus::RenderSettings(CUIRect MainView)
 		Localize("Graphics"),
 		Localize("Sound"),
 		Localize("DDNet"),
-		Localize("Assets")};
+		Localize("Assets"),
+		Localize("Touch")};
 	static CButtonContainer s_aTabButtons[SETTINGS_LENGTH];
 
 	for(int i = 0; i < SETTINGS_LENGTH; i++)
@@ -1505,6 +1524,11 @@ void CMenus::RenderSettings(CUIRect MainView)
 	{
 		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
 		RenderSettingsCustom(MainView);
+	}
+	else if(g_Config.m_UiSettingsPage == SETTINGS_TOUCH)
+	{
+		GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
+		RenderSettingsTouch(MainView);
 	}
 	else
 	{

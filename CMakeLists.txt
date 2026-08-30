@@ -792,8 +792,10 @@ elseif(TARGET_OS STREQUAL "ios")
   find_library(GAMECONTROLLER GameController)
   find_library(SECURITY Security)
   find_library(SYSTEMCONFIGURATION SystemConfiguration)
+  find_library(UNIFORMTYPEIDENTIFIERS UniformTypeIdentifiers)
   set(PLATFORM_CLIENT
     src/ios/ios_main.cpp
+    src/ios/ios_file_picker.mm
   )
   set(PLATFORM_CLIENT_LIBS
     ${UIKIT}
@@ -811,6 +813,7 @@ elseif(TARGET_OS STREQUAL "ios")
     ${GAMECONTROLLER}
     ${SECURITY}
     ${SYSTEMCONFIGURATION}
+    ${UNIFORMTYPEIDENTIFIERS}
   )
   set(PLATFORM_LIBS)
   set(PLATFORM_CLIENT_INCLUDE_DIRS)
