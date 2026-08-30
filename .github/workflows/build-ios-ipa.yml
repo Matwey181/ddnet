@@ -30,12 +30,28 @@ jobs:
           ref: ${{ github.event.inputs.branch }}
           submodules: recursive
 
+      - name: Compute libs cache key
+        id: libs-key
+        run: |
+          LIBS_SHA=$(git rev-parse HEAD:ddnet-libs)
+          SCRIPTS_HASH=${{ hashFiles('scripts/compile_libs/**') }}
+          echo "key=ios-libs-${LIBS_SHA}-${SCRIPTS_HASH}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached iOS libraries
+        id: cache-libs
+        uses: actions/cache@v4
+        with:
+          path: ddnet-libs
+          key: ${{ steps.libs-key.outputs.key }}
+
       - name: Install build tools
+        if: steps.cache-libs.outputs.cache-hit != 'true'
         run: |
           brew update
           brew install autoconf automake cmake libtool m4 ninja pkg-config autoconf-archive
 
       - name: Build iOS libraries
+        if: steps.cache-libs.outputs.cache-hit != 'true'
         run: |
           export M4="$(brew --prefix m4)/bin/m4"
           export LIBTOOLIZE=glibtoolize
@@ -43,6 +59,7 @@ jobs:
           scripts/compile_libs/gen_libs.sh build-ios-libs ios
 
       - name: Merge libs into ddnet-libs
+        if: steps.cache-libs.outputs.cache-hit != 'true'
         run: |
           find ddnet-libs -type d -name ios -exec rm -r {} + -prune || true
           cp -r build-ios-libs/ddnet-libs/. ddnet-libs/
@@ -72,6 +89,18 @@ jobs:
       - name: Install Rust iOS target
         run: rustup target add aarch64-apple-ios
 
+      - name: Install ccache
+        run: brew install ccache
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/ccache
+          key: ios-ccache-${{ github.event.inputs.branch }}-${{ github.run_id }}
+          restore-keys: |
+            ios-ccache-${{ github.event.inputs.branch }}-
+            ios-ccache-
+
       - name: Configure CMake (device, unsigned)
         run: |
           cmake -S . -B build-ios -G Xcode \
@@ -91,10 +120,17 @@ jobs:
             -DVIDEORECORDER=OFF \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=NO \
-            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY=""
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY="" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJC_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
 
       - name: Build client
-        run: cmake --build build-ios --config Release --target game-client
+        run: cmake --build build-ios --config Release --target game-client --parallel
+
+      - name: ccache stats
+        run: ccache -s || true
 
       - name: Package unsigned IPA
         run: |
