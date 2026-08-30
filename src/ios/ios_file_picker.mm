@@ -84,9 +84,21 @@ void IosPickImageFile(std::function<void(const std::string &Path)> Callback)
 			return;
 		}
 
-		NSArray<UTType *> *pContentTypes = @[ UTTypeImage ];
-		UIDocumentPickerViewController *pPicker =
-			[[UIDocumentPickerViewController alloc] initForOpeningContentTypes:pContentTypes];
+		UIDocumentPickerViewController *pPicker;
+		if(@available(iOS 14.0, *))
+		{
+			NSArray<UTType *> *pContentTypes = @[ UTTypeImage ];
+			pPicker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:pContentTypes];
+		}
+		else
+		{
+			// UniformTypeIdentifiers-based picker requires iOS 14; older
+			// versions cannot use this import flow. Fail gracefully.
+			log_error("ios", "File picker requires iOS 14 or newer");
+			s_PickerOpen = false;
+			Callback(std::string());
+			return;
+		}
 		pPicker.allowsMultipleSelection = NO;
 		pPicker.modalPresentationStyle = UIModalPresentationFormSheet;
 

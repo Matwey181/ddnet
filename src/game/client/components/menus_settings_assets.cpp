@@ -1,5 +1,6 @@
 #include "menus.h"
 
+#include <base/log.h>
 #include <base/system.h>
 
 #include <engine/font_icons.h>
@@ -12,6 +13,7 @@
 #include <game/localization.h>
 
 #include <chrono>
+#include <cstdlib>
 
 #if defined(CONF_PLATFORM_IOS)
 #include <ios/ios_file_picker.h>

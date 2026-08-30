@@ -1342,6 +1342,8 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 	Ui()->DoLabel(&Button, Localize("How far the aim moves per full swipe across the joystick button. Higher = more sensitive."), 12.0f, TEXTALIGN_ML);
 	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
+
+void CMenus::RenderLanguageSettings(CUIRect MainView)
 {
 	const float CreditsFontSize = 14.0f;
 	const float CreditsMargin = 10.0f;
