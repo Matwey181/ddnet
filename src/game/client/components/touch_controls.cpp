@@ -8,6 +8,7 @@
 #include <engine/client.h>
 #include <engine/console.h>
 #include <engine/external/json-parser/json.h>
+#include <engine/font_icons.h>
 #include <engine/shared/config.h>
 #include <engine/shared/jsonwriter.h>
 #include <engine/shared/localization.h>
@@ -66,6 +67,7 @@ CTouchControls::CTouchButton::CTouchButton(CTouchButton &&Other) noexcept :
 	m_pTouchControls(Other.m_pTouchControls),
 	m_UnitRect(Other.m_UnitRect),
 	m_Shape(Other.m_Shape),
+	m_CustomColor(Other.m_CustomColor),
 	m_vVisibilities(Other.m_vVisibilities),
 	m_pBehavior(std::move(Other.m_pBehavior)),
 	m_VisibilityCached(false)
@@ -85,6 +87,7 @@ CTouchControls::CTouchButton &CTouchControls::CTouchButton::operator=(CTouchButt
 	Other.m_pTouchControls = nullptr;
 	m_UnitRect = Other.m_UnitRect;
 	m_Shape = Other.m_Shape;
+	m_CustomColor = Other.m_CustomColor;
 	m_vVisibilities = Other.m_vVisibilities;
 	m_pBehavior = std::move(Other.m_pBehavior);
 	m_VisibilityCached = false;
@@ -290,6 +293,14 @@ void CTouchControls::CTouchButton::Render(std::optional<bool> Selected, std::opt
 	ButtonColor = m_pBehavior->IsActive() || Selected.value_or(false) ? m_pTouchControls->m_BackgroundColorActive : m_pTouchControls->m_BackgroundColorInactive;
 	if(!Selected.value_or(true))
 		ButtonColor = m_pTouchControls->m_BackgroundColorInactive;
+	if(m_CustomColor.has_value())
+	{
+		ButtonColor = *m_CustomColor;
+		if(m_pBehavior->IsActive() || Selected.value_or(false))
+		{
+			ButtonColor = ColorRGBA(minimum(ButtonColor.r + 0.18f, 1.0f), minimum(ButtonColor.g + 0.18f, 1.0f), minimum(ButtonColor.b + 0.18f, 1.0f), ButtonColor.a);
+		}
+	}
 	switch(m_Shape)
 	{
 	case EButtonShape::RECT:
@@ -350,6 +361,14 @@ void CTouchControls::CTouchButton::WriteToConfiguration(CJsonWriter *pWriter)
 
 	pWriter->WriteAttribute("shape");
 	pWriter->WriteStrValue(SHAPE_NAMES[(int)m_Shape]);
+
+	if(m_CustomColor.has_value())
+	{
+		char aColor[9];
+		str_format(aColor, sizeof(aColor), "%08X", m_CustomColor->PackAlphaLast());
+		pWriter->WriteAttribute("color");
+		pWriter->WriteStrValue(aColor);
+	}
 
 	pWriter->WriteAttribute("visibilities");
 	pWriter->BeginArray();
@@ -802,6 +821,9 @@ bool CTouchControls::OnTouchState(const std::vector<IInput::CTouchFingerState> &
 		m_PreviewAllButtons)
 	{
 		ResetButtons();
+		// The compact editor panel is not rendered while the menu is open, so its
+		// text inputs must not stay active.
+		DeactivateEditorPanelInputs();
 		return false;
 	}
 
@@ -837,6 +859,10 @@ void CTouchControls::OnRender()
 	m_pSelectedButton = nullptr;
 	m_pSampleButton = nullptr;
 	m_UnsavedChanges = false;
+	if(m_PanelLabelInput.IsActive() || m_PanelCommandInput.IsActive())
+	{
+		DeactivateEditorPanelInputs();
+	}
 	RenderButtonsGame();
 }
 
@@ -1635,6 +1661,21 @@ std::optional<CTouchControls::CTouchButton> CTouchControls::ParseButton(const js
 		return {};
 	}
 
+	std::optional<ColorRGBA> ParsedCustomColor;
+	{
+		const json_value &CustomColor = ButtonObject["color"];
+		if(CustomColor.type == json_string)
+		{
+			std::optional<ColorRGBA> ParsedColor = color_parse<ColorRGBA>(CustomColor.u.string.ptr);
+			if(!ParsedColor.has_value())
+			{
+				log_error("touch_controls", "Failed to parse touch button: attribute 'color' specifies invalid color value '%s'", CustomColor.u.string.ptr);
+				return {};
+			}
+			ParsedCustomColor = ParsedColor;
+		}
+	}
+
 	const json_value &Visibilities = ButtonObject["visibilities"];
 	if(Visibilities.type != json_array)
 	{
@@ -1688,6 +1729,7 @@ std::optional<CTouchControls::CTouchButton> CTouchControls::ParseButton(const js
 	CTouchButton Button(this);
 	Button.m_UnitRect = ParsedUnitRect;
 	Button.m_Shape = ParsedShape;
+	Button.m_CustomColor = ParsedCustomColor;
 	Button.m_vVisibilities = std::move(vParsedVisibilities);
 	Button.m_pBehavior = std::move(pParsedBehavior);
 	return Button;
@@ -1935,11 +1977,63 @@ void CTouchControls::ResetVirtualVisibilities()
 		m_aVirtualVisibilities[Visibility] = m_aVisibilityFunctions[Visibility].m_Function();
 }
 
-void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerState> &vTouchFingerStates)
+void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerState> &vAllTouchFingerStates)
 {
 	std::vector<CUnitRect> vVisibleButtonRects;
 	const vec2 ScreenSize = CalculateScreenSize();
 	bool LongPress = false;
+
+	// Touches inside the compact editor panel are handled by the regular UI instead of
+	// by the button editor, so they are filtered out here.
+	std::vector<IInput::CTouchFingerState> vPanelFilteredTouchFingerStates;
+	const std::vector<IInput::CTouchFingerState> *pvTouchFingerStates = &vAllTouchFingerStates;
+	if(!m_vEditorUiRectsNorm.empty())
+	{
+		vPanelFilteredTouchFingerStates.reserve(vAllTouchFingerStates.size());
+		for(const IInput::CTouchFingerState &FingerState : vAllTouchFingerStates)
+		{
+			bool InsideEditorUi = false;
+			for(const vec4 &EditorUiRect : m_vEditorUiRectsNorm)
+			{
+				if(FingerState.m_Position.x >= EditorUiRect.x - 0.004f &&
+					FingerState.m_Position.x <= EditorUiRect.x + EditorUiRect.z + 0.004f &&
+					FingerState.m_Position.y >= EditorUiRect.y - 0.004f &&
+					FingerState.m_Position.y <= EditorUiRect.y + EditorUiRect.w + 0.004f)
+				{
+					InsideEditorUi = true;
+					break;
+				}
+			}
+			if(!InsideEditorUi)
+			{
+				vPanelFilteredTouchFingerStates.push_back(FingerState);
+			}
+		}
+		pvTouchFingerStates = &vPanelFilteredTouchFingerStates;
+	}
+	const std::vector<IInput::CTouchFingerState> &vTouchFingerStates = *pvTouchFingerStates;
+
+	// Detect short taps which select a button and show the compact editor panel.
+	// The tap position is the last known position of the finger.
+	if(m_PanelPrevFirstFinger.has_value() &&
+		(vTouchFingerStates.empty() || vTouchFingerStates[0].m_Finger != m_PanelPrevFirstFinger->m_Finger))
+	{
+		const auto Now = time_get_nanoseconds();
+		const vec2 TapMovement = m_PanelPrevFirstFinger->m_Position - m_PanelTapPressPos;
+		if(Now - m_PanelPrevFirstFinger->m_PressTime < LONG_TOUCH_DURATION && length(TapMovement) < 0.015f)
+		{
+			EditorSelectButtonByTap(m_PanelPrevFirstFinger->m_Position);
+		}
+		m_PanelPrevFirstFinger = std::nullopt;
+	}
+	if(!vTouchFingerStates.empty())
+	{
+		if(!m_PanelPrevFirstFinger.has_value() || m_PanelPrevFirstFinger->m_Finger != vTouchFingerStates[0].m_Finger)
+		{
+			m_PanelTapPressPos = vTouchFingerStates[0].m_Position;
+		}
+		m_PanelPrevFirstFinger = vTouchFingerStates[0];
+	}
 	for(CTouchButton &TouchButton : m_vTouchButtons)
 	{
 		TouchButton.UpdateVisibilityEditor();
@@ -2245,6 +2339,12 @@ void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerS
 			m_aIssueParam[(int)EIssueType::CACHE_POSITION].m_pTargetButton = m_pSampleButton.get();
 			m_aIssueParam[(int)EIssueType::CACHE_POSITION].m_Resolved = false;
 			m_pSampleButton->UpdateScreenFromUnitRect();
+			// Commit the final position of a finished drag directly to the actual button so the
+			// compact editor panel works without having to open the menu.
+			if(m_EditorFingerWasDown)
+			{
+				CommitSampleToSelectedButton();
+			}
 		}
 		if(m_ShownRect->m_X == -1)
 		{
@@ -2256,6 +2356,7 @@ void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerS
 		}
 		m_pSampleButton->UpdateScreenFromUnitRect();
 	}
+	m_EditorFingerWasDown = !vTouchFingerStates.empty();
 }
 
 void CTouchControls::RenderButtonsEditor()
@@ -2275,6 +2376,484 @@ void CTouchControls::RenderButtonsEditor()
 	if(m_pSampleButton != nullptr && m_ShownRect.has_value())
 	{
 		m_pSampleButton->Render(true, m_ShownRect);
+	}
+
+	// The compact editor panel and the Done and Add button use the regular UI, which is
+	// only updated here while the menu is closed, as the menu updates the UI itself.
+	if(!GameClient()->m_Menus.IsActive())
+	{
+		Ui()->Update();
+		RenderButtonEditorPanel();
+	}
+}
+
+bool CTouchControls::OnInput(const IInput::CEvent &Event)
+{
+	if(m_EditingActive && !GameClient()->m_Menus.IsActive())
+	{
+		CLineInput *pActiveInput = CLineInput::GetActiveInput();
+		if(pActiveInput == &m_PanelLabelInput || pActiveInput == &m_PanelCommandInput)
+		{
+			return Ui()->OnInput(Event);
+		}
+	}
+	return false;
+}
+
+// Select the button at the tap position, or deselect when tapping empty space.
+void CTouchControls::EditorSelectButtonByTap(vec2 TapPosition)
+{
+	// Commit pending position changes of the previously selected button.
+	CommitSampleToSelectedButton();
+	const vec2 ScreenSize = CalculateScreenSize();
+	if(m_pSelectedButton != nullptr && m_pSelectedButton->m_VisibilityCached && m_pSelectedButton->IsInside(TapPosition * ScreenSize))
+	{
+		// Tapped the selected button: keep the selection and the panel.
+		return;
+	}
+	CTouchButton *pHitButton = nullptr;
+	for(CTouchButton &TouchButton : m_vTouchButtons)
+	{
+		if(TouchButton.m_VisibilityCached && TouchButton.IsInside(TapPosition * ScreenSize))
+		{
+			pHitButton = &TouchButton;
+			break;
+		}
+	}
+	if(pHitButton != nullptr)
+	{
+		m_pSelectedButton = pHitButton;
+		// Fix an illegal position of the button when it is selected, so later changes
+		// do not keep reporting unsaved changes.
+		if(IsRectOverlapping(m_pSelectedButton->m_UnitRect, m_pSelectedButton->m_Shape))
+		{
+			std::optional<CUnitRect> FreeRect = UpdatePosition(m_pSelectedButton->m_UnitRect, m_pSelectedButton->m_Shape);
+			if(FreeRect.has_value())
+			{
+				m_pSelectedButton->m_UnitRect = FreeRect.value();
+				m_pSelectedButton->UpdateScreenFromUnitRect();
+			}
+		}
+		RemakeSampleButton();
+		UpdateSampleButton(*m_pSelectedButton);
+		m_ShownRect = m_pSampleButton->m_UnitRect;
+		RefreshEditorPanelInputs();
+		m_UnsavedChanges = false;
+	}
+	else
+	{
+		// Tap on empty space: deselect the button and hide the panel.
+		ResetButtonPointers();
+		DeactivateEditorPanelInputs();
+		m_UnsavedChanges = false;
+		m_aIssueParam[(int)EIssueType::CACHE_SETTINGS].m_Resolved = true;
+		m_aIssueParam[(int)EIssueType::SAVE_SETTINGS].m_Resolved = true;
+		m_aIssueParam[(int)EIssueType::CACHE_POSITION].m_Resolved = true;
+	}
+}
+
+// Write the current position and size from the sample button to the actual selected button.
+void CTouchControls::CommitSampleToSelectedButton()
+{
+	if(m_pSelectedButton == nullptr || m_pSampleButton == nullptr || !m_ShownRect.has_value())
+	{
+		return;
+	}
+	m_pSelectedButton->m_UnitRect = *m_ShownRect;
+	m_pSelectedButton->UpdateScreenFromUnitRect();
+	m_aIssueParam[(int)EIssueType::CACHE_POSITION].m_pTargetButton = m_pSampleButton.get();
+	m_aIssueParam[(int)EIssueType::CACHE_POSITION].m_Resolved = true;
+	// The changes are now stored in the actual button, only saving the configuration
+	// file is still pending.
+	m_UnsavedChanges = false;
+	m_EditingChanges = true;
+}
+
+// Apply a new size to the selected button. The position is adjusted so the button
+// does not overlap other buttons.
+void CTouchControls::EditorApplySize(int NewWidth, int NewHeight)
+{
+	if(m_pSelectedButton == nullptr)
+	{
+		return;
+	}
+	CUnitRect NewRect = m_pSelectedButton->m_UnitRect;
+	NewRect.m_W = std::clamp(NewWidth, BUTTON_SIZE_MINIMUM, BUTTON_SIZE_MAXIMUM);
+	NewRect.m_H = std::clamp(NewHeight, BUTTON_SIZE_MINIMUM, BUTTON_SIZE_MAXIMUM);
+	NewRect.m_X = std::clamp(NewRect.m_X, 0, BUTTON_SIZE_SCALE - NewRect.m_W);
+	NewRect.m_Y = std::clamp(NewRect.m_Y, 0, BUTTON_SIZE_SCALE - NewRect.m_H);
+	std::optional<CUnitRect> FreeRect = UpdatePosition(NewRect, m_pSelectedButton->m_Shape);
+	if(!FreeRect.has_value())
+	{
+		return;
+	}
+	m_pSelectedButton->m_UnitRect = FreeRect.value();
+	m_pSelectedButton->UpdateScreenFromUnitRect();
+	if(m_pSampleButton != nullptr)
+	{
+		m_pSampleButton->m_UnitRect = FreeRect.value();
+		m_pSampleButton->UpdateScreenFromUnitRect();
+	}
+	m_ShownRect = FreeRect;
+	m_EditingChanges = true;
+}
+
+// Create a new button with a default bind behavior and select it.
+void CTouchControls::EditorAddNewButton()
+{
+	CommitSampleToSelectedButton();
+	CTouchButton *pNewButton = NewButton();
+	// Select the new button before resolving its position, so the new button is
+	// not treated as an obstacle for itself.
+	m_pSelectedButton = pNewButton;
+	pNewButton->m_UnitRect = CUnitRect{400000, 400000, 100000, 100000};
+	std::optional<CUnitRect> FreeRect = UpdatePosition(pNewButton->m_UnitRect, pNewButton->m_Shape);
+	if(FreeRect.has_value())
+	{
+		pNewButton->m_UnitRect = FreeRect.value();
+	}
+	CBindTouchButtonBehavior *pBindBehavior = static_cast<CBindTouchButtonBehavior *>(pNewButton->m_pBehavior.get());
+	pBindBehavior->SetLabel("Button");
+	pBindBehavior->SetCommand("+right");
+	pNewButton->UpdateScreenFromUnitRect();
+	RemakeSampleButton();
+	UpdateSampleButton(*m_pSelectedButton);
+	m_ShownRect = m_pSampleButton->m_UnitRect;
+	RefreshEditorPanelInputs();
+	m_UnsavedChanges = false;
+	m_EditingChanges = true;
+}
+
+void CTouchControls::RefreshEditorPanelInputs()
+{
+	m_PanelLabelInput.Clear();
+	m_PanelCommandInput.Clear();
+	if(m_pSelectedButton != nullptr && str_comp(m_pSelectedButton->m_pBehavior->GetBehaviorType(), CBindTouchButtonBehavior::BEHAVIOR_TYPE) == 0)
+	{
+		const CBindTouchButtonBehavior *pBindBehavior = static_cast<const CBindTouchButtonBehavior *>(m_pSelectedButton->m_pBehavior.get());
+		m_PanelLabelInput.Set(pBindBehavior->GetLabel().m_pLabel);
+		m_PanelCommandInput.Set(pBindBehavior->GetCommand());
+	}
+}
+
+void CTouchControls::DeactivateEditorPanelInputs()
+{
+	m_PanelLabelInput.Deactivate();
+	m_PanelCommandInput.Deactivate();
+}
+
+// Exit the editor and save the configuration to the file.
+void CTouchControls::FinishEditingAndSave()
+{
+	CommitSampleToSelectedButton();
+	DeactivateEditorPanelInputs();
+	ResetButtonPointers();
+	m_UnsavedChanges = false;
+	m_PanelPrevFirstFinger = std::nullopt;
+	m_EditorFingerWasDown = false;
+	SetEditingActive(false);
+	if(HasEditingChanges())
+	{
+		if(SaveConfigurationToFile())
+		{
+			SetEditingChanges(false);
+		}
+	}
+}
+
+bool CTouchControls::EditorPanelButton(const void *pId, const char *pLabel, CUIRect Rect, const ColorRGBA &Color, float FontSize)
+{
+	Rect.Draw(Color, IGraphics::CORNER_ALL, 4.0f);
+	const bool Pressed = Ui()->DoButtonLogic(pId, 0, &Rect, BUTTONFLAG_LEFT) != 0;
+	if(pLabel != nullptr && pLabel[0] != '\0')
+	{
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.9f);
+		Ui()->DoLabel(&Rect, Localize(pLabel), FontSize, TEXTALIGN_MC);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+	}
+	return Pressed;
+}
+
+void CTouchControls::RenderButtonEditorPanel()
+{
+	Ui()->MapScreen();
+	const CUIRect Screen = *Ui()->Screen();
+	m_vEditorUiRectsNorm.clear();
+
+	// Top bar with the Done and the Add button buttons.
+	CUIRect TopBar;
+	Screen.HSplitTop(8.0f, nullptr, &TopBar);
+	TopBar.HSplitTop(30.0f, &TopBar, nullptr);
+	{
+		CUIRect TopButton;
+		TopBar.VSplitLeft(140.0f, &TopButton, &TopBar);
+		static CButtonContainer s_EditorDoneButton;
+		if(EditorPanelButton(&s_EditorDoneButton, Localize("Done"), TopButton, ColorRGBA(0.13f, 0.45f, 0.22f, 0.9f), 13.0f))
+		{
+			FinishEditingAndSave();
+			return;
+		}
+		m_vEditorUiRectsNorm.emplace_back(TopButton.x / Screen.w, TopButton.y / Screen.h, TopButton.w / Screen.w, TopButton.h / Screen.h);
+		TopBar.VSplitRight(160.0f, &TopBar, &TopButton);
+		static CButtonContainer s_EditorAddButton;
+		if(EditorPanelButton(&s_EditorAddButton, Localize("Add button"), TopButton, ColorRGBA(0.2f, 0.35f, 0.6f, 0.9f), 13.0f))
+		{
+			EditorAddNewButton();
+		}
+		m_vEditorUiRectsNorm.emplace_back(TopButton.x / Screen.w, TopButton.y / Screen.h, TopButton.w / Screen.w, TopButton.h / Screen.h);
+	}
+
+	if(m_pSelectedButton == nullptr || !m_ShownRect.has_value())
+	{
+		return;
+	}
+
+	const bool IsBindButton = str_comp(m_pSelectedButton->m_pBehavior->GetBehaviorType(), CBindTouchButtonBehavior::BEHAVIOR_TYPE) == 0;
+	const bool IsBindToggleButton = str_comp(m_pSelectedButton->m_pBehavior->GetBehaviorType(), CBindToggleTouchButtonBehavior::BEHAVIOR_TYPE) == 0;
+
+	// Rect of the selected button in UI coordinates.
+	CUIRect ButtonRect = CalculateScreenFromUnitRect(*m_ShownRect, m_pSelectedButton->m_Shape);
+	const vec2 UiScale = vec2(Screen.w, Screen.h) / CalculateScreenSize();
+	ButtonRect.x *= UiScale.x;
+	ButtonRect.y *= UiScale.y;
+	ButtonRect.w *= UiScale.x;
+	ButtonRect.h *= UiScale.y;
+
+	// The panel is shown below the button if the button is in the upper half of the
+	// screen, otherwise above the button.
+	CUIRect Panel;
+	Panel.w = 380.0f;
+	Panel.h = 2.0f * 10.0f + 26.0f + 4.0f + 3.0f * 44.0f + 2.0f + 40.0f + 2.0f + (IsBindButton ? 2.0f * 32.0f : 26.0f) + 4.0f + 32.0f;
+	Panel.x = std::clamp(ButtonRect.x, 6.0f, maximum(Screen.w - Panel.w - 6.0f, 6.0f));
+	if(ButtonRect.y + ButtonRect.h * 0.5f < Screen.h * 0.5f)
+	{
+		Panel.y = ButtonRect.y + ButtonRect.h + 12.0f;
+	}
+	else
+	{
+		Panel.y = ButtonRect.y - Panel.h - 12.0f;
+	}
+	Panel.y = std::clamp(Panel.y, 44.0f, maximum(Screen.h - Panel.h - 6.0f, 44.0f));
+	m_vEditorUiRectsNorm.emplace_back(Panel.x / Screen.w, Panel.y / Screen.h, Panel.w / Screen.w, Panel.h / Screen.h);
+
+	Panel.Draw(ColorRGBA(0.07f, 0.08f, 0.11f, 0.93f), IGraphics::CORNER_ALL, 8.0f);
+
+	CUIRect View = Panel;
+	View.Margin(10.0f, &View);
+
+	// Header with the button type and a close button.
+	{
+		CUIRect Header, CloseButton;
+		View.HSplitTop(26.0f, &Header, &View);
+		Header.VSplitRight(Header.h, &Header, &CloseButton);
+		static CButtonContainer s_PanelCloseButton;
+		if(Ui()->DoButtonLogic(&s_PanelCloseButton, 0, &CloseButton, BUTTONFLAG_LEFT) != 0)
+		{
+			CommitSampleToSelectedButton();
+			ResetButtonPointers();
+			DeactivateEditorPanelInputs();
+			m_UnsavedChanges = false;
+			return;
+		}
+		CloseButton.Draw(ColorRGBA(0.55f, 0.2f, 0.2f, 0.85f), IGraphics::CORNER_ALL, 4.0f);
+		TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+		const unsigned OldFlags = TextRender()->GetRenderFlags();
+		TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | TEXT_RENDER_FLAG_NO_X_BEARING | TEXT_RENDER_FLAG_NO_Y_BEARING | TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | TEXT_RENDER_FLAG_NO_OVERSIZE);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 0.9f);
+		Ui()->DoLabel(&CloseButton, FontIcon::XMARK, 12.0f, TEXTALIGN_MC);
+		TextRender()->SetRenderFlags(OldFlags);
+		TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+		const char *pTitle = IsBindButton ? Localize("Bind button") : IsBindToggleButton ? Localize("Toggle button") : Localize("Predefined button");
+		TextRender()->TextColor(0.9f, 0.9f, 0.9f, 1.0f);
+		Ui()->DoLabel(&Header, pTitle, 13.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+	}
+
+	View.HSplitTop(4.0f, nullptr, &View);
+
+	// Slider rows for width, height and opacity.
+	const auto RenderSliderRow = [&](const void *pId, const char *pLabel, const char *pValueText, float Current) {
+		CUIRect Row, LabelRect, ValueRect, SliderRect;
+		View.HSplitTop(44.0f, &Row, &View);
+		Row.HSplitTop(18.0f, &LabelRect, &Row);
+		Row.HSplitTop(26.0f, &SliderRect, nullptr);
+		LabelRect.VSplitRight(80.0f, &LabelRect, &ValueRect);
+		TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+		Ui()->DoLabel(&LabelRect, pLabel, 11.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(0.95f, 0.95f, 0.95f, 1.0f);
+		Ui()->DoLabel(&ValueRect, pValueText, 11.0f, TEXTALIGN_MR);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+		return Ui()->DoScrollbarH(pId, &SliderRect, Current);
+	};
+
+	{
+		const int CurrentWidth = m_ShownRect->m_W;
+		const float Current = (CurrentWidth - BUTTON_SIZE_MINIMUM) / (float)(BUTTON_SIZE_MAXIMUM - BUTTON_SIZE_MINIMUM);
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d%%", CurrentWidth / 10000);
+		static CButtonContainer s_WidthSlider;
+		const float NewValue = RenderSliderRow(&s_WidthSlider, Localize("Width"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.001f)
+		{
+			EditorApplySize((int)(BUTTON_SIZE_MINIMUM + NewValue * (BUTTON_SIZE_MAXIMUM - BUTTON_SIZE_MINIMUM) + 0.5f), m_pSelectedButton->m_UnitRect.m_H);
+		}
+	}
+	{
+		const int CurrentHeight = m_ShownRect->m_H;
+		const float Current = (CurrentHeight - BUTTON_SIZE_MINIMUM) / (float)(BUTTON_SIZE_MAXIMUM - BUTTON_SIZE_MINIMUM);
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d%%", CurrentHeight / 10000);
+		static CButtonContainer s_HeightSlider;
+		const float NewValue = RenderSliderRow(&s_HeightSlider, Localize("Height"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.001f)
+		{
+			EditorApplySize(m_pSelectedButton->m_UnitRect.m_W, (int)(BUTTON_SIZE_MINIMUM + NewValue * (BUTTON_SIZE_MAXIMUM - BUTTON_SIZE_MINIMUM) + 0.5f));
+		}
+	}
+	{
+		const ColorRGBA BaseColor = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
+		const float CurrentAlpha = std::clamp(BaseColor.a, 0.05f, 1.0f);
+		const float Current = (CurrentAlpha - 0.05f) / 0.95f;
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d%%", (int)(CurrentAlpha * 100.0f + 0.5f));
+		static CButtonContainer s_AlphaSlider;
+		const float NewValue = RenderSliderRow(&s_AlphaSlider, Localize("Opacity"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.001f)
+		{
+			ColorRGBA NewColor = BaseColor;
+			NewColor.a = std::clamp(0.05f + NewValue * 0.95f, 0.05f, 1.0f);
+			m_pSelectedButton->m_CustomColor = NewColor;
+			if(m_pSampleButton != nullptr)
+			{
+				m_pSampleButton->m_CustomColor = NewColor;
+			}
+			m_EditingChanges = true;
+		}
+	}
+
+	View.HSplitTop(2.0f, nullptr, &View);
+
+	// Color swatches.
+	{
+		static const ColorRGBA s_aSwatchColors[] = {
+			ColorRGBA(0.90f, 0.25f, 0.25f, 1.0f),
+			ColorRGBA(0.95f, 0.55f, 0.15f, 1.0f),
+			ColorRGBA(0.95f, 0.85f, 0.20f, 1.0f),
+			ColorRGBA(0.25f, 0.75f, 0.35f, 1.0f),
+			ColorRGBA(0.20f, 0.75f, 0.80f, 1.0f),
+			ColorRGBA(0.25f, 0.45f, 0.90f, 1.0f),
+			ColorRGBA(0.60f, 0.30f, 0.85f, 1.0f),
+			ColorRGBA(0.95f, 0.45f, 0.70f, 1.0f),
+			ColorRGBA(0.92f, 0.92f, 0.94f, 1.0f),
+			ColorRGBA(0.35f, 0.37f, 0.40f, 1.0f)};
+		const ColorRGBA CurrentBase = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
+		CUIRect Row, LabelRect, SwatchArea;
+		View.HSplitTop(40.0f, &Row, &View);
+		Row.VSplitLeft(64.0f, &LabelRect, &SwatchArea);
+		TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+		Ui()->DoLabel(&LabelRect, Localize("Color"), 11.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+		CUIRect Swatch;
+		SwatchArea.HMargin(7.0f, &SwatchArea);
+		SwatchArea.VSplitLeft(48.0f, &Swatch, &SwatchArea);
+		static CButtonContainer s_AutoColorButton;
+		if(EditorPanelButton(&s_AutoColorButton, Localize("Auto"), Swatch, ColorRGBA(0.15f, 0.17f, 0.2f, 0.9f), 10.0f))
+		{
+			m_pSelectedButton->m_CustomColor = std::nullopt;
+			if(m_pSampleButton != nullptr)
+			{
+				m_pSampleButton->m_CustomColor = std::nullopt;
+			}
+			m_EditingChanges = true;
+		}
+		static CButtonContainer s_aSwatchButtons[std::size(s_aSwatchColors)];
+		for(size_t Index = 0; Index < std::size(s_aSwatchColors); Index++)
+		{
+			SwatchArea.VSplitLeft(4.0f, nullptr, &SwatchArea);
+			SwatchArea.VSplitLeft(26.0f, &Swatch, &SwatchArea);
+			const ColorRGBA &SwatchColor = s_aSwatchColors[Index];
+			const bool Active = m_pSelectedButton->m_CustomColor.has_value() &&
+				std::abs(m_pSelectedButton->m_CustomColor->r - SwatchColor.r) < 0.03f &&
+				std::abs(m_pSelectedButton->m_CustomColor->g - SwatchColor.g) < 0.03f &&
+				std::abs(m_pSelectedButton->m_CustomColor->b - SwatchColor.b) < 0.03f;
+			if(Active)
+			{
+				CUIRect Border = Swatch;
+				Border.x -= 1.5f;
+				Border.y -= 1.5f;
+				Border.w += 3.0f;
+				Border.h += 3.0f;
+				Border.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.9f), IGraphics::CORNER_ALL, 5.0f);
+			}
+			ColorRGBA ButtonColor(SwatchColor.r, SwatchColor.g, SwatchColor.b, CurrentBase.a);
+			if(EditorPanelButton(&s_aSwatchButtons[Index], nullptr, Swatch, ButtonColor, 10.0f))
+			{
+				ColorRGBA NewColor(SwatchColor.r, SwatchColor.g, SwatchColor.b, CurrentBase.a);
+				m_pSelectedButton->m_CustomColor = NewColor;
+				if(m_pSampleButton != nullptr)
+				{
+					m_pSampleButton->m_CustomColor = NewColor;
+				}
+				m_EditingChanges = true;
+			}
+		}
+	}
+
+	View.HSplitTop(2.0f, nullptr, &View);
+
+	// Label and command of bind buttons.
+	if(IsBindButton)
+	{
+		const auto RenderEditRow = [&](const char *pLabel, CLineInput *pLineInput) {
+			CUIRect Row, LabelRect, EditBox;
+			View.HSplitTop(32.0f, &Row, &View);
+			Row.VSplitLeft(70.0f, &LabelRect, &EditBox);
+			EditBox.HMargin(5.0f, &EditBox);
+			TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+			Ui()->DoLabel(&LabelRect, pLabel, 11.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			return Ui()->DoEditBox(pLineInput, &EditBox, 12.0f);
+		};
+		if(RenderEditRow(Localize("Label"), &m_PanelLabelInput))
+		{
+			static_cast<CBindTouchButtonBehavior *>(m_pSelectedButton->m_pBehavior.get())->SetLabel(m_PanelLabelInput.GetString());
+			if(m_pSampleButton != nullptr)
+			{
+				static_cast<CBindTouchButtonBehavior *>(m_pSampleButton->m_pBehavior.get())->SetLabel(m_PanelLabelInput.GetString());
+			}
+			m_EditingChanges = true;
+		}
+		if(RenderEditRow(Localize("Command"), &m_PanelCommandInput))
+		{
+			static_cast<CBindTouchButtonBehavior *>(m_pSelectedButton->m_pBehavior.get())->SetCommand(m_PanelCommandInput.GetString());
+			m_EditingChanges = true;
+		}
+	}
+	else
+	{
+		CUIRect Info;
+		View.HSplitTop(26.0f, &Info, &View);
+		TextRender()->TextColor(0.65f, 0.65f, 0.65f, 1.0f);
+		Ui()->DoLabel(&Info, Localize("The label and the command of this button type are fixed."), 11.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(TextRender()->DefaultTextColor());
+	}
+
+	View.HSplitTop(4.0f, nullptr, &View);
+
+	// Delete button.
+	{
+		CUIRect DeleteButton;
+		View.HSplitTop(32.0f, &DeleteButton, &View);
+		DeleteButton.HMargin(3.0f, &DeleteButton);
+		static CButtonContainer s_DeleteButton;
+		if(EditorPanelButton(&s_DeleteButton, Localize("Delete button"), DeleteButton, ColorRGBA(0.65f, 0.18f, 0.18f, 0.9f), 12.0f))
+		{
+			DeleteSelectedButton();
+			DeactivateEditorPanelInputs();
+			m_EditingChanges = true;
+			return;
+		}
 	}
 }
 
@@ -2688,6 +3267,7 @@ void CTouchControls::UpdateSampleButton(const CTouchButton &SrcButton)
 	dbg_assert(m_pSampleButton != nullptr, "Sample button not created");
 	m_pSampleButton->m_UnitRect = SrcButton.m_UnitRect;
 	m_pSampleButton->m_Shape = SrcButton.m_Shape;
+	m_pSampleButton->m_CustomColor = SrcButton.m_CustomColor;
 	m_pSampleButton->m_vVisibilities = SrcButton.m_vVisibilities;
 	CButtonLabel Label = SrcButton.m_pBehavior->GetLabel();
 	m_pSampleButton->m_pBehavior = std::make_unique<CBindTouchButtonBehavior>(Label.m_pLabel, Label.m_Type, "");

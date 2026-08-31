@@ -7,6 +7,7 @@
 #include <engine/input.h>
 
 #include <game/client/component.h>
+#include <game/client/lineinput.h>
 #include <game/client/ui_rect.h>
 
 #include <array>
@@ -48,6 +49,7 @@ public:
 	void OnWindowResize() override;
 	bool OnTouchState(const std::vector<IInput::CTouchFingerState> &vTouchFingerStates) override;
 	void OnRender() override;
+	bool OnInput(const IInput::CEvent &Event) override;
 
 	bool LoadConfigurationFromFile(int StorageType);
 	bool LoadConfigurationFromClipboard();
@@ -196,6 +198,13 @@ public:
 
 		EButtonShape m_Shape; // Rect = default
 		int m_BackgroundCorners; // only used with EButtonShape::RECT
+		/**
+		 * Custom background color of this button, overriding the global touch button background
+		 * colors. A value of std::nullopt uses the global colors.
+		 *
+		 * Saved to the touch controls configuration.
+		 */
+		std::optional<ColorRGBA> m_CustomColor;
 
 		std::vector<CButtonVisibility> m_vVisibilities;
 		std::unique_ptr<CTouchButtonBehavior> m_pBehavior; // nullptr = default. In button editor the default is bind behavior with nothing.
@@ -440,6 +449,8 @@ public:
 		CButtonLabel GetLabel() const override;
 		const char *GetCommand() const { return m_Command.c_str(); }
 		bool IsMoveDirectionBind() const override { return m_Command == "+left" || m_Command == "+right"; }
+		void SetLabel(const char *pLabel) { m_Label = pLabel; }
+		void SetCommand(const char *pCommand) { m_Command = pCommand; }
 		void OnActivate() override;
 		void OnDeactivate(bool ByFinger) override;
 		void OnUpdate() override;
@@ -624,6 +635,44 @@ private:
 	 */
 	bool m_EditingChanges = false;
 
+	/**
+	 * Normalized screen rects (x, y, w, h) of the compact editor panel and of its buttons, used
+	 * to prevent touches inside these rects from being handled as button editing gestures.
+	 * Recomputed every frame while the panel is rendered.
+	 */
+	std::vector<vec4> m_vEditorUiRectsNorm;
+
+	/**
+	 * Text inputs of the compact editor panel for the label and the command of the selected button.
+	 */
+	CLineInputBuffered<128> m_PanelLabelInput;
+	CLineInputBuffered<256> m_PanelCommandInput;
+
+	/**
+	 * The first touch finger of the previous frame, used to detect short taps in the editor.
+	 */
+	std::optional<IInput::CTouchFingerState> m_PanelPrevFirstFinger;
+
+	/**
+	 * The position where the currently tracked tap finger was pressed down.
+	 */
+	vec2 m_PanelTapPressPos = vec2(0.0f, 0.0f);
+
+	/**
+	 * Whether any touch was handled by the editor in the previous frame, used to detect when a
+	 * drag ends so the final position can be committed to the actual button.
+	 */
+	bool m_EditorFingerWasDown = false;
+
+	void EditorSelectButtonByTap(vec2 TapPosition);
+	void CommitSampleToSelectedButton();
+	void EditorApplySize(int NewWidth, int NewHeight);
+	void EditorAddNewButton();
+	void RefreshEditorPanelInputs();
+	void DeactivateEditorPanelInputs();
+	void FinishEditingAndSave();
+	bool EditorPanelButton(const void *pId, const char *pLabel, CUIRect Rect, const ColorRGBA &Color, float FontSize = 12.0f);
+	void RenderButtonEditorPanel();
 	void InitVisibilityFunctions();
 	int NextActiveAction(int Action) const;
 	int NextDirectTouchAction() const;

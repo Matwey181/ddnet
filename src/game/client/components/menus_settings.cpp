@@ -1352,6 +1352,57 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 	Ui()->DoLabel(&Button, Localize("How far the aim moves per full swipe across the joystick button. Higher = more sensitive."), 12.0f, TEXTALIGN_ML);
 	TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
+	// ---- touch button editor -----------------------------------------------
+	if(g_Config.m_ClTouchControls)
+	{
+		MainView.HSplitTop(16.0f, nullptr, &MainView);
+		MainView.HSplitTop(22.0f, &Button, &MainView);
+		s_ScrollRegion.AddRect(Button);
+		{
+			CUIRect Icon, Title;
+			Button.VSplitLeft(Button.h + 8.0f, &Icon, &Title);
+			TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+			const unsigned OldFlags = TextRender()->GetRenderFlags();
+			TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | TEXT_RENDER_FLAG_NO_X_BEARING | TEXT_RENDER_FLAG_NO_Y_BEARING | TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | TEXT_RENDER_FLAG_NO_OVERSIZE);
+			TextRender()->TextColor(0.35f, 0.62f, 1.0f, 1.0f);
+			Ui()->DoLabel(&Icon, FontIcon::PENCIL, 15.0f, TEXTALIGN_ML);
+			TextRender()->SetRenderFlags(OldFlags);
+			TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+			Ui()->DoLabel(&Title, Localize("Button editor"), 16.0f, TEXTALIGN_ML);
+		}
+
+		if(Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK)
+		{
+			MainView.HSplitTop(6.0f, nullptr, &MainView);
+			MainView.HSplitTop(20.0f, &Button, &MainView);
+			s_ScrollRegion.AddRect(Button);
+			static CButtonContainer s_EditTouchButtonsButton;
+			if(DoButton_Menu(&s_EditTouchButtonsButton, Localize("Edit touch buttons"), 0, &Button))
+			{
+				GameClient()->m_TouchControls.SetEditingActive(true);
+				GameClient()->m_TouchControls.ResetVirtualVisibilities();
+				m_MenusIngameTouchControls.m_EditElement = CMenusIngameTouchControls::EElementType::LAYOUT;
+				SetActive(false);
+			}
+			MainView.HSplitTop(2.0f, nullptr, &MainView);
+			MainView.HSplitTop(28.0f, &Button, &MainView);
+			s_ScrollRegion.AddRect(Button);
+			TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+			Ui()->DoLabel(&Button, Localize("Tap a button to edit it. Drag to move it; buttons push each other instead of overlapping. Press Done to save."), 12.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+		else
+		{
+			MainView.HSplitTop(6.0f, nullptr, &MainView);
+			MainView.HSplitTop(20.0f, &Button, &MainView);
+			s_ScrollRegion.AddRect(Button);
+			TextRender()->TextColor(0.6f, 0.6f, 0.6f, 1.0f);
+			Ui()->DoLabel(&Button, Localize("Join a game to edit the touch buttons."), 12.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+	}
+
 	// ---- dynamic movement joystick ----------------------------------------
 	MainView.HSplitTop(16.0f, nullptr, &MainView);
 	MainView.HSplitTop(22.0f, &Button, &MainView);
