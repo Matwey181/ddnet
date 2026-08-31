@@ -1381,6 +1381,26 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 
 	if(g_Config.m_ClTouchJoystickMove)
 	{
+		// Floating base: whether the joystick base follows the finger when it is dragged
+		// past the edge of the base, or stays where the finger touched down.
+		MainView.HSplitTop(6.0f, nullptr, &MainView);
+		MainView.HSplitTop(20.0f, &Button, &MainView);
+		s_ScrollRegion.AddRect(Button);
+		static CButtonContainer s_JoystickMoveFloatCheckBox;
+		if(DoButton_CheckBox(&s_JoystickMoveFloatCheckBox, Localize("Floating joystick base"), g_Config.m_ClTouchJoystickMoveFloat, &Button))
+		{
+			g_Config.m_ClTouchJoystickMoveFloat ^= 1;
+		}
+		MainView.HSplitTop(2.0f, nullptr, &MainView);
+		MainView.HSplitTop(14.0f, &Button, &MainView);
+		s_ScrollRegion.AddRect(Button);
+		TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
+		Ui()->DoLabel(&Button, g_Config.m_ClTouchJoystickMoveFloat ?
+			Localize("On: the base follows your finger when you drag it past the edge.") :
+			Localize("Off: the base stays where you touched, the stick clamps at the edge."),
+			12.0f, TEXTALIGN_ML);
+		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+
 		// Live preview of the joystick activation zone.
 		MainView.HSplitTop(8.0f, nullptr, &MainView);
 		const float PreviewHeight = std::clamp(MainView.w / maximum(Graphics()->ScreenAspect(), 0.01f), 90.0f, 170.0f);

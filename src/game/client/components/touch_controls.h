@@ -582,7 +582,9 @@ private:
 
 	/**
 	 * The center of the joystick base in screen coordinates. The joystick dynamically
-	 * appears at the position where the finger is pressed down inside the zone.
+	 * appears at the position where the finger is pressed down inside the zone. The base
+	 * only follows the finger while dragging if the floating mode is enabled, otherwise
+	 * it stays at the touch position and the stick clamps to the edge of the base.
 	 */
 	vec2 m_JoystickMoveCenter = vec2(0.0f, 0.0f);
 

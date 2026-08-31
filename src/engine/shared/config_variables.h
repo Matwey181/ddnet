@@ -444,6 +444,7 @@ MACRO_CONFIG_INT(ClTouchJoystickMoveZoneY, cl_touch_joystick_move_zone_y, 0, 0, 
 MACRO_CONFIG_INT(ClTouchJoystickMoveZoneW, cl_touch_joystick_move_zone_w, 50, 1, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: width in percent of the screen width")
 MACRO_CONFIG_INT(ClTouchJoystickMoveZoneH, cl_touch_joystick_move_zone_h, 100, 1, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick zone: height in percent of the screen height")
 MACRO_CONFIG_INT(ClTouchJoystickMoveSize, cl_touch_joystick_move_size, 13, 5, 25, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick: radius in percent of the screen height")
+MACRO_CONFIG_INT(ClTouchJoystickMoveFloat, cl_touch_joystick_move_float, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Dynamic movement joystick: move the base along with the finger when it is dragged past the edge (floating joystick), otherwise the base stays at the touch position (dynamic joystick)")
 MACRO_CONFIG_INT(InpTranslatedKeys, inp_translated_keys, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Translate keys before interpreting them, respects keyboard layouts")
 MACRO_CONFIG_INT(InpIgnoredModifiers, inp_ignored_modifiers, 0, 0, 65536, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Ignored keyboard modifier mask")
 #if defined(CONF_FAMILY_WINDOWS)

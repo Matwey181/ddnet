@@ -1270,9 +1270,14 @@ void CTouchControls::UpdateJoystickMove(std::vector<IInput::CTouchFingerState> &
 		if(OffsetLength > Radius)
 		{
 			const vec2 Direction = Offset / OffsetLength;
-			// Move the joystick base along with the finger when it is dragged past the edge
-			// of the joystick, so the stick always stays under the finger while dragging.
-			m_JoystickMoveCenter += Direction * (OffsetLength - Radius);
+			if(g_Config.m_ClTouchJoystickMoveFloat)
+			{
+				// Floating joystick: move the base along with the finger when it is dragged
+				// past the edge, so the stick always stays under the finger while dragging.
+				m_JoystickMoveCenter += Direction * (OffsetLength - Radius);
+			}
+			// Dynamic joystick: the base stays where the finger touched down and
+			// the stick clamps to the edge of the base instead.
 			Offset = Direction * Radius;
 		}
 		m_JoystickMoveOffset = Offset;
