@@ -17,8 +17,8 @@
 #include <game/client/animstate.h>
 #include <game/client/components/countryflags.h>
 #include <game/client/components/motd.h>
-#include <game/client/components/statboard.h>
 #include <game/client/components/sh1zooo_tags.h>
+#include <game/client/components/statboard.h>
 #include <game/client/gameclient.h>
 #include <game/client/ui.h>
 #include <game/localization.h>

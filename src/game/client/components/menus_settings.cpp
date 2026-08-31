@@ -1446,9 +1446,7 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 		MainView.HSplitTop(14.0f, &Button, &MainView);
 		s_ScrollRegion.AddRect(Button);
 		TextRender()->TextColor(0.7f, 0.7f, 0.7f, 1.0f);
-		Ui()->DoLabel(&Button, g_Config.m_ClTouchJoystickMoveFloat ?
-			Localize("On: the base follows your finger when you drag it past the edge.") :
-			Localize("Off: the base stays where you touched, the stick clamps at the edge."),
+		Ui()->DoLabel(&Button, g_Config.m_ClTouchJoystickMoveFloat ? Localize("On: the base follows your finger when you drag it past the edge.") : Localize("Off: the base stays where you touched, the stick clamps at the edge."),
 			12.0f, TEXTALIGN_ML);
 		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -1487,8 +1485,7 @@ void CMenus::RenderSettingsTouch(CUIRect MainView)
 		Graphics()->DrawCircle(KnobPos.x, KnobPos.y, KnobRadius, 24);
 		Graphics()->QuadsEnd();
 
-		const auto JoystickSlider = [&](int *pValue, const char *pLabel, int Min, int Max)
-		{
+		const auto JoystickSlider = [&](int *pValue, const char *pLabel, int Min, int Max) {
 			MainView.HSplitTop(5.0f, nullptr, &MainView);
 			MainView.HSplitTop(20.0f, &Button, &MainView);
 			s_ScrollRegion.AddRect(Button);
@@ -1606,8 +1603,7 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 {
 	// ---- helpers ----------------------------------------------------------
 	// Frame-rate independent exponential approach (ease-out).
-	const auto Approach = [](float Current, float Target, float Dt, float Speed) -> float
-	{
+	const auto Approach = [](float Current, float Target, float Dt, float Speed) -> float {
 		const float t = 1.0f - std::exp(-Speed * Dt);
 		float Value = Current + (Target - Current) * t;
 		if(absolute(Target - Value) < 0.002f)
@@ -1615,14 +1611,12 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 		return Value;
 	};
 	// Smoothstep easing for a 0..1 progress value.
-	const auto EaseSmooth = [](float t) -> float
-	{
+	const auto EaseSmooth = [](float t) -> float {
 		t = maximum(0.0f, minimum(1.0f, t));
 		return t * t * (3.0f - 2.0f * t);
 	};
 	// Draws a rotatable vector chevron: ">" at 0 rad, "v" at pi/2.
-	const auto RenderChevron = [&](vec2 Center, float Size, float Thickness, float Angle, const ColorRGBA &Color)
-	{
+	const auto RenderChevron = [&](vec2 Center, float Size, float Thickness, float Angle, const ColorRGBA &Color) {
 		const vec2 PointDir(std::cos(Angle), std::sin(Angle));
 		const vec2 Vertex = Center - PointDir * (Size * 0.3f);
 		Graphics()->QuadsBegin();
@@ -1644,8 +1638,7 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 		Graphics()->QuadsEnd();
 	};
 	// Draws a Font Awesome (vector) icon label.
-	const auto IconLabel = [&](const CUIRect *pRect, const char *pIcon, float Size, int Align, const ColorRGBA &Color)
-	{
+	const auto IconLabel = [&](const CUIRect *pRect, const char *pIcon, float Size, int Align, const ColorRGBA &Color) {
 		TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
 		const unsigned OldFlags = TextRender()->GetRenderFlags();
 		TextRender()->SetRenderFlags(OldFlags | TEXT_RENDER_FLAG_ONLY_ADVANCE_WIDTH | TEXT_RENDER_FLAG_NO_X_BEARING | TEXT_RENDER_FLAG_NO_Y_BEARING | TEXT_RENDER_FLAG_NO_PIXEL_ALIGNMENT | TEXT_RENDER_FLAG_NO_OVERSIZE);
@@ -1683,8 +1676,7 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 	s_LastTime = Now;
 
 	// Draws one of the WAR/TEAM/Remove buttons (accent colored, animated hover).
-	const auto DrawTagButton = [&](const void *pId, const CUIRect &Rect, const char *pLabel, int HoverSlot, const ColorRGBA &Accent, float Alpha)
-	{
+	const auto DrawTagButton = [&](const void *pId, const CUIRect &Rect, const char *pLabel, int HoverSlot, const ColorRGBA &Accent, float Alpha) {
 		static float s_aButtonHover[4] = {};
 		const bool Hot = Ui()->HotItem() == pId;
 		s_aButtonHover[HoverSlot] = Approach(s_aButtonHover[HoverSlot], Hot ? 1.0f : 0.0f, Dt, 18.0f);
@@ -1725,9 +1717,7 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 	const float PanelHeight = 46.0f; // full height of the tag button panel
 	const float HeaderHeight = 44.0f;
 	const float PanelCurrentH = PanelHeight * EaseSmooth(s_RowExpandAnim);
-	const float ListHeight = NumPlayers > 0
-		? NumPlayers * (RowHeight + RowSpacing) + PanelCurrentH
-		: 64.0f; // empty state
+	const float ListHeight = NumPlayers > 0 ? NumPlayers * (RowHeight + RowSpacing) + PanelCurrentH : 64.0f; // empty state
 	const float BodyFullHeight = 8.0f + 28.0f * 2.0f + 8.0f + (NumPlayers > 0 ? 24.0f : 0.0f) + ListHeight + 8.0f;
 	const float BodyHeight = BodyFullHeight * AccordionEase;
 
@@ -1933,7 +1923,8 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 					AccentBar.y += 6.0f;
 					AccentBar.w = 3.5f;
 					AccentBar.h -= 12.0f;
-					const ColorRGBA Accent = Tag == CSh1zoooTags::TAG_WAR ? WarColor : Tag == CSh1zoooTags::TAG_TEAM ? TeamColor : ColorRGBA(0.9f, 0.9f, 0.9f, 0.8f);
+					const ColorRGBA Accent = Tag == CSh1zoooTags::TAG_WAR ? WarColor : Tag == CSh1zoooTags::TAG_TEAM ? TeamColor :
+																	   ColorRGBA(0.9f, 0.9f, 0.9f, 0.8f);
 					AccentBar.Draw(Accent, IGraphics::CORNER_ALL, 2.0f);
 				}
 
@@ -1946,7 +1937,8 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 					vec2 OffsetToMid;
 					CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &TeeInfo, OffsetToMid);
 					const vec2 TeeRenderPos = vec2(TeeZone.x + TeeZone.w / 2.0f, TeeZone.y + TeeZone.h / 2.0f + OffsetToMid.y);
-					const int TeeEmote = Tag == CSh1zoooTags::TAG_WAR ? EMOTE_ANGRY : Tag == CSh1zoooTags::TAG_TEAM ? EMOTE_HAPPY : EMOTE_NORMAL;
+					const int TeeEmote = Tag == CSh1zoooTags::TAG_WAR ? EMOTE_ANGRY : Tag == CSh1zoooTags::TAG_TEAM ? EMOTE_HAPPY :
+																	  EMOTE_NORMAL;
 					RenderTools()->RenderTee(CAnimState::GetIdle(), &TeeInfo, TeeEmote, vec2(1.0f, 0.0f), TeeRenderPos);
 				}
 

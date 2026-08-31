@@ -9,8 +9,8 @@
 #include <generated/client_data.h>
 
 #include <game/client/animstate.h>
-#include <game/client/gameclient.h>
 #include <game/client/components/sh1zooo_tags.h>
+#include <game/client/gameclient.h>
 #include <game/client/prediction/entities/character.h>
 
 #include <memory>

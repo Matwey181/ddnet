@@ -2173,7 +2173,7 @@ void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerS
 	// The compact editor panel is hidden while the selected button is dragged around, so
 	// the dragged button is always fully visible and the finger can move it everywhere.
 	m_EditorDragging = m_ActiveFingerState.has_value() && m_pSampleButton != nullptr &&
-		length(m_ActiveFingerState->m_Position - m_PanelTapPressPos) > 0.01f;
+			   length(m_ActiveFingerState->m_Position - m_PanelTapPressPos) > 0.01f;
 	// Only the second finger will be used for zooming button.
 	if(vTouchFingerStates.size() > 1)
 	{
@@ -2740,8 +2740,8 @@ void CTouchControls::RenderButtonEditorPanel()
 	// previewed by the color chips.
 	const ColorRGBA InactiveColor = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
 	const ColorRGBA ActiveColor = m_pSelectedButton->m_CustomColorActive.value_or(m_pSelectedButton->m_CustomColor.has_value() ?
-		ColorRGBA(minimum(m_pSelectedButton->m_CustomColor->r + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->g + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->b + 0.18f, 1.0f), m_pSelectedButton->m_CustomColor->a) :
-		m_BackgroundColorActive);
+											      ColorRGBA(minimum(m_pSelectedButton->m_CustomColor->r + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->g + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->b + 0.18f, 1.0f), m_pSelectedButton->m_CustomColor->a) :
+											      m_BackgroundColorActive);
 	const ColorRGBA EditColor = m_EditorEditActiveColor ? ActiveColor : InactiveColor;
 
 	// The panel is shown below the button if the button is in the upper part of the screen and
@@ -2807,7 +2807,8 @@ void CTouchControls::RenderButtonEditorPanel()
 		TextRender()->SetRenderFlags(OldFlags);
 		TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
 		TextRender()->TextColor(TextRender()->DefaultTextColor());
-		const char *pTitle = IsBindButton ? Localize("Bind button") : IsBindToggleButton ? Localize("Toggle button") : Localize("Predefined button");
+		const char *pTitle = IsBindButton ? Localize("Bind button") : IsBindToggleButton ? Localize("Toggle button") :
+												   Localize("Predefined button");
 		TextRender()->TextColor(0.9f, 0.9f, 0.9f, 1.0f);
 		Ui()->DoLabel(&Header, pTitle, 13.0f, TEXTALIGN_ML);
 		TextRender()->TextColor(TextRender()->DefaultTextColor());
