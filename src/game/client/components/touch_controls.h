@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 class CJsonWriter;
@@ -205,6 +206,15 @@ public:
 		 * Saved to the touch controls configuration.
 		 */
 		std::optional<ColorRGBA> m_CustomColor;
+
+		/**
+		 * Custom background color of this button while it is active (pressed), overriding the
+		 * global active background color as well as the inactive custom color. A value of
+		 * std::nullopt uses the default active color logic.
+		 *
+		 * Saved to the touch controls configuration.
+		 */
+		std::optional<ColorRGBA> m_CustomColorActive;
 
 		std::vector<CButtonVisibility> m_vVisibilities;
 		std::unique_ptr<CTouchButtonBehavior> m_pBehavior; // nullptr = default. In button editor the default is bind behavior with nothing.
@@ -664,9 +674,30 @@ private:
 	 */
 	bool m_EditorFingerWasDown = false;
 
+	/**
+	 * Whether the selected button is currently being dragged around. The compact editor
+	 * panel is hidden while this is the case so it never covers the button being moved.
+	 */
+	bool m_EditorDragging = false;
+
+	/**
+	 * Whether the color sliders of the compact editor panel currently edit the inactive
+	 * (false) or the active (true) background color of the selected button.
+	 */
+	bool m_EditorEditActiveColor = false;
+
+	/**
+	 * Touch fingers and whether they were pressed down inside of editor UI rects. The
+	 * classification only happens when a finger is pressed down, so fingers which are
+	 * dragging buttons around keep dragging them even when they slide over the compact
+	 * editor panel or its buttons.
+	 */
+	std::vector<std::pair<IInput::CTouchFinger, bool>> m_vEditorFingersUiState;
+
 	void EditorSelectButtonByTap(vec2 TapPosition);
 	void CommitSampleToSelectedButton();
 	void EditorApplySize(int NewWidth, int NewHeight);
+	void EditorApplyColor(const ColorRGBA &Color);
 	void EditorAddNewButton();
 	void RefreshEditorPanelInputs();
 	void DeactivateEditorPanelInputs();

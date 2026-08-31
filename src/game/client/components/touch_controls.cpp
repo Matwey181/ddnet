@@ -9,6 +9,7 @@
 #include <engine/console.h>
 #include <engine/external/json-parser/json.h>
 #include <engine/font_icons.h>
+#include <engine/keys.h>
 #include <engine/shared/config.h>
 #include <engine/shared/jsonwriter.h>
 #include <engine/shared/localization.h>
@@ -68,6 +69,7 @@ CTouchControls::CTouchButton::CTouchButton(CTouchButton &&Other) noexcept :
 	m_UnitRect(Other.m_UnitRect),
 	m_Shape(Other.m_Shape),
 	m_CustomColor(Other.m_CustomColor),
+	m_CustomColorActive(Other.m_CustomColorActive),
 	m_vVisibilities(Other.m_vVisibilities),
 	m_pBehavior(std::move(Other.m_pBehavior)),
 	m_VisibilityCached(false)
@@ -88,6 +90,7 @@ CTouchControls::CTouchButton &CTouchControls::CTouchButton::operator=(CTouchButt
 	m_UnitRect = Other.m_UnitRect;
 	m_Shape = Other.m_Shape;
 	m_CustomColor = Other.m_CustomColor;
+	m_CustomColorActive = Other.m_CustomColorActive;
 	m_vVisibilities = Other.m_vVisibilities;
 	m_pBehavior = std::move(Other.m_pBehavior);
 	m_VisibilityCached = false;
@@ -290,16 +293,26 @@ void CTouchControls::CTouchButton::Render(std::optional<bool> Selected, std::opt
 
 	ColorRGBA ButtonColor;
 	// "Selected" can decide which color to use, while not disturbing the original color check.
-	ButtonColor = m_pBehavior->IsActive() || Selected.value_or(false) ? m_pTouchControls->m_BackgroundColorActive : m_pTouchControls->m_BackgroundColorInactive;
-	if(!Selected.value_or(true))
-		ButtonColor = m_pTouchControls->m_BackgroundColorInactive;
-	if(m_CustomColor.has_value())
+	const bool ActiveState = m_pBehavior->IsActive() || Selected.value_or(false);
+	if(ActiveState && Selected.value_or(true))
 	{
-		ButtonColor = *m_CustomColor;
-		if(m_pBehavior->IsActive() || Selected.value_or(false))
+		if(m_CustomColorActive.has_value())
 		{
+			ButtonColor = *m_CustomColorActive;
+		}
+		else if(m_CustomColor.has_value())
+		{
+			ButtonColor = *m_CustomColor;
 			ButtonColor = ColorRGBA(minimum(ButtonColor.r + 0.18f, 1.0f), minimum(ButtonColor.g + 0.18f, 1.0f), minimum(ButtonColor.b + 0.18f, 1.0f), ButtonColor.a);
 		}
+		else
+		{
+			ButtonColor = m_pTouchControls->m_BackgroundColorActive;
+		}
+	}
+	else
+	{
+		ButtonColor = m_CustomColor.value_or(m_pTouchControls->m_BackgroundColorInactive);
 	}
 	switch(m_Shape)
 	{
@@ -368,6 +381,13 @@ void CTouchControls::CTouchButton::WriteToConfiguration(CJsonWriter *pWriter)
 		str_format(aColor, sizeof(aColor), "%08X", m_CustomColor->PackAlphaLast());
 		pWriter->WriteAttribute("color");
 		pWriter->WriteStrValue(aColor);
+	}
+	if(m_CustomColorActive.has_value())
+	{
+		char aColorActive[9];
+		str_format(aColorActive, sizeof(aColorActive), "%08X", m_CustomColorActive->PackAlphaLast());
+		pWriter->WriteAttribute("color-active");
+		pWriter->WriteStrValue(aColorActive);
 	}
 
 	pWriter->WriteAttribute("visibilities");
@@ -1675,6 +1695,20 @@ std::optional<CTouchControls::CTouchButton> CTouchControls::ParseButton(const js
 			ParsedCustomColor = ParsedColor;
 		}
 	}
+	std::optional<ColorRGBA> ParsedCustomColorActive;
+	{
+		const json_value &CustomColorActive = ButtonObject["color-active"];
+		if(CustomColorActive.type == json_string)
+		{
+			std::optional<ColorRGBA> ParsedColorActive = color_parse<ColorRGBA>(CustomColorActive.u.string.ptr);
+			if(!ParsedColorActive.has_value())
+			{
+				log_error("touch_controls", "Failed to parse touch button: attribute 'color-active' specifies invalid color value '%s'", CustomColorActive.u.string.ptr);
+				return {};
+			}
+			ParsedCustomColorActive = ParsedColorActive;
+		}
+	}
 
 	const json_value &Visibilities = ButtonObject["visibilities"];
 	if(Visibilities.type != json_array)
@@ -1730,6 +1764,7 @@ std::optional<CTouchControls::CTouchButton> CTouchControls::ParseButton(const js
 	Button.m_UnitRect = ParsedUnitRect;
 	Button.m_Shape = ParsedShape;
 	Button.m_CustomColor = ParsedCustomColor;
+	Button.m_CustomColorActive = ParsedCustomColorActive;
 	Button.m_vVisibilities = std::move(vParsedVisibilities);
 	Button.m_pBehavior = std::move(pParsedBehavior);
 	return Button;
@@ -1983,28 +2018,51 @@ void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerS
 	const vec2 ScreenSize = CalculateScreenSize();
 	bool LongPress = false;
 
-	// Touches inside the compact editor panel are handled by the regular UI instead of
-	// by the button editor, so they are filtered out here.
+	// Touches which are pressed down inside of editor UI rects are handled by the regular
+	// UI instead of by the button editor. The classification only happens when the finger is
+	// pressed down, so fingers which are dragging buttons around keep dragging them even
+	// when they slide over the editor panel or its buttons.
 	std::vector<IInput::CTouchFingerState> vPanelFilteredTouchFingerStates;
 	const std::vector<IInput::CTouchFingerState> *pvTouchFingerStates = &vAllTouchFingerStates;
-	if(!m_vEditorUiRectsNorm.empty())
+	if(!m_vEditorUiRectsNorm.empty() || !m_vEditorFingersUiState.empty())
 	{
 		vPanelFilteredTouchFingerStates.reserve(vAllTouchFingerStates.size());
-		for(const IInput::CTouchFingerState &FingerState : vAllTouchFingerStates)
-		{
-			bool InsideEditorUi = false;
+		const auto &&IsInsideEditorUi = [&](const vec2 &Position) {
 			for(const vec4 &EditorUiRect : m_vEditorUiRectsNorm)
 			{
-				if(FingerState.m_Position.x >= EditorUiRect.x - 0.004f &&
-					FingerState.m_Position.x <= EditorUiRect.x + EditorUiRect.z + 0.004f &&
-					FingerState.m_Position.y >= EditorUiRect.y - 0.004f &&
-					FingerState.m_Position.y <= EditorUiRect.y + EditorUiRect.w + 0.004f)
+				if(Position.x >= EditorUiRect.x - 0.004f &&
+					Position.x <= EditorUiRect.x + EditorUiRect.z + 0.004f &&
+					Position.y >= EditorUiRect.y - 0.004f &&
+					Position.y <= EditorUiRect.y + EditorUiRect.w + 0.004f)
 				{
-					InsideEditorUi = true;
-					break;
+					return true;
 				}
 			}
-			if(!InsideEditorUi)
+			return false;
+		};
+		// Remove fingers which are not pressed down anymore.
+		const auto &&Remove = std::remove_if(m_vEditorFingersUiState.begin(), m_vEditorFingersUiState.end(), [&](const std::pair<IInput::CTouchFinger, bool> &FingerUiState) {
+			return std::none_of(vAllTouchFingerStates.begin(), vAllTouchFingerStates.end(), [&](const IInput::CTouchFingerState &OtherState) {
+				return OtherState.m_Finger == FingerUiState.first;
+			});
+		});
+		m_vEditorFingersUiState.erase(Remove, m_vEditorFingersUiState.end());
+		for(const IInput::CTouchFingerState &FingerState : vAllTouchFingerStates)
+		{
+			bool IsUiFinger = false;
+			const auto &&Existing = std::find_if(m_vEditorFingersUiState.begin(), m_vEditorFingersUiState.end(), [&](const std::pair<IInput::CTouchFinger, bool> &FingerUiState) {
+				return FingerUiState.first == FingerState.m_Finger;
+			});
+			if(Existing != m_vEditorFingersUiState.end())
+			{
+				IsUiFinger = Existing->second;
+			}
+			else
+			{
+				IsUiFinger = IsInsideEditorUi(FingerState.m_Position);
+				m_vEditorFingersUiState.emplace_back(FingerState.m_Finger, IsUiFinger);
+			}
+			if(!IsUiFinger)
 			{
 				vPanelFilteredTouchFingerStates.push_back(FingerState);
 			}
@@ -2112,6 +2170,10 @@ void CTouchControls::UpdateButtonsEditor(const std::vector<IInput::CTouchFingerS
 		if(m_pSampleButton != nullptr && m_ShownRect.has_value())
 			m_pSampleButton->m_UnitRect = (*m_ShownRect);
 	}
+	// The compact editor panel is hidden while the selected button is dragged around, so
+	// the dragged button is always fully visible and the finger can move it everywhere.
+	m_EditorDragging = m_ActiveFingerState.has_value() && m_pSampleButton != nullptr &&
+		length(m_ActiveFingerState->m_Position - m_PanelTapPressPos) > 0.01f;
 	// Only the second finger will be used for zooming button.
 	if(vTouchFingerStates.size() > 1)
 	{
@@ -2394,7 +2456,27 @@ bool CTouchControls::OnInput(const IInput::CEvent &Event)
 		CLineInput *pActiveInput = CLineInput::GetActiveInput();
 		if(pActiveInput == &m_PanelLabelInput || pActiveInput == &m_PanelCommandInput)
 		{
-			return Ui()->OnInput(Event);
+			// Ignore line breaks, as the inputs of the editor panel are single-line, so the
+			// on-screen keyboard also stays open when the return key is pressed.
+			if((Event.m_Flags & IInput::FLAG_TEXT) != 0 &&
+				(Event.m_aText[0] == '\n' || Event.m_aText[0] == '\r'))
+			{
+				return true;
+			}
+			if((Event.m_Flags & IInput::FLAG_PRESS) != 0 &&
+				(Event.m_Key == KEY_RETURN || Event.m_Key == KEY_KP_ENTER))
+			{
+				return true;
+			}
+			const bool Handled = Ui()->OnInput(Event);
+			// Consume all key presses and text inputs while one of the inputs of the editor
+			// panel is active, so key binds of the PC controls (e.g. the T key opening the
+			// chat) are not executed while text is entered.
+			if((Event.m_Flags & (IInput::FLAG_PRESS | IInput::FLAG_REPEAT | IInput::FLAG_TEXT)) != 0)
+			{
+				return true;
+			}
+			return Handled;
 		}
 	}
 	return false;
@@ -2498,6 +2580,33 @@ void CTouchControls::EditorApplySize(int NewWidth, int NewHeight)
 	m_EditingChanges = true;
 }
 
+// Apply a new color to the selected button, to the inactive or the active background color
+// depending on which of the two is currently being edited.
+void CTouchControls::EditorApplyColor(const ColorRGBA &Color)
+{
+	if(m_pSelectedButton == nullptr)
+	{
+		return;
+	}
+	if(m_EditorEditActiveColor)
+	{
+		m_pSelectedButton->m_CustomColorActive = Color;
+		if(m_pSampleButton != nullptr)
+		{
+			m_pSampleButton->m_CustomColorActive = Color;
+		}
+	}
+	else
+	{
+		m_pSelectedButton->m_CustomColor = Color;
+		if(m_pSampleButton != nullptr)
+		{
+			m_pSampleButton->m_CustomColor = Color;
+		}
+	}
+	m_EditingChanges = true;
+}
+
 // Create a new button with a default bind behavior and select it.
 void CTouchControls::EditorAddNewButton()
 {
@@ -2540,6 +2649,7 @@ void CTouchControls::DeactivateEditorPanelInputs()
 {
 	m_PanelLabelInput.Deactivate();
 	m_PanelCommandInput.Deactivate();
+	m_EditorDragging = false;
 }
 
 // Exit the editor and save the configuration to the file.
@@ -2608,6 +2718,13 @@ void CTouchControls::RenderButtonEditorPanel()
 		return;
 	}
 
+	// The panel is hidden while the selected button is dragged around, so the dragged button
+	// is always fully visible and never has to be moved into or over the panel.
+	if(m_EditorDragging)
+	{
+		return;
+	}
+
 	const bool IsBindButton = str_comp(m_pSelectedButton->m_pBehavior->GetBehaviorType(), CBindTouchButtonBehavior::BEHAVIOR_TYPE) == 0;
 	const bool IsBindToggleButton = str_comp(m_pSelectedButton->m_pBehavior->GetBehaviorType(), CBindToggleTouchButtonBehavior::BEHAVIOR_TYPE) == 0;
 
@@ -2619,19 +2736,45 @@ void CTouchControls::RenderButtonEditorPanel()
 	ButtonRect.w *= UiScale.x;
 	ButtonRect.h *= UiScale.y;
 
-	// The panel is shown below the button if the button is in the upper half of the
-	// screen, otherwise above the button.
+	// Effective background colors of the selected button, used as the slider values and
+	// previewed by the color chips.
+	const ColorRGBA InactiveColor = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
+	const ColorRGBA ActiveColor = m_pSelectedButton->m_CustomColorActive.value_or(m_pSelectedButton->m_CustomColor.has_value() ?
+		ColorRGBA(minimum(m_pSelectedButton->m_CustomColor->r + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->g + 0.18f, 1.0f), minimum(m_pSelectedButton->m_CustomColor->b + 0.18f, 1.0f), m_pSelectedButton->m_CustomColor->a) :
+		m_BackgroundColorActive);
+	const ColorRGBA EditColor = m_EditorEditActiveColor ? ActiveColor : InactiveColor;
+
+	// The panel is shown below the button if the button is in the upper part of the screen and
+	// the panel fits below, above the button if it is in the lower part and the panel fits
+	// above, and next to the button otherwise, so it never covers the selected button.
 	CUIRect Panel;
 	Panel.w = 380.0f;
-	Panel.h = 2.0f * 10.0f + 26.0f + 4.0f + 3.0f * 44.0f + 2.0f + 40.0f + 2.0f + (IsBindButton ? 2.0f * 32.0f : 26.0f) + 4.0f + 32.0f;
-	Panel.x = std::clamp(ButtonRect.x, 6.0f, maximum(Screen.w - Panel.w - 6.0f, 6.0f));
-	if(ButtonRect.y + ButtonRect.h * 0.5f < Screen.h * 0.5f)
+	Panel.h = 2.0f * 10.0f + 26.0f + 4.0f + 3.0f * 44.0f + 2.0f + 30.0f + 2.0f + 3.0f * 44.0f + 2.0f + (IsBindButton ? 2.0f * 32.0f : 26.0f) + 4.0f + 32.0f;
+	const bool FitsBelow = ButtonRect.y + ButtonRect.h + 12.0f + Panel.h <= Screen.h - 6.0f;
+	const bool FitsAbove = ButtonRect.y - 12.0f - Panel.h >= 44.0f;
+	if(FitsBelow && (ButtonRect.y + ButtonRect.h * 0.5f < Screen.h * 0.5f || !FitsAbove))
 	{
 		Panel.y = ButtonRect.y + ButtonRect.h + 12.0f;
+		Panel.x = std::clamp(ButtonRect.x, 6.0f, maximum(Screen.w - Panel.w - 6.0f, 6.0f));
+	}
+	else if(FitsAbove)
+	{
+		Panel.y = ButtonRect.y - Panel.h - 12.0f;
+		Panel.x = std::clamp(ButtonRect.x, 6.0f, maximum(Screen.w - Panel.w - 6.0f, 6.0f));
 	}
 	else
 	{
-		Panel.y = ButtonRect.y - Panel.h - 12.0f;
+		// Not enough room above or below: place the panel next to the button instead.
+		if(ButtonRect.x + ButtonRect.w * 0.5f < Screen.w * 0.5f)
+		{
+			Panel.x = ButtonRect.x + ButtonRect.w + 12.0f;
+		}
+		else
+		{
+			Panel.x = ButtonRect.x - Panel.w - 12.0f;
+		}
+		Panel.x = std::clamp(Panel.x, 6.0f, maximum(Screen.w - Panel.w - 6.0f, 6.0f));
+		Panel.y = std::clamp(ButtonRect.y, 44.0f, maximum(Screen.h - Panel.h - 6.0f, 44.0f));
 	}
 	Panel.y = std::clamp(Panel.y, 44.0f, maximum(Screen.h - Panel.h - 6.0f, 44.0f));
 	m_vEditorUiRectsNorm.emplace_back(Panel.x / Screen.w, Panel.y / Screen.h, Panel.w / Screen.w, Panel.h / Screen.h);
@@ -2712,8 +2855,8 @@ void CTouchControls::RenderButtonEditorPanel()
 		}
 	}
 	{
-		const ColorRGBA BaseColor = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
-		const float CurrentAlpha = std::clamp(BaseColor.a, 0.05f, 1.0f);
+		// Opacity of the color which is currently being edited.
+		const float CurrentAlpha = std::clamp(EditColor.a, 0.05f, 1.0f);
 		const float Current = (CurrentAlpha - 0.05f) / 0.95f;
 		char aValue[32];
 		str_format(aValue, sizeof(aValue), "%d%%", (int)(CurrentAlpha * 100.0f + 0.5f));
@@ -2721,12 +2864,62 @@ void CTouchControls::RenderButtonEditorPanel()
 		const float NewValue = RenderSliderRow(&s_AlphaSlider, Localize("Opacity"), aValue, Current);
 		if(std::abs(NewValue - Current) > 0.001f)
 		{
-			ColorRGBA NewColor = BaseColor;
-			NewColor.a = std::clamp(0.05f + NewValue * 0.95f, 0.05f, 1.0f);
-			m_pSelectedButton->m_CustomColor = NewColor;
-			if(m_pSampleButton != nullptr)
+			EditorApplyColor(ColorRGBA(EditColor.r, EditColor.g, EditColor.b, std::clamp(0.05f + NewValue * 0.95f, 0.05f, 1.0f)));
+		}
+	}
+
+	View.HSplitTop(2.0f, nullptr, &View);
+
+	// Color chips which select whether the sliders edit the inactive or the active color.
+	{
+		CUIRect Row, InactiveGroup, ActiveGroup, AutoButton;
+		View.HSplitTop(30.0f, &Row, &View);
+		Row.VSplitRight(60.0f, &Row, &AutoButton);
+		Row.VSplitLeft(110.0f, &InactiveGroup, &Row);
+		Row.VSplitLeft(6.0f, nullptr, &Row);
+		Row.VSplitLeft(110.0f, &ActiveGroup, &Row);
+		static CButtonContainer s_InactiveColorChip;
+		static CButtonContainer s_ActiveColorChip;
+		static CButtonContainer s_AutoColorButton;
+		const auto &&RenderColorChip = [&](const void *pId, CUIRect Group, const char *pLabel, const ColorRGBA &Color, bool Highlighted) {
+			Group.Draw(Highlighted ? ColorRGBA(1.0f, 1.0f, 1.0f, 0.22f) : ColorRGBA(1.0f, 1.0f, 1.0f, 0.06f), IGraphics::CORNER_ALL, 4.0f);
+			const bool Pressed = Ui()->DoButtonLogic(pId, 0, &Group, BUTTONFLAG_LEFT) != 0;
+			Group.Margin(4.0f, &Group);
+			CUIRect Swatch, LabelRect;
+			Group.VSplitLeft(Group.h, &Swatch, &LabelRect);
+			LabelRect.VSplitLeft(8.0f, nullptr, &LabelRect);
+			Swatch.Draw(Color, IGraphics::CORNER_ALL, 3.0f);
+			TextRender()->TextColor(0.85f, 0.85f, 0.85f, 1.0f);
+			Ui()->DoLabel(&LabelRect, pLabel, 10.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			return Pressed;
+		};
+		if(RenderColorChip(&s_InactiveColorChip, InactiveGroup, Localize("Inactive"), InactiveColor, !m_EditorEditActiveColor))
+		{
+			m_EditorEditActiveColor = false;
+		}
+		if(RenderColorChip(&s_ActiveColorChip, ActiveGroup, Localize("Active"), ActiveColor, m_EditorEditActiveColor))
+		{
+			m_EditorEditActiveColor = true;
+		}
+		if(EditorPanelButton(&s_AutoColorButton, Localize("Auto"), AutoButton, ColorRGBA(0.15f, 0.17f, 0.2f, 0.9f), 10.0f))
+		{
+			// Reset the color which is currently being edited to the automatic color.
+			if(m_EditorEditActiveColor)
 			{
-				m_pSampleButton->m_CustomColor = NewColor;
+				m_pSelectedButton->m_CustomColorActive = std::nullopt;
+				if(m_pSampleButton != nullptr)
+				{
+					m_pSampleButton->m_CustomColorActive = std::nullopt;
+				}
+			}
+			else
+			{
+				m_pSelectedButton->m_CustomColor = std::nullopt;
+				if(m_pSampleButton != nullptr)
+				{
+					m_pSampleButton->m_CustomColor = std::nullopt;
+				}
 			}
 			m_EditingChanges = true;
 		}
@@ -2734,69 +2927,41 @@ void CTouchControls::RenderButtonEditorPanel()
 
 	View.HSplitTop(2.0f, nullptr, &View);
 
-	// Color swatches.
+	// RGB sliders for the color which is currently being edited.
 	{
-		static const ColorRGBA s_aSwatchColors[] = {
-			ColorRGBA(0.90f, 0.25f, 0.25f, 1.0f),
-			ColorRGBA(0.95f, 0.55f, 0.15f, 1.0f),
-			ColorRGBA(0.95f, 0.85f, 0.20f, 1.0f),
-			ColorRGBA(0.25f, 0.75f, 0.35f, 1.0f),
-			ColorRGBA(0.20f, 0.75f, 0.80f, 1.0f),
-			ColorRGBA(0.25f, 0.45f, 0.90f, 1.0f),
-			ColorRGBA(0.60f, 0.30f, 0.85f, 1.0f),
-			ColorRGBA(0.95f, 0.45f, 0.70f, 1.0f),
-			ColorRGBA(0.92f, 0.92f, 0.94f, 1.0f),
-			ColorRGBA(0.35f, 0.37f, 0.40f, 1.0f)};
-		const ColorRGBA CurrentBase = m_pSelectedButton->m_CustomColor.value_or(m_BackgroundColorInactive);
-		CUIRect Row, LabelRect, SwatchArea;
-		View.HSplitTop(40.0f, &Row, &View);
-		Row.VSplitLeft(64.0f, &LabelRect, &SwatchArea);
-		TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
-		Ui()->DoLabel(&LabelRect, Localize("Color"), 11.0f, TEXTALIGN_ML);
-		TextRender()->TextColor(TextRender()->DefaultTextColor());
-		CUIRect Swatch;
-		SwatchArea.HMargin(7.0f, &SwatchArea);
-		SwatchArea.VSplitLeft(48.0f, &Swatch, &SwatchArea);
-		static CButtonContainer s_AutoColorButton;
-		if(EditorPanelButton(&s_AutoColorButton, Localize("Auto"), Swatch, ColorRGBA(0.15f, 0.17f, 0.2f, 0.9f), 10.0f))
+		const int CurrentRed = (int)(EditColor.r * 255.0f + 0.5f);
+		const float Current = CurrentRed / 255.0f;
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d", CurrentRed);
+		static CButtonContainer s_RedSlider;
+		const float NewValue = RenderSliderRow(&s_RedSlider, Localize("Red"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.002f)
 		{
-			m_pSelectedButton->m_CustomColor = std::nullopt;
-			if(m_pSampleButton != nullptr)
-			{
-				m_pSampleButton->m_CustomColor = std::nullopt;
-			}
-			m_EditingChanges = true;
+			EditorApplyColor(ColorRGBA(NewValue, EditColor.g, EditColor.b, EditColor.a));
 		}
-		static CButtonContainer s_aSwatchButtons[std::size(s_aSwatchColors)];
-		for(size_t Index = 0; Index < std::size(s_aSwatchColors); Index++)
+	}
+	{
+		const int CurrentGreen = (int)(EditColor.g * 255.0f + 0.5f);
+		const float Current = CurrentGreen / 255.0f;
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d", CurrentGreen);
+		static CButtonContainer s_GreenSlider;
+		const float NewValue = RenderSliderRow(&s_GreenSlider, Localize("Green"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.002f)
 		{
-			SwatchArea.VSplitLeft(4.0f, nullptr, &SwatchArea);
-			SwatchArea.VSplitLeft(26.0f, &Swatch, &SwatchArea);
-			const ColorRGBA &SwatchColor = s_aSwatchColors[Index];
-			const bool Active = m_pSelectedButton->m_CustomColor.has_value() &&
-				std::abs(m_pSelectedButton->m_CustomColor->r - SwatchColor.r) < 0.03f &&
-				std::abs(m_pSelectedButton->m_CustomColor->g - SwatchColor.g) < 0.03f &&
-				std::abs(m_pSelectedButton->m_CustomColor->b - SwatchColor.b) < 0.03f;
-			if(Active)
-			{
-				CUIRect Border = Swatch;
-				Border.x -= 1.5f;
-				Border.y -= 1.5f;
-				Border.w += 3.0f;
-				Border.h += 3.0f;
-				Border.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.9f), IGraphics::CORNER_ALL, 5.0f);
-			}
-			ColorRGBA ButtonColor(SwatchColor.r, SwatchColor.g, SwatchColor.b, CurrentBase.a);
-			if(EditorPanelButton(&s_aSwatchButtons[Index], nullptr, Swatch, ButtonColor, 10.0f))
-			{
-				ColorRGBA NewColor(SwatchColor.r, SwatchColor.g, SwatchColor.b, CurrentBase.a);
-				m_pSelectedButton->m_CustomColor = NewColor;
-				if(m_pSampleButton != nullptr)
-				{
-					m_pSampleButton->m_CustomColor = NewColor;
-				}
-				m_EditingChanges = true;
-			}
+			EditorApplyColor(ColorRGBA(EditColor.r, NewValue, EditColor.b, EditColor.a));
+		}
+	}
+	{
+		const int CurrentBlue = (int)(EditColor.b * 255.0f + 0.5f);
+		const float Current = CurrentBlue / 255.0f;
+		char aValue[32];
+		str_format(aValue, sizeof(aValue), "%d", CurrentBlue);
+		static CButtonContainer s_BlueSlider;
+		const float NewValue = RenderSliderRow(&s_BlueSlider, Localize("Blue"), aValue, Current);
+		if(std::abs(NewValue - Current) > 0.002f)
+		{
+			EditorApplyColor(ColorRGBA(EditColor.r, EditColor.g, NewValue, EditColor.a));
 		}
 	}
 
@@ -3268,6 +3433,7 @@ void CTouchControls::UpdateSampleButton(const CTouchButton &SrcButton)
 	m_pSampleButton->m_UnitRect = SrcButton.m_UnitRect;
 	m_pSampleButton->m_Shape = SrcButton.m_Shape;
 	m_pSampleButton->m_CustomColor = SrcButton.m_CustomColor;
+	m_pSampleButton->m_CustomColorActive = SrcButton.m_CustomColorActive;
 	m_pSampleButton->m_vVisibilities = SrcButton.m_vVisibilities;
 	CButtonLabel Label = SrcButton.m_pBehavior->GetLabel();
 	m_pSampleButton->m_pBehavior = std::make_unique<CBindTouchButtonBehavior>(Label.m_pLabel, Label.m_Type, "");
