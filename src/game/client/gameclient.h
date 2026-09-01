@@ -27,6 +27,7 @@
 #include <game/teamscore.h>
 
 // components
+#include "components/autofinish.h"
 #include "components/background.h"
 #include "components/binds.h"
 #include "components/broadcast.h"
@@ -160,6 +161,7 @@ public:
 	CCountryFlags m_CountryFlags;
 	CFlow m_Flow;
 	CHud m_Hud;
+	CAutoFinish m_AutoFinish;
 	CImportantAlert m_ImportantAlert;
 	CDebugHud m_DebugHud;
 	CControls m_Controls;

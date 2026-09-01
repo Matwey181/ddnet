@@ -2055,6 +2055,130 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 		Ui()->ClipEnable(&ScrollClipRect);
 	}
 
+	// ---- auto-finish section -----------------------------------------------
+	MainView.HSplitTop(24.0f, nullptr, &MainView);
+	{
+		static CButtonContainer s_AfEnableId;
+		static CButtonContainer s_AfShowPathId;
+		static CButtonContainer s_AfHookId;
+		static CButtonContainer s_AfColorRId;
+		static CButtonContainer s_AfColorGId;
+		static CButtonContainer s_AfColorBId;
+		static CButtonContainer s_AfWidthId;
+		static CButtonContainer s_AfAlphaId;
+		static CButtonContainer s_AfZoomId;
+
+		const float AfRowCheckbox = 20.0f;
+		const float AfRowSlider = 38.0f;
+		const float AfHintH = 30.0f;
+		const float AfHeaderH = 16.0f;
+		const float AfInner =
+			12.0f + AfHeaderH + 6.0f +
+			3.0f * AfRowCheckbox + 6.0f +
+			14.0f + 3.0f * AfRowSlider + 6.0f +
+			3.0f * AfRowSlider + 8.0f + AfHintH + 12.0f;
+		CUIRect AfContainer;
+		MainView.HSplitTop(AfInner, &AfContainer, &MainView);
+		s_ScrollRegion.AddRect(AfContainer);
+		AfContainer.Draw(ColorRGBA(0.04f, 0.05f, 0.08f, 0.5f), IGraphics::CORNER_ALL, 12.0f);
+		AfContainer.Margin(12.0f, &AfContainer);
+
+		// header
+		{
+			CUIRect Head;
+			AfContainer.HSplitTop(AfHeaderH, &Head, &AfContainer);
+			CUIRect SectionIcon;
+			Head.VSplitLeft(20.0f, &SectionIcon, &Head);
+			IconLabel(&SectionIcon, FontIcon::FLAG_CHECKERED, 12.0f, TEXTALIGN_ML, ColorRGBA(0.48f, 0.50f, 0.55f, 1.0f));
+			TextRender()->TextColor(0.48f, 0.50f, 0.55f, 1.0f);
+			Ui()->DoLabel(&Head, "AUTO-FINISH", 11.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+			AfContainer.HSplitTop(6.0f, nullptr, &AfContainer);
+		}
+
+		const auto AfCheckbox = [&](const void *pId, const char *pLabel, int *pValue) {
+			CUIRect Row;
+			AfContainer.HSplitTop(AfRowCheckbox, &Row, &AfContainer);
+			if(DoButton_CheckBox(pId, pLabel, *pValue != 0, &Row))
+				*pValue = *pValue != 0 ? 0 : 1;
+		};
+		AfCheckbox(&s_AfEnableId, Localize("Auto-complete the map (finds and walks the shortest route)"), &g_Config.m_ClAutoFinish);
+		AfCheckbox(&s_AfShowPathId, Localize("Show the planned route as a strip"), &g_Config.m_ClAutoFinishShowPath);
+		AfCheckbox(&s_AfHookId, Localize("Use the hook when planning"), &g_Config.m_ClAutoFinishHook);
+		AfContainer.HSplitTop(6.0f, nullptr, &AfContainer);
+
+		// route color
+		{
+			CUIRect Label;
+			AfContainer.HSplitTop(14.0f, &Label, &AfContainer);
+			TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+			Ui()->DoLabel(&Label, Localize("Route strip color (RGB)"), 10.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+		}
+		const auto AfColorSlider = [&](const void *pId, const char *pLabel, int *pValue) {
+			CUIRect Row, LabelRect, ValueRect, Swatch, SliderRect;
+			AfContainer.HSplitTop(AfRowSlider, &Row, &AfContainer);
+			Row.HSplitTop(14.0f, &LabelRect, &Row);
+			Row.HSplitTop(24.0f, &SliderRect, nullptr);
+			LabelRect.VSplitRight(56.0f, &LabelRect, &ValueRect);
+			LabelRect.VSplitRight(22.0f, &LabelRect, &Swatch);
+			Swatch.VMargin(3.0f, &Swatch);
+			Swatch.HMargin(2.0f, &Swatch);
+			Swatch.Draw(ColorRGBA(
+					    g_Config.m_ClAutoFinishColorR / 255.0f,
+					    g_Config.m_ClAutoFinishColorG / 255.0f,
+					    g_Config.m_ClAutoFinishColorB / 255.0f,
+					    1.0f),
+				IGraphics::CORNER_ALL, 3.0f);
+			TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+			Ui()->DoLabel(&LabelRect, pLabel, 10.0f, TEXTALIGN_ML);
+			char aValue[16];
+			str_format(aValue, sizeof(aValue), "%d", *pValue);
+			TextRender()->TextColor(0.95f, 0.95f, 0.95f, 1.0f);
+			Ui()->DoLabel(&ValueRect, aValue, 10.0f, TEXTALIGN_MR);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			const float Current = *pValue / 255.0f;
+			const float New = Ui()->DoScrollbarH(pId, &SliderRect, Current);
+			if(std::abs(New - Current) > 0.0005f)
+				*pValue = (int)(New * 255.0f + 0.5f);
+		};
+		AfColorSlider(&s_AfColorRId, Localize("Red"), &g_Config.m_ClAutoFinishColorR);
+		AfColorSlider(&s_AfColorGId, Localize("Green"), &g_Config.m_ClAutoFinishColorG);
+		AfColorSlider(&s_AfColorBId, Localize("Blue"), &g_Config.m_ClAutoFinishColorB);
+		AfContainer.HSplitTop(6.0f, nullptr, &AfContainer);
+
+		const auto AfValueSlider = [&](const void *pId, const char *pLabel, int *pValue, int Min, int Max) {
+			CUIRect Row, LabelRect, ValueRect, SliderRect;
+			AfContainer.HSplitTop(AfRowSlider, &Row, &AfContainer);
+			Row.HSplitTop(14.0f, &LabelRect, &Row);
+			Row.HSplitTop(24.0f, &SliderRect, nullptr);
+			LabelRect.VSplitRight(56.0f, &LabelRect, &ValueRect);
+			TextRender()->TextColor(0.75f, 0.75f, 0.75f, 1.0f);
+			Ui()->DoLabel(&LabelRect, pLabel, 10.0f, TEXTALIGN_ML);
+			char aValue[16];
+			str_format(aValue, sizeof(aValue), "%d", *pValue);
+			TextRender()->TextColor(0.95f, 0.95f, 0.95f, 1.0f);
+			Ui()->DoLabel(&ValueRect, aValue, 10.0f, TEXTALIGN_MR);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+			const float Current = (*pValue - Min) / (float)(Max - Min);
+			const float New = Ui()->DoScrollbarH(pId, &SliderRect, Current);
+			if(std::abs(New - Current) > 0.0005f)
+				*pValue = Min + (int)(New * (float)(Max - Min) + 0.5f);
+		};
+		AfValueSlider(&s_AfWidthId, Localize("Route thickness"), &g_Config.m_ClAutoFinishWidth, 1, 20);
+		AfValueSlider(&s_AfAlphaId, Localize("Route opacity"), &g_Config.m_ClAutoFinishAlpha, 40, 255);
+		AfValueSlider(&s_AfZoomId, Localize("Camera zoom while running (%)"), &g_Config.m_ClAutoFinishZoom, 0, 100);
+		AfContainer.HSplitTop(8.0f, nullptr, &AfContainer);
+
+		{
+			CUIRect Hint;
+			AfContainer.HSplitTop(AfHintH, &Hint, &AfContainer);
+			TextRender()->TextColor(0.48f, 0.50f, 0.55f, 1.0f);
+			Ui()->DoLabel(&Hint, Localize("Bind a touch button to the command 'autofinish' to toggle the bot while playing. The route avoids freeze tiles when possible."), 10.0f, TEXTALIGN_ML);
+			TextRender()->TextColor(TextRender()->DefaultTextColor());
+		}
+	}
+
 	s_ScrollRegion.End();
 }
 

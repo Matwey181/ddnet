@@ -2566,6 +2566,8 @@ if(CLIENT)
     animstate.h
     component.cpp
     component.h
+    components/autofinish.cpp
+    components/autofinish.h
     components/background.cpp
     components/background.h
     components/binds.cpp
