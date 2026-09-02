@@ -9,16 +9,23 @@
 
 #include <game/client/component.h>
 #include <game/gamecore.h>
+#include <game/teamscore.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <queue>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+
+class CCollision;
 
 /**
  * sh1zooo client: auto-finish bot.
  *
- * Plans the fastest route from the current position of the local player to
- * the finish tiles of the map and then walks the route automatically by
+ * Plans the route from the current position of the local player to the
+ * finish tiles of the map and then walks the route automatically by
  * injecting movement input every tick.
  *
  * The planner is an A* search over simulated game states: every candidate
@@ -29,13 +36,22 @@
  * jump impulses, the hook flight, attach and drag physics, teleporters,
  * speedup tiles, tune zones, stoppers and switcher states. Freeze tiles
  * are avoided unless no route exists without them; death tiles are never
- * entered. The cost of a route is its duration in ticks, so the found
- * route is the fastest one the search space allows.
+ * entered.
  *
- * The search is time-sliced over several frames so the game keeps
- * rendering while the bot is planning. The planned route is rendered as a
- * colored strip that smoothly reveals itself; color, thickness, opacity,
- * visibility and the automatic zoom-out are configurable.
+ * The whole search ladder runs on a dedicated background thread with a
+ * generous node budget, so it plans ONE CONTINUOUS ROUTE TO THE FINISH
+ * instead of short segments, and the game thread is never blocked by the
+ * search (the old frame-sliced searches starved the netcode and caused
+ * "connection problems" lags). Everything the search needs about the live
+ * game is captured in a seed snapshot before the thread starts, so the
+ * planner only ever reads the static map data plus that snapshot.
+ *
+ * While planning the tee stands still, which keeps the seed valid; when a
+ * full route is ready the bot walks it end to end, re-planning only when
+ * it gets pushed off the route. The planned route is rendered as a colored
+ * strip (culled to the camera view, so even a full-map route stays cheap)
+ * that smoothly reveals itself; color, thickness, opacity, visibility and
+ * the automatic zoom-out are configurable.
  *
  * Toggle with the "autofinish" console command, the sh1zooo client settings
  * tab or a touch button bound to the "autofinish" command.
@@ -93,8 +109,7 @@ class CAutoFinish : public CComponent
 		int m_Jumps = 2;
 		bool m_EndlessJump = false;
 		int m_FrozenTicks = 0;
-		bool m_Goal = false;
-		bool m_SubGoalHit = false; // reached the segment sub-goal
+		bool m_Goal = false; // reached a finish tile
 		float m_G = 0.0f; // cost so far in ticks
 		int m_Parent = -1;
 		int m_Ticks = 5; // ticks of the action that led here
@@ -102,8 +117,61 @@ class CAutoFinish : public CComponent
 		unsigned char m_Type = 0; // ENodeType
 	};
 
+	// Everything the background planner needs to know about the live game.
+	// Captured on the game thread before the search starts, so the planner
+	// thread never touches live (mutating) game state - only the static map
+	// data and this snapshot.
+	struct SPlannerSeed
+	{
+		vec2 m_Pos = vec2(0.0f, 0.0f);
+		vec2 m_Vel = vec2(0.0f, 0.0f);
+		int m_HookState = HOOK_IDLE;
+		vec2 m_HookPos = vec2(0.0f, 0.0f);
+		int m_Jumped = 0;
+		int m_JumpedTotal = 0;
+		int m_Jumps = 2;
+		bool m_EndlessJump = false;
+		bool m_Super = false;
+		bool m_Invincible = false;
+		int m_Team = 0;
+		CTeamsCore m_Teams;
+		bool m_UseTuneZones = false;
+		CTuningParams m_aTunings[TuneZone::NUM];
+		std::vector<SSwitchers> m_vSwitchers;
+		CCollision *m_pCollision = nullptr;
+		bool m_HookAllowed = true;
+		int m_FreezeDelay = 3;
+	};
+
+	// What kind of plan the background planner produced.
+	enum EPlannerResult
+	{
+		PLAN_NONE = 0,
+		PLAN_FULL = 1, // complete route to a finish tile
+		PLAN_PARTIAL = 2, // best partial route (emergency fallback)
+		PLAN_FAILED = 3, // nothing usable found
+		PLAN_ABORTED = 4, // cancelled (replan or shutdown)
+	};
+
+	// The plan the background planner hands back to the game thread.
+	struct SPlannerResult
+	{
+		int m_Kind = PLAN_NONE;
+		bool m_UsedFreeze = false;
+		std::vector<SPathNode> m_vPath;
+		int m_TotalTicks = 0;
+		float m_PathLen = 0.0f;
+		std::vector<vec2> m_vRoute; // guide line to the finish
+		bool m_RouteReachedFinish = false;
+		float m_StartRelaxed = 1e30f;
+		std::vector<float> m_vRelaxedTicks; // main-thread copy for the status
+		float m_BestPartialH = 1e30f;
+		char m_aError[128] = {};
+	};
+
 public:
 	CAutoFinish();
+	~CAutoFinish() override;
 
 	int Sizeof() const override { return sizeof(*this); }
 	void OnConsoleInit() override;
@@ -124,10 +192,10 @@ private:
 	int m_PlanRetries = 0;
 	int64_t m_NextPlanTryTime = 0; // time_get() based, 0 = as soon as possible
 	int64_t m_LastProgressTime = 0;
-	int64_t m_NextPeriodicReplan = 0;
 	int64_t m_NextZoomCorrect = 0;
 	int64_t m_NextReanchor = 0;
 	int64_t m_LastUpdateTime = 0;
+	int64_t m_PlanAirWaitStart = 0; // waiting to land before (re)planning starts
 	int m_StuckCount = 0;
 	float m_PlanTickF = 0.0f; // ticks elapsed inside the current plan action
 	int m_PlanIdx = 0;
@@ -137,45 +205,53 @@ private:
 	bool m_OldZoomValid = false;
 	int64_t m_LastRenderTime = 0;
 
-	// --- path ---
+	// --- path (game thread) ---
 	std::vector<SPathNode> m_vPath;
 	float m_TotalPathLen = 0.0f;
 	float m_RevealProgress = 0.0f; // 0..1, controls how much of the strip is drawn
 	float m_RevealStart = 0.0f; // progress value the reveal restarts at after replans
 
-	// --- partial-route fallback (no complete route to the finish found) ---
+	// --- partial-route fallback policy (game thread) ---
 	bool m_PartialPlan = false; // the executed route ends short of the finish
-	bool m_HasPartialCandidate = false; // this planning cycle produced a partial route
-	float m_BestPartialH = 1e30f; // relaxed ticks at the end of the best partial route
 	float m_LastPartialTargetH = 1e30f; // relaxed ticks at the end of the last walked partial route
 	int m_PartialStagnant = 0; // consecutive partial cycles without real progress
-	std::vector<SPathNode> m_vPartialPath;
-	int m_PartialTotalTicks = 0;
-	float m_PartialPathLen = 0.0f;
-	bool m_PartialUsedFreeze = false;
 
-	// --- global route and segment planning ---
+	// --- global route to the finish (game thread copies) ---
 	std::vector<vec2> m_vRoute; // tile centers from here to the finish (guide line)
 	int m_RouteIdx = 0; // how far along the global route we are
 	bool m_RouteReachedFinish = false; // the route reached a finish tile
 	float m_InitialRelaxed = 1e30f; // relaxed ticks at the first plan, for the route percentage
 	bool m_PlanEndsAtFinish = false; // the current plan ends on a finish tile
 	int64_t m_WaitLandUntil = 0; // plan exhausted mid-air: wait for the landing
-	int m_DriftRestarts = 0; // planning restarts because the seed went stale
 
 	// --- status message shown above the HUD ---
 	char m_aStatusMessage[128] = {};
 	float m_StatusMessageTime = 0.0f; // remaining seconds
-	char m_aPlanError[128] = {};
 
-	// --- A* search (time-sliced across frames) ---
+	// --- background planner thread ---
+	std::thread m_PlannerThread;
+	std::mutex m_PlannerMutex;
+	std::condition_variable m_PlannerCond;
+	bool m_PlannerThreadRunning = false; // guarded by m_PlannerMutex
+	bool m_PlannerWakeup = false; // guarded by m_PlannerMutex: start planning
+	bool m_PlannerQuit = false; // guarded by m_PlannerMutex: exit the thread
+	std::atomic<bool> m_PlannerAbort{false}; // cancel the running search
+	std::atomic<int> m_PlannerPhase{0}; // 0 idle, 1 searching, 2 result ready
+	std::atomic<int> m_PlannerAttempt{0}; // progress for the HUD
+	std::atomic<int> m_PlannerProgress{0}; // 0..100 for the HUD
+	SPlannerSeed m_PlannerSeed; // guarded by m_PlannerMutex
+	SPlannerResult m_PlannerResult; // guarded by m_PlannerMutex
+	vec2 m_SeedPos = vec2(0.0f, 0.0f); // game thread: drift guard against the seed
+	bool m_SeedPosValid = false;
+	int m_DriftRestarts = 0; // search restarts because the seed went stale
+
+	// --- A* search (planner thread only while a search is running) ---
 	CWorldCore m_SearchWorld;
 	CCharacterCore m_SearchCore;
+	SPlannerSeed m_ActiveSeed; // the seed the current search runs with
 	bool m_SearchActive = false;
 	bool m_SearchAllowFreeze = false;
 	bool m_SearchCoarse = false;
-	vec2 m_SearchSubGoal = vec2(0.0f, 0.0f); // segment target the search aims for
-	bool m_SearchSubGoalValid = false;
 	int64_t m_SearchStartWall = 0; // wall-clock start of the current attempt
 	int m_SearchMacro = 5; // ticks per macro step
 	int m_SearchAttempt = 0; // 0..3, attempt ladder
@@ -184,6 +260,7 @@ private:
 	int m_SearchMaxNodes = 0;
 	bool m_SearchOpenExhausted = false;
 	bool m_SearchBudgetHit = false;
+	bool m_SearchAborted = false;
 	int m_GoalNode = -1;
 	int m_SearchTeam = 0;
 	float m_SearchStartRelaxed = 1e30f;
@@ -195,23 +272,48 @@ private:
 		m_OpenHeap;
 	std::unordered_map<uint64_t, float> m_BestG;
 
-	// relaxed per-tile lower bound of the time to the finish (cached per map)
-	std::vector<float> m_vRelaxedTicks;
+	// --- plan scratch (planner thread) ---
+	std::vector<SPathNode> m_vPathWork;
+	int m_PlanTotalTicksWork = 0;
+	float m_TotalPathLenWork = 0.0f;
+
+	// --- partial candidate of the current search ladder (planner thread) ---
+	bool m_HasPartialCandidate = false;
+	float m_BestPartialH = 1e30f;
+	std::vector<SPathNode> m_vPartialPath;
+	int m_PartialTotalTicks = 0;
+	float m_PartialPathLen = 0.0f;
+	bool m_PartialUsedFreeze = false;
+
+	// --- relaxed per-tile lower bound of the time to the finish ---
+	std::vector<float> m_vRelaxedTicks; // planner cache, rebuilt per map
 	std::vector<int> m_vRouteParent; // per-cell predecessor on the relaxed grid
 	bool m_RelaxedValid = false;
+	std::vector<float> m_vRelaxedTicksMain; // game thread copy for the status display
+	std::vector<vec2> m_vRouteWork; // planner scratch: guide route from the seed
+	bool m_RouteReachedFinishWork = false;
 
 	void Activate();
 	void Deactivate(EDeactivateReason Reason, const char *pMessage = nullptr);
 	void ClearBotInput();
 	void SetStatusMessage(const char *pMessage, float Seconds);
 	void RequestReplan(bool QuickReveal);
-	void BuildRouteFrom(const vec2 &Pos); // rebuild the global route to the finish
-	void UpdateRouteProgress(const vec2 &Pos); // advance m_RouteIdx along the route
+	void BuildRouteFrom(const vec2 &Pos); // planner: rebuild the guide route scratch
+	void UpdateRouteProgress(const vec2 &Pos); // game thread: advance m_RouteIdx
 
-	// search
-	void StartNextSearchAttempt();
-	void StartSearch(bool AllowFreeze, bool Coarse);
-	bool SearchStep(); // expands nodes until the slice budget is used, returns true when the attempt ended
+	// planner thread lifecycle
+	void StartPlanner(); // game thread: capture the seed and wake the planner
+	void PlannerThread(); // planner: thread entry
+	void RunPlanner(const SPlannerSeed &Seed, SPlannerResult &Result); // planner: full ladder
+	void PublishPlannerProgress(); // planner: update the HUD progress atomics
+	void AbortPlanner(bool Wait); // game thread: cancel the running search
+	void StopPlannerThread(); // game thread: shutdown and join
+	void ApplyPlannerResult(); // game thread: apply a finished plan
+	void PlanFailed(const char *pError); // game thread: retry or give up
+
+	// search (planner thread only)
+	void StartSearch(const SPlannerSeed &Seed, bool AllowFreeze, bool Coarse);
+	bool SearchStep(); // expands nodes; returns true when the attempt ended
 	void FinishSearchAttempt();
 	void ExpandNode(int NodeIdx);
 	int CollectHookAnchors(const vec2 &Pos, vec2 *pAnchors, int MaxAnchors);
@@ -220,11 +322,12 @@ private:
 		bool &DeepFreezeHit, bool &Goal, bool &Tele, bool &EvilTele, vec2 &TelePos, int &JumpRefill, int &JumpsSet);
 	void UpdateTuningZone(const vec2 &Pos);
 	void PushSuccessor(int ParentIdx, const SSearchNode &State);
-	void BuildRelaxedTicks();
-	float RelaxedTicksAt(const vec2 &Pos) const;
+	int BuildRelaxedTicks(char *pError, size_t ErrorSize); // 0 = ok, 1 = failed, 2 = aborted
+	float RelaxedTicksAt(const vec2 &Pos) const; // planner copy
+	float RelaxedTicksMainAt(const vec2 &Pos) const; // game thread copy
 	uint64_t StateKey(const SSearchNode &Node) const;
 	void RestoreSearchCore(const SSearchNode &Node);
-	void BuildPlanFromSearch(int GoalNode);
+	void BuildPlanFromSearch(int GoalNode); // into the planner scratch
 	void ClearSearchData();
 
 	void ApplyAutoZoom(bool Immediate);
