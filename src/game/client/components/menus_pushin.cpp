@@ -309,15 +309,14 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                 vec2 OffsetToMid;
                 CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
                 const vec2 Pos = vec2(Rect.x + Rect.w / 2.0f, Rect.y + Rect.h / 2.0f + OffsetToMid.y);
-                vec2 Dir = vec2(1.0f, 0.0f);
-                if(Ui()->MouseInside(&Rect))
-                {
-                        Dir = vec2(Ui()->MouseX() - Pos.x, Ui()->MouseY() - Pos.y);
-                        if(length(Dir) > 0.001f)
-                                Dir = normalize(Dir);
-                        else
-                                Dir = vec2(1.0f, 0.0f);
-                }
+                // Tee looks at the cursor across the whole screen (not just inside the
+                // preview rect), matching the in-game behavior where tees track the mouse
+                // position globally.
+                vec2 Dir = vec2(Ui()->MouseX() - Pos.x, Ui()->MouseY() - Pos.y);
+                if(length(Dir) > 0.001f)
+                        Dir = normalize(Dir);
+                else
+                        Dir = vec2(1.0f, 0.0f);
                 RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Dir, Pos);
         };
 
@@ -432,6 +431,18 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
         // Static unique IDs for listbox items
         static int s_aColItemIds[3][256];
 
+        // Currently selected player name (across all columns). Selected by tapping
+        // a player row; tapping a column title moves the selected player there.
+        static char s_aSelectedName[MAX_NAME_LENGTH] = "";
+        // Auto-clear the selection if the settings menu was closed and reopened
+        // (the static char persists across frames, so we only reset it on first entry).
+        static bool s_PushinFirstEntry = true;
+        if(s_PushinFirstEntry)
+        {
+                s_aSelectedName[0] = '\0';
+                s_PushinFirstEntry = false;
+        }
+
         auto &&DrawColumn = [&](CUIRect &Col, const char *pTitle, const std::vector<std::pair<std::string, int>> &vEntries, int ColKind) -> void {
                 CUIRect Title, List;
                 Col.HSplitTop(20.0f, &Title, &Col);
@@ -463,6 +474,19 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                                 continue;
                         CUIRect RowR = Item.m_Rect;
                         RowR.Margin(2.0f, &RowR);
+
+                        // Tap on the row to select this player.
+                        if(Ui()->DoButtonLogic(&s_aColItemIds[ColKind][i], 0, &RowR, BUTTONFLAG_LEFT) == 1)
+                        {
+                                str_copy(s_aSelectedName, Name.c_str(), sizeof(s_aSelectedName));
+                        }
+
+                        // Highlight the selected row.
+                        if(s_aSelectedName[0] != '\0' && str_comp_nocase(s_aSelectedName, Name.c_str()) == 0)
+                        {
+                                ColorRGBA SelColor(1.0f, 1.0f, 1.0f, 0.18f);
+                                RowR.Draw(SelColor, IGraphics::CORNER_ALL, 4.0f);
+                        }
 
                         CUIRect TeeRect, NameRect;
                         RowR.VSplitLeft(RowR.h, &TeeRect, &NameRect);
@@ -520,7 +544,9 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
         DrawColumn(ColWar, pWarLabel, vWarPlayers, 1);
         DrawColumn(ColTeam, pTeamLabel, vTeamPlayers, 2);
 
-        // Drop-zone click detection on column titles.
+        // Drop-zone click detection on column titles. Tapping a title moves the
+        // currently selected player into that column (war/team/none). Works both
+        // in-game and out-of-game (uses the player's name, not their client ID).
         auto &&TitleClick = [&](CUIRect &Col, int TargetKind) -> bool {
                 CUIRect Title;
                 Col.HSplitTop(20.0f, &Title, nullptr);
@@ -528,24 +554,36 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                 int Res = Ui()->DoButtonLogic(&s_TitleIds[TargetKind], 0, &Title, BUTTONFLAG_LEFT);
                 return Res == 1;
         };
-        if(m_PushinSelectedClientId >= 0 && InGame && m_PushinSelectedClientId < MAX_CLIENTS)
+        if(s_aSelectedName[0] != '\0')
         {
-                const char *pSelectedName = GameClient()->m_aClients[m_PushinSelectedClientId].m_aName;
                 if(TitleClick(ColWar, 1))
                 {
-                        SetPushinStatus(pSelectedName, PUSHIN_VAR_WAR);
-                        m_PushinSelectedClientId = -1;
+                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_WAR);
+                        s_aSelectedName[0] = '\0';
                 }
                 else if(TitleClick(ColTeam, 2))
                 {
-                        SetPushinStatus(pSelectedName, PUSHIN_VAR_TEAM);
-                        m_PushinSelectedClientId = -1;
+                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_TEAM);
+                        s_aSelectedName[0] = '\0';
                 }
                 else if(TitleClick(ColPlayers, 0))
                 {
-                        SetPushinStatus(pSelectedName, PUSHIN_VAR_NONE);
-                        m_PushinSelectedClientId = -1;
+                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_NONE);
+                        s_aSelectedName[0] = '\0';
                 }
+        }
+
+        // Show the currently selected player near the top of the customization panel,
+        // so the user knows what's currently being dragged.
+        if(s_aSelectedName[0] != '\0')
+        {
+                CUIRect SelLabel;
+                LeftPanel.HSplitTop(20.0f, &SelLabel, &LeftPanel);
+                char aSelText[128];
+                str_format(aSelText, sizeof(aSelText), Localize("Selected: %s — tap a column title to move"), s_aSelectedName);
+                TextRender()->TextColor(PushinConfigColorToRGBA(g_Config.m_PushinVarWarColor));
+                Ui()->DoLabel(&SelLabel, aSelText, 11.0f, TEXTALIGN_ML);
+                TextRender()->TextColor(TextRender()->DefaultTextColor());
         }
 
         // ---------------- Preview block ----------------
