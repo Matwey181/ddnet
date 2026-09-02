@@ -33,10 +33,10 @@ namespace
 	constexpr int MACRO_FINE = 5;
 	constexpr int MACRO_COARSE = 8;
 	constexpr int HOOK_FIRE_TICKS = 8; // hook flight budget before giving up
-	constexpr int MAX_NODES_FINE = 90000;
-	constexpr int MAX_NODES_COARSE = 140000;
-	constexpr int MAX_EXPANSIONS_FINE = 45000;
-	constexpr int MAX_EXPANSIONS_COARSE = 70000;
+	constexpr int MAX_NODES_FINE = 12000;
+	constexpr int MAX_NODES_COARSE = 20000;
+	constexpr int MAX_EXPANSIONS_FINE = 5000;
+	constexpr int MAX_EXPANSIONS_COARSE = 9000;
 	constexpr int MAX_ANCHORS = 6;
 	constexpr float NODE_REACH_PX = 46.0f;
 	// a node below our feet by this much is a fall node: it can only be claimed
@@ -52,6 +52,15 @@ namespace
 	constexpr int MAX_PLAN_RETRIES = 2;
 	constexpr int PERIODIC_REPLAN_SECONDS = 15;
 	constexpr int MAX_SEARCH_ATTEMPTS = 4;
+	// segment planning: the search aims ROUTE_LOOKAHEAD_POINTS along the global
+	// route instead of the whole map, which keeps it small and fast
+	constexpr int ROUTE_LOOKAHEAD_POINTS = 32;
+	constexpr int ROUTE_MAX_POINTS = 600;
+	constexpr float SUBGOAL_REACH_PX = 52.0f;
+	constexpr int SEARCH_ATTEMPT_SECONDS = 6;
+	constexpr float DRIFT_RESTART_PX = 140.0f;
+	constexpr int MAX_DRIFT_RESTARTS = 2;
+	constexpr float WAIT_LAND_SECONDS = 1.5f;
 	// partial-route fallback: a candidate must buy this much progress over its search start
 	constexpr float MIN_PARTIAL_GAIN_TICKS = 15.0f;
 	// consecutive partial routes must improve on the previous one by this much
@@ -97,6 +106,12 @@ void CAutoFinish::OnReset()
 	m_StuckCount = 0;
 	m_ReplanAfterFreeze = false;
 	m_RelaxedValid = false;
+	m_vRoute.clear();
+	m_RouteIdx = 0;
+	m_RouteReachedFinish = false;
+	m_PlanEndsAtFinish = false;
+	m_WaitLandUntil = 0;
+	m_DriftRestarts = 0;
 	ClearSearchData();
 	if(m_Active)
 	{
@@ -108,6 +123,9 @@ void CAutoFinish::OnReset()
 void CAutoFinish::OnMapLoad()
 {
 	m_RelaxedValid = false;
+	m_vRoute.clear();
+	m_RouteIdx = 0;
+	m_RouteReachedFinish = false;
 	if(m_Active && !m_vPath.empty())
 	{
 		RequestReplan(false);
@@ -141,6 +159,8 @@ void CAutoFinish::RequestReplan(bool QuickReveal)
 	m_PlanIdx = 0;
 	m_PlanTickF = 0.0f;
 	m_SearchAttempt = 0;
+	m_PlanEndsAtFinish = false;
+	m_WaitLandUntil = 0;
 	m_PartialPlan = false;
 	m_HasPartialCandidate = false;
 	m_BestPartialH = 1e30f;
@@ -195,6 +215,13 @@ void CAutoFinish::Activate()
 	m_LastProgressTime = time_get();
 	m_LastUpdateTime = m_LastProgressTime;
 	m_NextPeriodicReplan = m_LastProgressTime + (int64_t)time_freq() * PERIODIC_REPLAN_SECONDS;
+	m_PlanEndsAtFinish = false;
+	m_WaitLandUntil = 0;
+	m_DriftRestarts = 0;
+	m_InitialRelaxed = 1e30f;
+	m_vRoute.clear();
+	m_RouteIdx = 0;
+	m_RouteReachedFinish = false;
 	ClearSearchData();
 	if(!m_OldZoomValid)
 	{
@@ -299,6 +326,9 @@ void CAutoFinish::OnUpdate()
 		return;
 	}
 
+	CControls &Controls = GameClient()->m_Controls;
+	const int D = g_Config.m_ClDummy;
+
 	// ---- planning (time-sliced so the game keeps rendering) ----------------
 	if(m_RunState != 1)
 	{
@@ -308,9 +338,11 @@ void CAutoFinish::OnUpdate()
 		}
 		if(m_SearchActive)
 		{
-			// use up to ~8 ms of this frame for the search so the game stays smooth
+			// a small slice of this frame for the search: segments are small, so
+			// the game stays smooth - the old ~8 ms slices starved the netcode
+			// and caused the "connection problems" lags
 			const int64_t SliceStart = time_get();
-			const int64_t SliceBudget = Freq / 125;
+			const int64_t SliceBudget = Freq / 400;
 			while(m_SearchActive && time_get() - SliceStart < SliceBudget)
 			{
 				if(SearchStep())
@@ -325,13 +357,66 @@ void CAutoFinish::OnUpdate()
 			{
 				m_LastProgressTime = Now; // planning is not being stuck
 			}
-			ClearBotInput(); // don't keep moving with leftover input while planning
+			// keep walking towards the next route point while the next segment is
+			// being planned instead of freezing in place; mid-air we stay passive
+			// (no air control, just fall) so we cannot invalidate the seed
+			if(m_RunState == 0 && !GameClient()->m_Chat.IsActive() &&
+				!GameClient()->m_Menus.IsActive())
+			{
+				vec2 SteerPos = GameClient()->m_PredictedChar.m_Pos;
+				const CNetObj_Character &SteerSnap = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur;
+				if(distance(SteerPos, vec2(SteerSnap.m_X, SteerSnap.m_Y)) > 500.0f)
+				{
+					SteerPos = vec2(SteerSnap.m_X, SteerSnap.m_Y);
+				}
+				const bool SteerGround = Collision()->TestBox(
+					SteerPos + vec2(0.0f, 3.0f), CCharacterCore::PhysicalSizeVec2());
+				int SteerDir = 0;
+				if(SteerGround && (int)m_vRoute.size() > m_RouteIdx + 1)
+				{
+					// aim a few points ahead; across a teleporter the next point is
+					// far away, so walk onto the current one (the teleporter) instead
+					const int Ni = m_RouteIdx + 1;
+					const vec2 Near = distance(m_vRoute[Ni], m_vRoute[m_RouteIdx]) > 120.0f ?
+								  m_vRoute[m_RouteIdx] :
+								  m_vRoute[std::min(Ni + 2, (int)m_vRoute.size() - 1)];
+					if(Near.x > SteerPos.x + 8.0f)
+					{
+						SteerDir = 1;
+					}
+					else if(Near.x < SteerPos.x - 8.0f)
+					{
+						SteerDir = -1;
+					}
+					// never steer into death or freeze tiles
+					if(SteerDir != 0)
+					{
+						const vec2 Probe = SteerPos + vec2((float)SteerDir * 40.0f, 0.0f);
+						const int ProbeIdx = Collision()->GetMapIndex(Probe);
+						const int ProbeDownIdx = Collision()->GetMapIndex(Probe + vec2(0.0f, 28.0f));
+						const int T = Collision()->GetTileIndex(ProbeIdx);
+						const int FT = Collision()->GetFrontTileIndex(ProbeIdx);
+						const int TD = Collision()->GetTileIndex(ProbeDownIdx);
+						const int FTD = Collision()->GetFrontTileIndex(ProbeDownIdx);
+						if(T == TILE_DEATH || FT == TILE_DEATH || TD == TILE_DEATH || FTD == TILE_DEATH ||
+							T == TILE_FREEZE || FT == TILE_FREEZE || TD == TILE_FREEZE || FTD == TILE_FREEZE)
+						{
+							SteerDir = 0;
+						}
+					}
+				}
+				Controls.m_aInputDirectionLeft[D] = SteerDir < 0 ? 1 : 0;
+				Controls.m_aInputDirectionRight[D] = SteerDir > 0 ? 1 : 0;
+				Controls.m_aInputData[D].m_Jump = 0;
+				Controls.m_aInputData[D].m_Hook = 0;
+			}
+			else
+			{
+				ClearBotInput();
+			}
 			return;
 		}
 	}
-
-	CControls &Controls = GameClient()->m_Controls;
-	const int D = g_Config.m_ClDummy;
 
 	// the game freezes the input while chatting or in menus: wait silently
 	if(GameClient()->m_Chat.IsActive() || GameClient()->m_Menus.IsActive())
@@ -417,17 +502,42 @@ void CAutoFinish::OnUpdate()
 
 	if(m_PlanIdx >= (int)m_vPath.size())
 	{
+		if(m_PlanEndsAtFinish)
+		{
+			SetStatusMessage("AUTO-FINISH: MAP COMPLETED", 6.0f);
+			Deactivate(REASON_FINISHED);
+			return;
+		}
+		if(!OnGround)
+		{
+			// the segment ended mid-air (fall or swing): finish the landing first.
+			// Re-planning from a stale falling position is what made the bot fire
+			// surprise hooks in the middle of a clean drop
+			if(m_WaitLandUntil == 0)
+			{
+				m_WaitLandUntil = Now + (int64_t)(Freq * WAIT_LAND_SECONDS);
+				ClearBotInput();
+				return;
+			}
+			if(Now < m_WaitLandUntil)
+			{
+				ClearBotInput();
+				return;
+			}
+			m_WaitLandUntil = 0;
+		}
 		if(m_PartialPlan)
 		{
 			// walked as far as the planner could see: plan again from here
 			SetStatusMessage("AUTO-FINISH: partial route walked, planning further", 3.0f);
-			RequestReplan(true);
-			return;
 		}
-		SetStatusMessage("AUTO-FINISH: MAP COMPLETED", 6.0f);
-		Deactivate(REASON_FINISHED);
+		RequestReplan(true);
 		return;
 	}
+
+	// progress along the global route (used for steering while planning and
+	// for the dim guide line that shows the whole way to the finish)
+	UpdateRouteProgress(Pos);
 
 	// periodic deviation check: if we drifted far from EVERY upcoming point
 	// of the route, replan from the current position. This no longer jumps
@@ -452,12 +562,20 @@ void CAutoFinish::OnUpdate()
 
 	const SPathNode &Target = m_vPath[m_PlanIdx];
 
-	// periodic replanning keeps the route fresh
+	// periodic replanning keeps the route fresh; never mid-air: a plan built
+	// from a falling position goes stale immediately (surprise hooks, again)
 	if(Now > m_NextPeriodicReplan)
 	{
-		m_NextPeriodicReplan = Now + Freq * PERIODIC_REPLAN_SECONDS;
-		RequestReplan(true);
-		return;
+		if(!OnGround)
+		{
+			m_NextPeriodicReplan = Now + Freq; // retry once we have landed
+		}
+		else
+		{
+			m_NextPeriodicReplan = Now + Freq * PERIODIC_REPLAN_SECONDS;
+			RequestReplan(true);
+			return;
+		}
 	}
 
 	// stuck detection
@@ -496,6 +614,7 @@ void CAutoFinish::OnUpdate()
 		AimRel = vec2(1.0f, 0.0f);
 	}
 
+	const vec2 ActFrom = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
 	bool WantHook = false;
 	if(Target.m_HookMode != 0)
 	{
@@ -524,8 +643,13 @@ void CAutoFinish::OnUpdate()
 			vec2 HitPos;
 			const int Hit = Collision()->IntersectLineTeleHook(
 				Pos, Target.m_HookTarget, &HitPos, nullptr, nullptr);
-			if(distance(Pos, Target.m_HookTarget) < HookLen * 0.95f &&
-				Hit == TILE_SOLID && distance(HitPos, Target.m_HookTarget) < 30.0f)
+			// in the air be stricter: firing from a lagging position at an
+			// anchor we can barely reach is the surprise mid-air hook spam
+			const float RangeMul = OnGround ? 0.95f : 0.85f;
+			const bool NearActionStart = OnGround || distance(Pos, ActFrom) < NODE_PASS_PX;
+			if(distance(Pos, Target.m_HookTarget) < HookLen * RangeMul &&
+				Hit == TILE_SOLID && distance(HitPos, Target.m_HookTarget) < 30.0f &&
+				NearActionStart)
 			{
 				WantHook = true;
 			}
@@ -547,7 +671,6 @@ void CAutoFinish::OnUpdate()
 	}
 
 	int Dir = Target.m_Dir;
-	const vec2 ActFrom = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
 	if(OnGround && Target.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX &&
 		m_PlanTickF > (float)Target.m_Ticks * 0.9f)
 	{
@@ -619,6 +742,7 @@ void CAutoFinish::StartSearch(bool AllowFreeze, bool Coarse)
 	m_BestG.clear();
 
 	BuildRelaxedTicks();
+	m_SearchStartWall = time_get();
 
 	// our own world core: an empty character list (no player interactions,
 	// the search stays deterministic) with a snapshot of the switcher states
@@ -651,6 +775,19 @@ void CAutoFinish::StartSearch(bool AllowFreeze, bool Coarse)
 		Vel = vec2(SnapChar.m_VelX / 256.0f, SnapChar.m_VelY / 256.0f);
 	}
 
+	// the segment sub-goal: a point ROUTE_LOOKAHEAD_POINTS along the global
+	// route to the finish; the search aims for it instead of the whole map
+	BuildRouteFrom(Pos);
+	if((int)m_vRoute.size() >= 2)
+	{
+		m_SearchSubGoal = m_vRoute[std::min(m_RouteIdx + ROUTE_LOOKAHEAD_POINTS, (int)m_vRoute.size() - 1)];
+		m_SearchSubGoalValid = true;
+	}
+	else
+	{
+		m_SearchSubGoalValid = false;
+	}
+
 	SSearchNode Start;
 	Start.m_Pos = Pos;
 	Start.m_Vel = Vel;
@@ -672,6 +809,10 @@ void CAutoFinish::StartSearch(bool AllowFreeze, bool Coarse)
 	m_SearchCore.m_Invincible = Pred.m_Invincible;
 
 	m_SearchStartRelaxed = RelaxedTicksAt(Start.m_Pos);
+	if(m_SearchStartRelaxed < m_InitialRelaxed)
+	{
+		m_InitialRelaxed = m_SearchStartRelaxed; // reference for the route percentage
+	}
 	m_SearchBestH = m_SearchStartRelaxed;
 	if(m_SearchStartRelaxed > 1e29f)
 	{
@@ -702,6 +843,14 @@ bool CAutoFinish::SearchStep()
 	{
 		return true;
 	}
+	// wall-clock cap for one attempt: without it a hopeless segment could
+	// eat tens of seconds of search time slice by slice (the old lags)
+	if(m_SearchStartWall != 0 && time_get() - m_SearchStartWall > (int64_t)time_freq() * SEARCH_ATTEMPT_SECONDS)
+	{
+		m_SearchBudgetHit = true;
+		FinishSearchAttempt();
+		return true;
+	}
 	if(m_OpenHeap.empty())
 	{
 		m_SearchOpenExhausted = true;
@@ -727,7 +876,7 @@ bool CAutoFinish::SearchStep()
 		return false; // stale heap entry, a cheaper path to this state exists
 	}
 
-	if(Node.m_Goal)
+	if(Node.m_Goal || Node.m_SubGoalHit)
 	{
 		m_GoalNode = NodeIdx;
 		FinishSearchAttempt();
@@ -752,6 +901,7 @@ void CAutoFinish::FinishSearchAttempt()
 
 	if(m_GoalNode >= 0)
 	{
+		const bool FinishHit = m_vSearchNodes[m_GoalNode].m_Goal;
 		BuildPlanFromSearch(m_GoalNode);
 		if(m_vPath.empty())
 		{
@@ -760,6 +910,7 @@ void CAutoFinish::FinishSearchAttempt()
 			return;
 		}
 		m_PlanUsedFreeze = m_SearchAllowFreeze;
+		m_PlanEndsAtFinish = FinishHit;
 		m_RunState = 1;
 		m_PlanIdx = 0;
 		m_PlanTickF = 0.0f;
@@ -770,6 +921,7 @@ void CAutoFinish::FinishSearchAttempt()
 		m_RevealProgress = m_RevealStart;
 		m_PlanRetries = 0;
 		m_StuckCount = 0;
+		m_DriftRestarts = 0;
 		m_PartialPlan = false;
 		m_HasPartialCandidate = false;
 		m_BestPartialH = 1e30f;
@@ -805,6 +957,30 @@ void CAutoFinish::FinishSearchAttempt()
 		m_vPath = std::move(vOldPath);
 		m_PlanTotalTicks = OldTotalTicks;
 		m_TotalPathLen = OldPathLen;
+	}
+
+	// the seed went stale while we were planning (we kept walking, fell or
+	// teleported): restart from where we actually are instead of executing a
+	// plan computed for a ghost position - that is where the surprise mid-air
+	// hooks came from
+	if(m_DriftRestarts < MAX_DRIFT_RESTARTS)
+	{
+		vec2 CurPos = GameClient()->m_PredictedChar.m_Pos;
+		const int LocalId = GameClient()->m_Snap.m_LocalClientId;
+		if(LocalId >= 0 && !m_vSearchNodes.empty())
+		{
+			const CNetObj_Character &CurSnap = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur;
+			if(distance(CurPos, vec2(CurSnap.m_X, CurSnap.m_Y)) > 500.0f)
+			{
+				CurPos = vec2(CurSnap.m_X, CurSnap.m_Y);
+			}
+			if(distance(CurPos, m_vSearchNodes[0].m_Pos) > DRIFT_RESTART_PX)
+			{
+				m_DriftRestarts++;
+				RequestReplan(false);
+				return;
+			}
+		}
 	}
 
 	// this attempt found nothing, try the next one
@@ -1462,14 +1638,21 @@ void CAutoFinish::PushSuccessor(int ParentIdx, const SSearchNode &State)
 		return;
 	}
 
-	const float h = RelaxedTicksAt(State.m_Pos);
-	if(h > 1e29f)
+	const float hFin = RelaxedTicksAt(State.m_Pos);
+	if(hFin > 1e29f)
 	{
 		return; // this cell can never reach a finish
 	}
-	if(h > m_SearchStartRelaxed + CORRIDOR_SLACK_TICKS)
+	if(hFin > m_SearchStartRelaxed + CORRIDOR_SLACK_TICKS)
 	{
 		return; // too far off the corridor towards the finish
+	}
+	// priority heuristic: time to the finish, or - when a segment sub-goal
+	// is set - the straight-line time to it, whichever is tighter
+	float h = hFin;
+	if(m_SearchSubGoalValid)
+	{
+		h = std::min(h, distance(State.m_Pos, m_SearchSubGoal) / HEUR_VMAX);
 	}
 
 	const float g = State.m_G;
@@ -1490,12 +1673,14 @@ void CAutoFinish::PushSuccessor(int ParentIdx, const SSearchNode &State)
 	SSearchNode Node = State;
 	Node.m_G = g;
 	Node.m_Parent = ParentIdx;
+	Node.m_SubGoalHit = m_SearchSubGoalValid &&
+			    distance(Node.m_Pos, m_SearchSubGoal) < SUBGOAL_REACH_PX;
 	m_vSearchNodes.push_back(Node);
 	m_OpenHeap.push({g + h, (int)m_vSearchNodes.size() - 1});
 
-	if(h < m_SearchBestH)
+	if(hFin < m_SearchBestH)
 	{
-		m_SearchBestH = h;
+		m_SearchBestH = hFin;
 		m_SearchBestNode = (int)m_vSearchNodes.size() - 1;
 	}
 }
@@ -1550,6 +1735,7 @@ void CAutoFinish::BuildRelaxedTicks()
 
 	const int NumCells = W * H;
 	m_vRelaxedTicks.assign(NumCells, 1e30f);
+	m_vRouteParent.assign(NumCells, -1);
 
 	std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
 		std::greater<std::pair<float, int>>>
@@ -1648,6 +1834,7 @@ void CAutoFinish::BuildRelaxedTicks()
 				if(NewDist < m_vRelaxedTicks[NIdx] - 1e-4f)
 				{
 					m_vRelaxedTicks[NIdx] = NewDist;
+					m_vRouteParent[NIdx] = Idx;
 					Heap.push({NewDist, NIdx});
 				}
 			}
@@ -1660,6 +1847,7 @@ void CAutoFinish::BuildRelaxedTicks()
 			if(NewDist < m_vRelaxedTicks[OIdx] - 1e-4f)
 			{
 				m_vRelaxedTicks[OIdx] = NewDist;
+				m_vRouteParent[OIdx] = Idx;
 				Heap.push({NewDist, OIdx});
 			}
 		}
@@ -1678,6 +1866,57 @@ float CAutoFinish::RelaxedTicksAt(const vec2 &Pos) const
 	const int x = std::clamp((int)std::floor(Pos.x / CELL), 0, W - 1);
 	const int y = std::clamp((int)std::floor(Pos.y / CELL), 0, H - 1);
 	return m_vRelaxedTicks[y * W + x];
+}
+
+void CAutoFinish::BuildRouteFrom(const vec2 &Pos)
+{
+	m_vRoute.clear();
+	m_RouteIdx = 0;
+	m_RouteReachedFinish = false;
+	if(m_vRelaxedTicks.empty() || m_vRouteParent.empty())
+	{
+		return;
+	}
+	CCollision *pCol = Collision();
+	const int W = pCol->GetWidth();
+	const int H = pCol->GetHeight();
+	if(W <= 0 || H <= 0)
+	{
+		return;
+	}
+	int Cell = std::clamp((int)std::floor(Pos.y / CELL), 0, H - 1) * W +
+		   std::clamp((int)std::floor(Pos.x / CELL), 0, W - 1);
+	// walk the relaxed gradient downhill towards the finish; teleporter
+	// links jump across the map, which is exactly what the route should do
+	while((int)m_vRoute.size() < ROUTE_MAX_POINTS)
+	{
+		const int x = Cell % W;
+		const int y = Cell / W;
+		m_vRoute.push_back(vec2(x * CELL + 16.0f, y * CELL + 16.0f));
+		if(m_vRelaxedTicks[Cell] <= 0.0f)
+		{
+			m_RouteReachedFinish = true;
+			break; // a finish tile
+		}
+		const int Parent = m_vRouteParent[Cell];
+		if(Parent < 0 || Parent >= W * H || Parent == Cell)
+		{
+			break;
+		}
+		Cell = Parent;
+	}
+}
+
+void CAutoFinish::UpdateRouteProgress(const vec2 &Pos)
+{
+	const int To = std::min((int)m_vRoute.size() - 1, m_RouteIdx + 24);
+	for(int i = m_RouteIdx + 1; i <= To; i++)
+	{
+		if(distance(Pos, m_vRoute[i]) < 48.0f)
+		{
+			m_RouteIdx = i;
+		}
+	}
 }
 
 void CAutoFinish::BuildPlanFromSearch(int GoalNode)
@@ -1715,7 +1954,7 @@ void CAutoFinish::BuildPlanFromSearch(int GoalNode)
 
 void CAutoFinish::RenderPathStrip()
 {
-	if(m_vPath.size() < 2)
+	if(m_vPath.size() < 2 && m_vRoute.size() < 2)
 	{
 		return;
 	}
@@ -1734,12 +1973,45 @@ void CAutoFinish::RenderPathStrip()
 		std::clamp(g_Config.m_ClAutoFinishColorB, 0, 255) / 255.0f,
 		Alpha);
 	const float CoreWidth = (float)std::clamp(g_Config.m_ClAutoFinishWidth, 1, 20);
+
+	// the global route to the finish as a dim guide line: one continuous path
+	// to the end of the map, even while the local segment is being re-planned
+	if((int)m_vRoute.size() >= m_RouteIdx + 2)
+	{
+		std::vector<IGraphics::CFreeformItem> vGuide;
+		const float GuideHalf = CoreWidth * 0.30f;
+		vec2 Prev = m_vRoute[m_RouteIdx];
+		for(int i = m_RouteIdx + 1; i < (int)m_vRoute.size(); i++)
+		{
+			const vec2 P1 = m_vRoute[i];
+			const float Len = distance(Prev, P1);
+			if(Len > 1.0f && Len < 200.0f) // do not draw across teleporter jumps
+			{
+				const vec2 Dir = (P1 - Prev) / Len;
+				const vec2 Perp(-Dir.y, Dir.x);
+				vGuide.emplace_back(
+					Prev + Perp * GuideHalf, P1 + Perp * GuideHalf,
+					P1 - Perp * GuideHalf, Prev - Perp * GuideHalf);
+			}
+			Prev = P1;
+		}
+		if(!vGuide.empty())
+		{
+			Graphics()->QuadsBegin();
+			Graphics()->SetColor(CoreColor.r, CoreColor.g, CoreColor.b, Alpha * 0.30f);
+			Graphics()->QuadsDrawFreeform(vGuide.data(), (int)vGuide.size());
+			Graphics()->QuadsEnd();
+		}
+	}
+
 	const float RevealLen = m_RevealProgress * m_TotalPathLen;
 
 	// collect the visible segments up to the reveal length
 	std::vector<std::pair<vec2, vec2>> vSegs;
 	float Acc = 0.0f;
-	vec2 Head = m_vPath[0].m_Pos;
+	vec2 Head = m_vPath.empty() ?
+			    m_vRoute[std::clamp(m_RouteIdx, 0, (int)m_vRoute.size() - 1)] :
+			    m_vPath[0].m_Pos;
 	vec2 Prev = Head;
 	for(size_t i = 1; i < m_vPath.size() && Acc < RevealLen; i++)
 	{
@@ -1813,17 +2085,23 @@ void CAutoFinish::RenderPathStrip()
 		Graphics()->QuadsEnd();
 	}
 
-	// pulsing diamond at the finish
+	// pulsing diamond at the finish (the route end when we have a full route)
 	{
-		const vec2 &F = m_vPath.back().m_Pos;
-		const float S = 9.0f + 4.0f * (0.5f + 0.5f * std::sin((double)LocalTime() * 5.0f));
-		Graphics()->QuadsBegin();
-		Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha * 0.9f);
-		IGraphics::CFreeformItem Diamond(
-			F.x, F.y - S, F.x + S, F.y,
-			F.x, F.y + S, F.x - S, F.y);
-		Graphics()->QuadsDrawFreeform(&Diamond, 1);
-		Graphics()->QuadsEnd();
+		const bool HasFinish = m_RouteReachedFinish || m_vPath.size() >= 2;
+		const vec2 F = (m_RouteReachedFinish && !m_vRoute.empty()) ?
+				       m_vRoute.back() :
+				       (m_vPath.empty() ? vec2(0.0f, 0.0f) : m_vPath.back().m_Pos);
+		if(HasFinish)
+		{
+			const float S = 9.0f + 4.0f * (0.5f + 0.5f * std::sin((double)LocalTime() * 5.0f));
+			Graphics()->QuadsBegin();
+			Graphics()->SetColor(1.0f, 1.0f, 1.0f, Alpha * 0.9f);
+			IGraphics::CFreeformItem Diamond(
+				F.x, F.y - S, F.x + S, F.y,
+				F.x, F.y + S, F.x - S, F.y);
+			Graphics()->QuadsDrawFreeform(&Diamond, 1);
+			Graphics()->QuadsEnd();
+		}
 	}
 
 	// small diamonds at teleporter nodes
@@ -1897,8 +2175,14 @@ void CAutoFinish::RenderStatus()
 		}
 		else
 		{
-			str_format(aLabel, sizeof(aLabel), "AUTO-FINISH%s · %d/%d · ~%.1fs%s",
+			float RoutePct = 0.0f;
+			if(m_InitialRelaxed < 1e29f && m_InitialRelaxed > 1.0f)
+			{
+				RoutePct = std::clamp(1.0f - RelaxedTicksAt(GameClient()->m_PredictedChar.m_Pos) / m_InitialRelaxed, 0.0f, 0.99f);
+			}
+			str_format(aLabel, sizeof(aLabel), "AUTO-FINISH%s · ROUTE %d%% · %d/%d · ~%.1fs%s",
 				m_PartialPlan ? " · PARTIAL" : "",
+				(int)(RoutePct * 100.0f),
 				std::min(m_PlanIdx + 1, (int)m_vPath.size()), (int)m_vPath.size(),
 				m_PlanTotalTicks / 50.0f,
 				m_PlanUsedFreeze ? " · freeze ahead" : "");

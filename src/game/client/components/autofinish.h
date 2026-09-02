@@ -94,6 +94,7 @@ class CAutoFinish : public CComponent
 		bool m_EndlessJump = false;
 		int m_FrozenTicks = 0;
 		bool m_Goal = false;
+		bool m_SubGoalHit = false; // reached the segment sub-goal
 		float m_G = 0.0f; // cost so far in ticks
 		int m_Parent = -1;
 		int m_Ticks = 5; // ticks of the action that led here
@@ -153,6 +154,15 @@ private:
 	float m_PartialPathLen = 0.0f;
 	bool m_PartialUsedFreeze = false;
 
+	// --- global route and segment planning ---
+	std::vector<vec2> m_vRoute; // tile centers from here to the finish (guide line)
+	int m_RouteIdx = 0; // how far along the global route we are
+	bool m_RouteReachedFinish = false; // the route reached a finish tile
+	float m_InitialRelaxed = 1e30f; // relaxed ticks at the first plan, for the route percentage
+	bool m_PlanEndsAtFinish = false; // the current plan ends on a finish tile
+	int64_t m_WaitLandUntil = 0; // plan exhausted mid-air: wait for the landing
+	int m_DriftRestarts = 0; // planning restarts because the seed went stale
+
 	// --- status message shown above the HUD ---
 	char m_aStatusMessage[128] = {};
 	float m_StatusMessageTime = 0.0f; // remaining seconds
@@ -164,6 +174,9 @@ private:
 	bool m_SearchActive = false;
 	bool m_SearchAllowFreeze = false;
 	bool m_SearchCoarse = false;
+	vec2 m_SearchSubGoal = vec2(0.0f, 0.0f); // segment target the search aims for
+	bool m_SearchSubGoalValid = false;
+	int64_t m_SearchStartWall = 0; // wall-clock start of the current attempt
 	int m_SearchMacro = 5; // ticks per macro step
 	int m_SearchAttempt = 0; // 0..3, attempt ladder
 	int m_SearchExpansions = 0;
@@ -184,6 +197,7 @@ private:
 
 	// relaxed per-tile lower bound of the time to the finish (cached per map)
 	std::vector<float> m_vRelaxedTicks;
+	std::vector<int> m_vRouteParent; // per-cell predecessor on the relaxed grid
 	bool m_RelaxedValid = false;
 
 	void Activate();
@@ -191,6 +205,8 @@ private:
 	void ClearBotInput();
 	void SetStatusMessage(const char *pMessage, float Seconds);
 	void RequestReplan(bool QuickReveal);
+	void BuildRouteFrom(const vec2 &Pos); // rebuild the global route to the finish
+	void UpdateRouteProgress(const vec2 &Pos); // advance m_RouteIdx along the route
 
 	// search
 	void StartNextSearchAttempt();
