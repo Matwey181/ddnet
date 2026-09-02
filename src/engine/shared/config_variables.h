@@ -809,3 +809,15 @@ MACRO_CONFIG_INT(ClVideoRecorderFPS, cl_video_recorder_fps, 60, 1, 1000, CFGFLAG
 /*
  * Add config variables for mods below this comment to avoid merge conflicts.
  */
+
+// Pushin client — Var List feature (player war/team marking)
+MACRO_CONFIG_INT(PushinVarTintSkin, pushin_var_tint_skin, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tint player skins in war/team color")
+MACRO_CONFIG_INT(PushinVarTintSkinPercent, pushin_var_tint_skin_percent, 40, 0, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tint strength (percent) applied to war/team skins")
+MACRO_CONFIG_INT(PushinVarTintNick, pushin_var_tint_nick, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tint player nicknames in war/team color")
+MACRO_CONFIG_INT(PushinVarPrefix, pushin_var_prefix, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show prefix before nickname for war/team players")
+MACRO_CONFIG_STR(PushinVarWarPrefix, pushin_var_war_prefix, 16, "вар", CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prefix shown for war players")
+MACRO_CONFIG_STR(PushinVarTeamPrefix, pushin_var_team_prefix, 16, "тим", CFGFLAG_CLIENT | CFGFLAG_SAVE, "Prefix shown for team players")
+MACRO_CONFIG_COL(PushinVarWarColor, pushin_var_war_color, 65408, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Color used for war players (default red)")
+MACRO_CONFIG_COL(PushinVarTeamColor, pushin_var_team_color, 5636050, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Color used for team players (default green)")
+MACRO_CONFIG_STR(PushinVarWarList, pushin_var_war_list, 1024, "", CFGFLAG_CLIENT | CFGFLAG_SAVE, "Comma-separated list of players marked as war")
+MACRO_CONFIG_STR(PushinVarTeamList, pushin_var_team_list, 1024, "", CFGFLAG_CLIENT | CFGFLAG_SAVE, "Comma-separated list of players marked as team")
