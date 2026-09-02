@@ -44,7 +44,7 @@ namespace
 	constexpr float FEET_DROP_GUARD_PX = 15.0f;
 	// a node above our feet while standing needs a jump: same rule
 	constexpr float NODE_ABOVE_GUARD_PX = 8.0f;
-	constexpr float REANCHOR_JUMP_PX = 80.0f;
+	constexpr float NODE_PASS_PX = 220.0f; // max distance at which a passed node counts
 	constexpr float DEVIATION_REPLAN_PX = 340.0f;
 	constexpr float AIM_MAX_PX = 900.0f;
 	constexpr int STUCK_SECONDS = 5;
@@ -381,34 +381,38 @@ void CAutoFinish::OnUpdate()
 		return;
 	}
 
-	// advance along the plan: touch the planned points, but only when the node
-	// is physically reachable from the ground (a node above needs a jump, a
-	// node below needs a fall - standing near its x is NOT reaching it).
-	// Every action also has the same tick budget the simulated macro had:
-	// when it runs out the replay moves on, which keeps the planner's timing
-	// even if we cannot touch the next point (e.g. at the rim of a drop).
+	// advance along the plan: a node is done when we touch it or when we have
+	// PASSED it along the direction of travel (running, falling or flying
+	// past it) - never merely because its tick budget ran out while we were
+	// only near it: switching to the next point before reaching the current
+	// one is exactly what derailed the replay. A node above our feet needs a
+	// jump and a node below our feet needs a fall: both are claimed only
+	// while airborne.
 	while(m_PlanIdx < (int)m_vPath.size())
 	{
 		const SPathNode &Node = m_vPath[m_PlanIdx];
-		const bool LastNode = m_PlanIdx + 1 >= (int)m_vPath.size();
-		const float Budget = (float)Node.m_Ticks;
-		bool Touch = distance(Pos, Node.m_Pos) < NODE_REACH_PX;
-		if(Touch && OnGround &&
+		const vec2 From = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
+		vec2 Travel = Node.m_Pos - From;
+		const float TravelLen = length(Travel);
+		bool Done = distance(Pos, Node.m_Pos) < NODE_REACH_PX;
+		if(!Done && TravelLen > 1.0f)
+		{
+			const vec2 TravelDir = Travel / TravelLen;
+			Done = dot(Pos - Node.m_Pos, TravelDir) > 0.0f &&
+			       distance(Pos, Node.m_Pos) < NODE_PASS_PX;
+		}
+		if(Done && OnGround &&
 			(Node.m_Pos.y < Pos.y - NODE_ABOVE_GUARD_PX || Node.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX))
 		{
-			Touch = false; // claim it only once we are airborne
+			Done = false; // claim it only once we are airborne
 		}
-		const bool Near = distance(Pos, Node.m_Pos) < 100.0f;
-		const bool TimeDone = !LastNode &&
-				      ((m_PlanTickF >= Budget && Near) || m_PlanTickF >= Budget * 1.8f + 6.0f);
-		if(Touch || TimeDone)
+		if(!Done)
 		{
-			m_PlanIdx++;
-			m_PlanTickF = 0.0f;
-			m_LastProgressTime = Now;
-			continue;
+			break;
 		}
-		break;
+		m_PlanIdx++;
+		m_PlanTickF = 0.0f;
+		m_LastProgressTime = Now;
 	}
 
 	if(m_PlanIdx >= (int)m_vPath.size())
@@ -425,41 +429,21 @@ void CAutoFinish::OnUpdate()
 		return;
 	}
 
-	// periodic re-anchoring: jump to the closest planned point ahead of us
-	// and detect large deviations from the trajectory
+	// periodic deviation check: if we drifted far from EVERY upcoming point
+	// of the route, replan from the current position. This no longer jumps
+	// the plan index to the closest node: on switchback routes the upcoming
+	// leg runs physically close to the current one and the jump made the bot
+	// skip whole legs of the plan. Advancing is done by the loop above only.
 	if(Now > m_NextReanchor)
 	{
 		m_NextReanchor = Now + Freq / 5;
-		int Best = -1;
 		float BestD = 1e9f;
 		const int To = std::min((int)m_vPath.size() - 1, m_PlanIdx + 16);
 		for(int i = m_PlanIdx; i <= To; i++)
 		{
-			const float d = distance(Pos, m_vPath[i].m_Pos);
-			if(d < BestD)
-			{
-				BestD = d;
-				Best = i;
-			}
+			BestD = std::min(BestD, distance(Pos, m_vPath[i].m_Pos));
 		}
-		bool JumpOk = Best > m_PlanIdx && BestD < REANCHOR_JUMP_PX;
-		if(JumpOk && OnGround)
-		{
-			// don't skip a jump or a fall: nodes above/below our feet can only
-			// be claimed by actually jumping or falling
-			const vec2 BP = m_vPath[Best].m_Pos;
-			if(BP.y < Pos.y - NODE_ABOVE_GUARD_PX || BP.y > Pos.y + FEET_DROP_GUARD_PX)
-			{
-				JumpOk = false;
-			}
-		}
-		if(JumpOk)
-		{
-			m_PlanIdx = Best;
-			m_PlanTickF = 0.0f;
-			m_LastProgressTime = Now;
-		}
-		else if(BestD > DEVIATION_REPLAN_PX)
+		if(BestD > DEVIATION_REPLAN_PX)
 		{
 			RequestReplan(true);
 			return;
@@ -515,11 +499,39 @@ void CAutoFinish::OnUpdate()
 	bool WantHook = false;
 	if(Target.m_HookMode != 0)
 	{
-		// hold the hook (and keep aiming at the anchor) while following this
-		// action; give up if it takes far too long and let stuck handling replan
-		if(m_PlanTickF < (float)Target.m_Ticks * 3.0f + 25.0f)
+		// keep holding a hook that is already flying, attached or retracting:
+		// releasing mid-flight would retract it and dropping mid-drag breaks
+		// the swing the planner counted on
+		const int HookState = GameClient()->m_PredictedChar.m_HookState;
+		if(HookState == HOOK_FLYING || HookState == HOOK_GRABBED ||
+			HookState == HOOK_RETRACT_START || HookState == HOOK_RETRACT_END)
 		{
 			WantHook = true;
+		}
+		else if(m_PlanTickF < (float)Target.m_Ticks * 3.0f + 25.0f)
+		{
+			// fire only when the anchor is really within the hook length and
+			// visible from where we actually are: the plan fired it from a spot
+			// we may lag behind, and a hook that cannot reach just spams
+			// fire/retract at walls we never get
+			int Zone = 0;
+			if(GameClient()->m_PredictedWorld.m_WorldConfig.m_UseTuneZones)
+			{
+				Zone = Collision()->IsTune(Collision()->GetMapIndex(Pos));
+			}
+			Zone = std::clamp(Zone, 0, TuneZone::NUM - 1);
+			const float HookLen = GameClient()->GetTuning(Zone)->m_HookLength;
+			vec2 HitPos;
+			const int Hit = Collision()->IntersectLineTeleHook(
+				Pos, Target.m_HookTarget, &HitPos, nullptr, nullptr);
+			if(distance(Pos, Target.m_HookTarget) < HookLen * 0.95f &&
+				Hit == TILE_SOLID && distance(HitPos, Target.m_HookTarget) < 30.0f)
+			{
+				WantHook = true;
+			}
+		}
+		if(WantHook)
+		{
 			vec2 HookAim = Target.m_HookTarget - Pos;
 			const float HookAimLen = length(HookAim);
 			if(HookAimLen > AIM_MAX_PX)
@@ -535,12 +547,24 @@ void CAutoFinish::OnUpdate()
 	}
 
 	int Dir = Target.m_Dir;
+	const vec2 ActFrom = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
 	if(OnGround && Target.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX &&
 		m_PlanTickF > (float)Target.m_Ticks * 0.9f)
 	{
 		// the plan expects us to be falling already: head for the drop point
-		// instead of replaying an air-control direction on the ground
-		Dir = Target.m_Pos.x > Pos.x + 4.0f ? 1 : (Target.m_Pos.x < Pos.x - 4.0f ? -1 : 0);
+		// instead of replaying an air-control direction on the ground. No
+		// deadzone here: stepping exactly onto the drop point means falling
+		// off the edge, which is the whole point
+		Dir = Target.m_Pos.x >= Pos.x ? 1 : -1;
+	}
+	else if(OnGround &&
+		((Target.m_HookMode == 1 && !WantHook) ||
+			(Target.m_Jump && distance(Pos, ActFrom) > NODE_REACH_PX * 1.5f)))
+	{
+		// this action starts from a spot we have not reached: the hook anchor
+		// is out of range from here or the jump needs its take-off point.
+		// Close in on the action's starting point first
+		Dir = ActFrom.x > Pos.x + 4.0f ? 1 : (ActFrom.x < Pos.x - 4.0f ? -1 : 0);
 	}
 	Controls.m_aInputDirectionLeft[D] = Dir < 0 ? 1 : 0;
 	Controls.m_aInputDirectionRight[D] = Dir > 0 ? 1 : 0;
@@ -548,8 +572,7 @@ void CAutoFinish::OnUpdate()
 	const float JumpPhase = Target.m_Ticks > 0 ? std::fmod(m_PlanTickF, (float)Target.m_Ticks) : 999.0f;
 	// press jumps only from near the point the action starts from (the
 	// previous path point), not from wherever we happen to lag behind
-	const vec2 JumpFrom = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
-	const bool JumpReady = !Target.m_Jump || distance(Pos, JumpFrom) < NODE_REACH_PX * 1.5f;
+	const bool JumpReady = !Target.m_Jump || distance(Pos, ActFrom) < NODE_REACH_PX * 1.5f;
 	Controls.m_aInputData[D].m_Jump = (Target.m_Jump && JumpReady && JumpPhase < 1.6f) ? 1 : 0;
 	Controls.m_aInputData[D].m_Hook = WantHook ? 1 : 0;
 }
