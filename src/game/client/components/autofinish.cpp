@@ -39,6 +39,11 @@ namespace
 	constexpr int MAX_EXPANSIONS_COARSE = 70000;
 	constexpr int MAX_ANCHORS = 6;
 	constexpr float NODE_REACH_PX = 46.0f;
+	// a node below our feet by this much is a fall node: it can only be claimed
+	// by actually falling, never by walking near its x on solid ground
+	constexpr float FEET_DROP_GUARD_PX = 15.0f;
+	// a node above our feet while standing needs a jump: same rule
+	constexpr float NODE_ABOVE_GUARD_PX = 8.0f;
 	constexpr float REANCHOR_JUMP_PX = 80.0f;
 	constexpr float DEVIATION_REPLAN_PX = 340.0f;
 	constexpr float AIM_MAX_PX = 900.0f;
@@ -345,6 +350,10 @@ void CAutoFinish::OnUpdate()
 		Pos = SnapPos;
 	}
 
+	// standing on solid ground? (the tee hitbox is 28x28, feet 14px below the
+	// center; probe a box a few pixels lower than the current position)
+	const bool OnGround = Collision()->TestBox(Pos + vec2(0.0f, 3.0f), CCharacterCore::PhysicalSizeVec2());
+
 	// frozen players cannot move: hold still, wait it out and replan afterwards
 	const bool Frozen = GameClient()->m_aClients[LocalId].m_DeepFrozen ||
 			    GameClient()->m_aClients[LocalId].m_FreezeEnd > Client()->GameTick(D);
@@ -372,11 +381,27 @@ void CAutoFinish::OnUpdate()
 		return;
 	}
 
-	// advance along the plan while we touch the planned points
+	// advance along the plan: touch the planned points, but only when the node
+	// is physically reachable from the ground (a node above needs a jump, a
+	// node below needs a fall - standing near its x is NOT reaching it).
+	// Every action also has the same tick budget the simulated macro had:
+	// when it runs out the replay moves on, which keeps the planner's timing
+	// even if we cannot touch the next point (e.g. at the rim of a drop).
 	while(m_PlanIdx < (int)m_vPath.size())
 	{
 		const SPathNode &Node = m_vPath[m_PlanIdx];
-		if(distance(Pos, Node.m_Pos) < NODE_REACH_PX)
+		const bool LastNode = m_PlanIdx + 1 >= (int)m_vPath.size();
+		const float Budget = (float)Node.m_Ticks;
+		bool Touch = distance(Pos, Node.m_Pos) < NODE_REACH_PX;
+		if(Touch && OnGround &&
+			(Node.m_Pos.y < Pos.y - NODE_ABOVE_GUARD_PX || Node.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX))
+		{
+			Touch = false; // claim it only once we are airborne
+		}
+		const bool Near = distance(Pos, Node.m_Pos) < 100.0f;
+		const bool TimeDone = !LastNode &&
+				      ((m_PlanTickF >= Budget && Near) || m_PlanTickF >= Budget * 1.8f + 6.0f);
+		if(Touch || TimeDone)
 		{
 			m_PlanIdx++;
 			m_PlanTickF = 0.0f;
@@ -417,7 +442,18 @@ void CAutoFinish::OnUpdate()
 				Best = i;
 			}
 		}
-		if(Best > m_PlanIdx && BestD < REANCHOR_JUMP_PX)
+		bool JumpOk = Best > m_PlanIdx && BestD < REANCHOR_JUMP_PX;
+		if(JumpOk && OnGround)
+		{
+			// don't skip a jump or a fall: nodes above/below our feet can only
+			// be claimed by actually jumping or falling
+			const vec2 BP = m_vPath[Best].m_Pos;
+			if(BP.y < Pos.y - NODE_ABOVE_GUARD_PX || BP.y > Pos.y + FEET_DROP_GUARD_PX)
+			{
+				JumpOk = false;
+			}
+		}
+		if(JumpOk)
 		{
 			m_PlanIdx = Best;
 			m_PlanTickF = 0.0f;
@@ -498,11 +534,23 @@ void CAutoFinish::OnUpdate()
 		}
 	}
 
-	Controls.m_aInputDirectionLeft[D] = Target.m_Dir < 0 ? 1 : 0;
-	Controls.m_aInputDirectionRight[D] = Target.m_Dir > 0 ? 1 : 0;
+	int Dir = Target.m_Dir;
+	if(OnGround && Target.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX &&
+		m_PlanTickF > (float)Target.m_Ticks * 0.9f)
+	{
+		// the plan expects us to be falling already: head for the drop point
+		// instead of replaying an air-control direction on the ground
+		Dir = Target.m_Pos.x > Pos.x + 4.0f ? 1 : (Target.m_Pos.x < Pos.x - 4.0f ? -1 : 0);
+	}
+	Controls.m_aInputDirectionLeft[D] = Dir < 0 ? 1 : 0;
+	Controls.m_aInputDirectionRight[D] = Dir > 0 ? 1 : 0;
 	Controls.m_aMousePos[D] = AimRel;
 	const float JumpPhase = Target.m_Ticks > 0 ? std::fmod(m_PlanTickF, (float)Target.m_Ticks) : 999.0f;
-	Controls.m_aInputData[D].m_Jump = (Target.m_Jump && JumpPhase < 1.6f) ? 1 : 0;
+	// press jumps only from near the point the action starts from (the
+	// previous path point), not from wherever we happen to lag behind
+	const vec2 JumpFrom = m_PlanIdx > 0 ? m_vPath[m_PlanIdx - 1].m_Pos : Pos;
+	const bool JumpReady = !Target.m_Jump || distance(Pos, JumpFrom) < NODE_REACH_PX * 1.5f;
+	Controls.m_aInputData[D].m_Jump = (Target.m_Jump && JumpReady && JumpPhase < 1.6f) ? 1 : 0;
 	Controls.m_aInputData[D].m_Hook = WantHook ? 1 : 0;
 }
 
