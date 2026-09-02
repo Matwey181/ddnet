@@ -431,9 +431,59 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
         // Static unique IDs for listbox items
         static int s_aColItemIds[3][256];
 
-        // Currently selected player name (across all columns). Selected by tapping
-        // a player row; tapping a column title moves the selected player there.
-        // Stored as a member (m_PushinSelectedName) so it survives across frames.
+        // Track double-tap timing to remove a player from war/team lists.
+        // m_PushinLastTapName + m_PushinLastTapTime store the previous tap so
+        // we can detect two taps in a row on the same entry inside a war/team
+        // column (which removes the player from that list).
+        static int64_t s_LastTapTime = 0;
+        static char s_aLastTapName[MAX_NAME_LENGTH] = "";
+
+        // Render the two small "вар" / "тим" buttons under the selected row.
+        auto &&RenderRowActionButtons = [&](const CUIRect &RowRect, const std::string &Name) -> void {
+                CUIRect Btns;
+                RowRect.HSplitBottom(20.0f, nullptr, &Btns);
+                Btns.VSplitMid(&Btns, nullptr, 4.0f);
+                // War button
+                {
+                        ColorRGBA WarC = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_PushinVarWarColor));
+                        ColorRGBA Fill = WarC;
+                        Fill.a = 0.35f;
+                        Btns.Draw(Fill, IGraphics::CORNER_ALL, 4.0f);
+                        ColorRGBA Outline = WarC;
+                        Outline.a = 0.9f;
+                        TextRender()->TextColor(Outline);
+                        const char *pLbl = g_Config.m_PushinVarPrefix ? g_Config.m_PushinVarWarPrefix : "war";
+                        Ui()->DoLabel(&Btns, pLbl, 12.0f, TEXTALIGN_MC);
+                        TextRender()->TextColor(TextRender()->DefaultTextColor());
+                        if(Ui()->MouseHovered(&Btns) && Ui()->MouseButtonClicked(0))
+                        {
+                                SetPushinStatus(Name.c_str(), PUSHIN_VAR_WAR);
+                                m_PushinSelectedName[0] = '\0';
+                        }
+                }
+                // Team button
+                CUIRect TeamBtn;
+                RowRect.HSplitBottom(20.0f, nullptr, &TeamBtn);
+                TeamBtn.VSplitMid(nullptr, &TeamBtn, 4.0f);
+                {
+                        ColorRGBA TeamC = color_cast<ColorRGBA>(ColorHSLA(g_Config.m_PushinVarTeamColor));
+                        ColorRGBA Fill = TeamC;
+                        Fill.a = 0.35f;
+                        TeamBtn.Draw(Fill, IGraphics::CORNER_ALL, 4.0f);
+                        ColorRGBA Outline = TeamC;
+                        Outline.a = 0.9f;
+                        TextRender()->TextColor(Outline);
+                        const char *pLbl = g_Config.m_PushinVarPrefix ? g_Config.m_PushinVarTeamPrefix : "team";
+                        Ui()->DoLabel(&TeamBtn, pLbl, 12.0f, TEXTALIGN_MC);
+                        TextRender()->TextColor(TextRender()->DefaultTextColor());
+                        if(Ui()->MouseHovered(&TeamBtn) && Ui()->MouseButtonClicked(0))
+                        {
+                                SetPushinStatus(Name.c_str(), PUSHIN_VAR_TEAM);
+                                m_PushinSelectedName[0] = '\0';
+                        }
+                }
+        };
+
         auto &&DrawColumn = [&](CUIRect &Col, const char *pTitle, const std::vector<std::pair<std::string, int>> &vEntries, int ColKind) -> void {
                 CUIRect Title, List;
                 Col.HSplitTop(20.0f, &Title, &Col);
@@ -455,7 +505,28 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                 Col.HSplitTop(5.0f, nullptr, &List);
                 static CListBox s_ListBoxes[3];
                 CListBox &LB = s_ListBoxes[ColKind];
-                LB.DoStart(36.0f, (int)vEntries.size(), 1, 6, -1, &List, true, IGraphics::CORNER_B);
+                // If the selected player is in this column, reserve extra height for the
+                // action buttons that appear beneath their row.
+                int SelectedInThisCol = -1;
+                if(m_PushinSelectedName[0] != '\0')
+                {
+                        for(size_t i = 0; i < vEntries.size(); ++i)
+                        {
+                                if(str_comp_nocase(vEntries[i].first.c_str(), m_PushinSelectedName) == 0)
+                                {
+                                        SelectedInThisCol = (int)i;
+                                        break;
+                                }
+                        }
+                }
+                // Row height is 36 by default; when action buttons are shown under the
+                // selected row, that row needs extra vertical space.
+                float BaseRowHeight = 36.0f;
+                float RowHeightForSelected = BaseRowHeight + 26.0f; // base + buttons + small gap
+                // The listbox uses a single row height for all rows, so we bump it up
+                // only when a row is selected in this column (small visual cost otherwise).
+                float UseRowHeight = (SelectedInThisCol >= 0) ? RowHeightForSelected : BaseRowHeight;
+                LB.DoStart(UseRowHeight, (int)vEntries.size(), 1, 6, -1, &List, true, IGraphics::CORNER_B);
                 for(size_t i = 0; i < vEntries.size() && i < 256; i++)
                 {
                         const std::string &Name = vEntries[i].first;
@@ -466,23 +537,51 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                         CUIRect RowR = Item.m_Rect;
                         RowR.Margin(2.0f, &RowR);
 
-                        // Detect tap on this row via raw mouse hover + click (avoid calling
-                        // DoButtonLogic twice, which conflicts with the listbox's own click
-                        // handling and causes the selection to flicker / disappear).
-                        if(Ui()->MouseHovered(&RowR) && Ui()->MouseButtonClicked(0))
+                        // Top portion: tee + name. Bottom portion (when selected) holds the buttons.
+                        CUIRect TopPart, ButtonsPart;
+                        if((int)i == SelectedInThisCol)
+                                RowR.HSplitTop(BaseRowHeight - 4.0f, &TopPart, &ButtonsPart);
+                        else
+                                TopPart = RowR;
+
+                        // Detect single tap on the row.
+                        if(Ui()->MouseHovered(&TopPart) && Ui()->MouseButtonClicked(0))
                         {
-                                str_copy(m_PushinSelectedName, Name.c_str(), sizeof(m_PushinSelectedName));
+                                int64_t Now = time_get();
+                                int64_t Freq = time_freq();
+                                // Double-tap detection: same name + within 400ms.
+                                bool IsDoubleTap = (s_aLastTapName[0] != '\0' &&
+                                        str_comp_nocase(s_aLastTapName, Name.c_str()) == 0 &&
+                                        (Now - s_LastTapTime) < (Freq * 400 / 1000));
+                                str_copy(s_aLastTapName, Name.c_str(), sizeof(s_aLastTapName));
+                                s_LastTapTime = Now;
+
+                                if(IsDoubleTap && (ColKind == 1 || ColKind == 2))
+                                {
+                                        // Double-tap inside a war/team column removes the player.
+                                        SetPushinStatus(Name.c_str(), PUSHIN_VAR_NONE);
+                                        m_PushinSelectedName[0] = '\0';
+                                        s_aLastTapName[0] = '\0';
+                                }
+                                else
+                                {
+                                        // Single tap selects (and toggles off if tapping the same selected name again).
+                                        if(m_PushinSelectedName[0] != '\0' && str_comp_nocase(m_PushinSelectedName, Name.c_str()) == 0)
+                                                m_PushinSelectedName[0] = '\0';
+                                        else
+                                                str_copy(m_PushinSelectedName, Name.c_str(), sizeof(m_PushinSelectedName));
+                                }
                         }
 
                         // Highlight the selected row.
                         if(m_PushinSelectedName[0] != '\0' && str_comp_nocase(m_PushinSelectedName, Name.c_str()) == 0)
                         {
                                 ColorRGBA SelColor(1.0f, 1.0f, 1.0f, 0.25f);
-                                RowR.Draw(SelColor, IGraphics::CORNER_ALL, 4.0f);
+                                TopPart.Draw(SelColor, IGraphics::CORNER_ALL, 4.0f);
                         }
 
                         CUIRect TeeRect, NameRect;
-                        RowR.VSplitLeft(RowR.h, &TeeRect, &NameRect);
+                        TopPart.VSplitLeft(TopPart.h, &TeeRect, &NameRect);
                         NameRect.VSplitLeft(6.0f, nullptr, &NameRect);
 
                         const CGameClient::CClientData *pCli = (ClientId >= 0 && ClientId < MAX_CLIENTS) ? &GameClient()->m_aClients[ClientId] : nullptr;
@@ -529,6 +628,10 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                                 Ui()->DoLabel(&StatusRect, pStatusText, 10.0f, TEXTALIGN_MR);
                                 TextRender()->TextColor(TextRender()->DefaultTextColor());
                         }
+
+                        // Draw the small war/team action buttons under the selected row.
+                        if((int)i == SelectedInThisCol)
+                                RenderRowActionButtons(RowR, Name);
                 }
                 LB.DoEnd();
         };
@@ -537,44 +640,16 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
         DrawColumn(ColWar, pWarLabel, vWarPlayers, 1);
         DrawColumn(ColTeam, pTeamLabel, vTeamPlayers, 2);
 
-        // Drop-zone click detection on column titles. Tapping a title moves the
-        // currently selected player into that column (war/team/none). Uses raw
-        // mouse hover + click for the same reason as row selection above.
-        auto &&TitleClick = [&](CUIRect &Col, int TargetKind) -> bool {
-                CUIRect Title;
-                Col.HSplitTop(20.0f, &Title, nullptr);
-                return Ui()->MouseHovered(&Title) && Ui()->MouseButtonClicked(0);
-        };
-        if(m_PushinSelectedName[0] != '\0')
+        // Small instruction text at the top of the customization panel.
         {
-                if(TitleClick(ColWar, 1))
-                {
-                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_WAR);
-                        m_PushinSelectedName[0] = '\0';
-                }
-                else if(TitleClick(ColTeam, 2))
-                {
-                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_TEAM);
-                        m_PushinSelectedName[0] = '\0';
-                }
-                else if(TitleClick(ColPlayers, 0))
-                {
-                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_NONE);
-                        m_PushinSelectedName[0] = '\0';
-                }
-        }
-
-        // Show the currently selected player near the top of the customization panel,
-        // so the user knows what's currently being dragged.
-        if(m_PushinSelectedName[0] != '\0')
-        {
-                CUIRect SelLabel;
-                LeftPanel.HSplitTop(20.0f, &SelLabel, &LeftPanel);
-                char aSelText[160];
-                str_format(aSelText, sizeof(aSelText), Localize("Selected: %s — tap a column title to move"), m_PushinSelectedName);
-                TextRender()->TextColor(PushinConfigColorToRGBA(g_Config.m_PushinVarWarColor));
-                Ui()->DoLabel(&SelLabel, aSelText, 11.0f, TEXTALIGN_ML);
-                TextRender()->TextColor(TextRender()->DefaultTextColor());
+                CUIRect Hint;
+                LeftPanel.HSplitTop(34.0f, &Hint, &LeftPanel);
+                Hint.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.30f), IGraphics::CORNER_ALL, 4.0f);
+                Hint.Margin(4.0f, &Hint);
+                Hint.HSplitTop(13.0f, &Hint, nullptr);
+                Ui()->DoLabel(&Hint, "тап по игроку — выбрать, под ним появятся кнопки", 9.0f, TEXTALIGN_ML);
+                Hint.HSplitTop(13.0f, nullptr, &Hint);
+                Ui()->DoLabel(&Hint, "двойной тап в вар/тим — удалить оттуда", 9.0f, TEXTALIGN_ML);
         }
 
         // ---------------- Preview block ----------------
