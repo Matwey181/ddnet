@@ -70,6 +70,12 @@ namespace
 	constexpr float DRIFT_RESTART_PX = 140.0f;
 	constexpr int MAX_DRIFT_RESTARTS = 3;
 	constexpr float WAIT_LAND_SECONDS = 1.5f;
+	// the tee's speed is part of the plan now: seed only settled tees, gate
+	// jumps on the take-off speed and steer against the momentum, not the position
+	constexpr float SEED_STOP_SPEED_PX = 1.5f; // plan only from a basically standing tee
+	constexpr float SEED_STOP_WAIT_SECONDS = 2.0f; // give friction this long to stop us
+	constexpr float LOOKAHEAD_MIN_TICKS = 8.0f; // predictive steering horizon
+	constexpr float LOOKAHEAD_MAX_TICKS = 28.0f;
 	// partial-route fallback: a candidate must buy this much progress over its search start
 	constexpr float MIN_PARTIAL_GAIN_TICKS = 15.0f;
 	// consecutive partial routes must improve on the previous one by this much
@@ -131,6 +137,11 @@ void CAutoFinish::OnReset()
 	m_WaitLandUntil = 0;
 	m_DriftRestarts = 0;
 	m_PlanAirWaitStart = 0;
+	m_PlanStopWaitStart = 0;
+	m_PrevPosValid = false;
+	m_JumpTryNode = -1;
+	m_JumpTries = 0;
+	m_PlanStartPosValid = false;
 	m_SeedPosValid = false;
 	ClearSearchData();
 	if(m_Active)
@@ -192,6 +203,11 @@ void CAutoFinish::RequestReplan(bool QuickReveal)
 	m_vPartialPath.shrink_to_fit();
 	m_DriftRestarts = 0;
 	m_PlanAirWaitStart = 0;
+	m_PlanStopWaitStart = 0;
+	m_PrevPosValid = false;
+	m_JumpTryNode = -1;
+	m_JumpTries = 0;
+	m_PlanStartPosValid = false;
 	m_SeedPosValid = false;
 	m_RevealStart = QuickReveal ? std::max(0.4f, m_RevealProgress * 0.7f) : 0.3f;
 	ClearSearchData();
@@ -249,6 +265,11 @@ void CAutoFinish::Activate()
 	m_WaitLandUntil = 0;
 	m_DriftRestarts = 0;
 	m_PlanAirWaitStart = 0;
+	m_PlanStopWaitStart = 0;
+	m_PrevPosValid = false;
+	m_JumpTryNode = -1;
+	m_JumpTries = 0;
+	m_PlanStartPosValid = false;
 	m_SeedPosValid = false;
 	m_InitialRelaxed = 1e30f;
 	m_vRoute.clear();
@@ -400,10 +421,28 @@ void CAutoFinish::OnUpdate()
 				CCharacterCore::PhysicalSizeVec2());
 			if(m_PlannerPhase.load(std::memory_order_acquire) == 0 && m_RunState == 0)
 			{
-				if(PlanGround)
+				const float SeedSpeed = length(GameClient()->m_PredictedChar.m_Vel);
+				if(PlanGround && SeedSpeed < SEED_STOP_SPEED_PX)
 				{
 					m_PlanAirWaitStart = 0;
+					m_PlanStopWaitStart = 0;
 					StartPlanner();
+				}
+				else if(PlanGround)
+				{
+					// still sliding from the run before: friction needs a moment to
+					// stop us. Seeding a moving tee goes stale immediately - the plan
+					// would start from a speed we no longer have when it gets applied
+					if(m_PlanStopWaitStart == 0)
+					{
+						m_PlanStopWaitStart = Now;
+					}
+					else if(Now - m_PlanStopWaitStart > (int64_t)Freq * SEED_STOP_WAIT_SECONDS)
+					{
+						m_PlanStopWaitStart = 0;
+						m_PlanAirWaitStart = 0;
+						StartPlanner();
+					}
 				}
 				else if(m_PlanAirWaitStart == 0)
 				{
@@ -460,12 +499,20 @@ void CAutoFinish::OnUpdate()
 
 	// current player state (prefer prediction, fall back to the snapshot)
 	vec2 Pos = GameClient()->m_PredictedChar.m_Pos;
+	vec2 Vel = GameClient()->m_PredictedChar.m_Vel;
 	const CNetObj_Character &SnapChar = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur;
 	const vec2 SnapPos(SnapChar.m_X, SnapChar.m_Y);
 	if(distance(Pos, SnapPos) > 500.0f)
 	{
 		Pos = SnapPos;
+		Vel = vec2(SnapChar.m_VelX / 256.0f, SnapChar.m_VelY / 256.0f);
 	}
+
+	// the position of the previous tick: at speed the tee crosses whole node
+	// radii between two ticks, so claims have to check the swept segment
+	const vec2 PrevPos = m_PrevPosValid ? m_PrevPos : Pos;
+	m_PrevPos = Pos;
+	m_PrevPosValid = true;
 
 	// standing on solid ground? (the tee hitbox is 28x28, feet 14px below the
 	// center; probe a box a few pixels lower than the current position)
@@ -517,6 +564,19 @@ void CAutoFinish::OnUpdate()
 			const vec2 TravelDir = Travel / TravelLen;
 			Done = dot(Pos - Node.m_Pos, TravelDir) > 0.0f &&
 			       distance(Pos, Node.m_Pos) < NODE_PASS_PX;
+		}
+		if(!Done && m_PrevPosValid)
+		{
+			// swept reach: the segment of the last tick passed through the
+			// node's radius. Fast falls and hook flights skip the whole circle
+			// between two ticks and the node behind never gets claimed
+			const vec2 Seg = Pos - PrevPos;
+			const float SegLen2 = dot(Seg, Seg);
+			if(SegLen2 > 0.01f && SegLen2 < 80.0f * 80.0f)
+			{
+				const float t = std::clamp(dot(Node.m_Pos - PrevPos, Seg) / SegLen2, 0.0f, 1.0f);
+				Done = distance(PrevPos + Seg * t, Node.m_Pos) < NODE_REACH_PX * 0.75f;
+			}
 		}
 		if(Done && OnGround &&
 			(Node.m_Pos.y < Pos.y - NODE_ABOVE_GUARD_PX || Node.m_Pos.y > Pos.y + FEET_DROP_GUARD_PX))
@@ -705,17 +765,71 @@ void CAutoFinish::OnUpdate()
 	{
 		// this action starts from a spot we have not reached: the hook anchor
 		// is out of range from here or the jump needs its take-off point.
-		// Close in on the action's starting point first
-		Dir = ActFrom.x > Pos.x + 4.0f ? 1 : (ActFrom.x < Pos.x - 4.0f ? -1 : 0);
+		// Close in on the action's starting point first. The deadzone grows
+		// with the speed: momentum alone carries the tee the last pixels, a
+		// fixed +-4px band just makes it chatter around the take-off point
+		const float CloseDead = 4.0f + std::abs(Vel.x) * 3.0f;
+		Dir = ActFrom.x > Pos.x + CloseDead ? 1 : (ActFrom.x < Pos.x - CloseDead ? -1 : 0);
+	}
+	else if(Target.m_HookMode == 0)
+	{
+		// velocity-aware tracking of the planned trajectory: steer against
+		// where the momentum will take us LA ticks from now, not against the
+		// current position. Running too fast towards a turn brakes BEFORE
+		// overshooting it, running too slow accelerates early, and air drift
+		// from a falling start gets corrected while there is still time for it
+		const float Lookahead = std::min(LOOKAHEAD_MIN_TICKS + std::abs(Vel.x) * 0.9f, LOOKAHEAD_MAX_TICKS);
+		const vec2 Ref = PlanLookaheadPoint(Lookahead, Pos);
+		// on the ground friction eats speed every tick, a straight
+		// extrapolation overshoots - damp it (in the air the velocity is kept)
+		const float PredX = Pos.x + Vel.x * Lookahead * (OnGround ? 0.65f : 1.0f);
+		const float ErrX = Ref.x - PredX;
+		const float SteerDead = 10.0f + std::abs(Vel.x) * 2.0f;
+		if(std::abs(ErrX) > SteerDead && std::abs(ErrX) < 350.0f)
+		{
+			Dir = ErrX > 0.0f ? 1 : -1;
+		}
 	}
 	Controls.m_aInputDirectionLeft[D] = Dir < 0 ? 1 : 0;
 	Controls.m_aInputDirectionRight[D] = Dir > 0 ? 1 : 0;
 	Controls.m_aMousePos[D] = AimRel;
-	const float JumpPhase = Target.m_Ticks > 0 ? std::fmod(m_PlanTickF, (float)Target.m_Ticks) : 999.0f;
 	// press jumps only from near the point the action starts from (the
 	// previous path point), not from wherever we happen to lag behind
 	const bool JumpReady = !Target.m_Jump || distance(Pos, ActFrom) < NODE_REACH_PX * 1.5f;
-	Controls.m_aInputData[D].m_Jump = (Target.m_Jump && JumpReady && JumpPhase < 1.6f) ? 1 : 0;
+	// and only with the take-off speed the plan was simulated with: the jump
+	// arc depends on the momentum at the press, and jumping at the right spot
+	// with the wrong speed lands the tee somewhere the route never goes
+	if(m_JumpTryNode != m_PlanIdx)
+	{
+		m_JumpTryNode = m_PlanIdx;
+		m_JumpTries = 0;
+	}
+	bool PressJump = false;
+	if(Target.m_Jump && JumpReady)
+	{
+		bool SpeedOk = true;
+		if(OnGround)
+		{
+			const float WantVx = Target.m_VelFrom.x;
+			const float Tol = std::max(2.5f, std::abs(WantVx) * 0.45f);
+			SpeedOk = std::abs(Vel.x - WantVx) <= Tol ||
+				  m_PlanTickF > (float)Target.m_Ticks + 100.0f; // patience: never stall the route
+		}
+		// first press whenever we are actually ready, one retry from the ground
+		// if the press got eaten. No periodic re-press: mid-air spam burns the
+		// double jump and derails the trajectory
+		const bool FirstPress = m_JumpTries == 0;
+		const bool Retry = OnGround && m_JumpTries == 1 && m_PlanTickF > 60.0f;
+		if(SpeedOk && (FirstPress || Retry))
+		{
+			PressJump = true;
+		}
+	}
+	if(PressJump)
+	{
+		m_JumpTries++;
+	}
+	Controls.m_aInputData[D].m_Jump = PressJump ? 1 : 0;
 	Controls.m_aInputData[D].m_Hook = WantHook ? 1 : 0;
 }
 
@@ -1221,6 +1335,11 @@ void CAutoFinish::ApplyPlannerResult()
 		m_RunState = 1;
 		m_PlanIdx = 0;
 		m_PlanTickF = 0.0f;
+		m_PlanStartPos = m_SeedPosValid ? m_SeedPos : GameClient()->m_PredictedChar.m_Pos;
+		m_PlanStartPosValid = true;
+		m_PrevPosValid = false;
+		m_JumpTryNode = -1;
+		m_JumpTries = 0;
 		m_LastProgressTime = time_get();
 		m_LastUpdateTime = m_LastProgressTime;
 		m_NextReanchor = 0;
@@ -1257,6 +1376,11 @@ void CAutoFinish::ApplyPlannerResult()
 	m_RunState = 1;
 	m_PlanIdx = 0;
 	m_PlanTickF = 0.0f;
+	m_PlanStartPos = m_SeedPosValid ? m_SeedPos : GameClient()->m_PredictedChar.m_Pos;
+	m_PlanStartPosValid = true;
+	m_PrevPosValid = false;
+	m_JumpTryNode = -1;
+	m_JumpTries = 0;
 	m_LastProgressTime = time_get();
 	m_LastUpdateTime = m_LastProgressTime;
 	m_NextReanchor = 0;
@@ -2162,6 +2286,34 @@ void CAutoFinish::UpdateRouteProgress(const vec2 &Pos)
 	}
 }
 
+vec2 CAutoFinish::PlanLookaheadPoint(float LookaheadTicks, const vec2 &FallbackFrom) const
+{
+	if(m_vPath.empty() || m_PlanIdx >= (int)m_vPath.size())
+	{
+		return FallbackFrom;
+	}
+
+	// walk the plan windows forward and interpolate along the trajectory
+	float Remaining = m_PlanTickF + LookaheadTicks;
+	for(int i = m_PlanIdx; i < (int)m_vPath.size(); i++)
+	{
+		const vec2 A = i > 0 ? m_vPath[i - 1].m_Pos :
+				       (m_PlanStartPosValid ? m_PlanStartPos : FallbackFrom);
+		const vec2 B = m_vPath[i].m_Pos;
+		const float T = (float)m_vPath[i].m_Ticks;
+		if(Remaining <= T)
+		{
+			if(m_vPath[i].m_Type == NODE_TELE)
+			{
+				return A; // never interpolate across a teleporter jump
+			}
+			return mix(A, B, T > 0.5f ? std::clamp(Remaining / T, 0.0f, 1.0f) : 1.0f);
+		}
+		Remaining -= T;
+	}
+	return m_vPath.back().m_Pos;
+}
+
 void CAutoFinish::BuildPlanFromSearch(int GoalNode)
 {
 	std::vector<int> vChain;
@@ -2178,8 +2330,11 @@ void CAutoFinish::BuildPlanFromSearch(int GoalNode)
 	for(size_t i = 1; i < vChain.size(); i++)
 	{
 		const SSearchNode &N = m_vSearchNodes[vChain[i]];
+		const SSearchNode &FromN = m_vSearchNodes[vChain[i - 1]];
 		SPathNode P;
 		P.m_Pos = N.m_Pos;
+		P.m_Vel = N.m_Vel; // arrival velocity at the point
+		P.m_VelFrom = FromN.m_Vel; // momentum the action needs at its start
 		P.m_Dir = N.m_Action.m_Dir;
 		P.m_Jump = N.m_Action.m_Jump;
 		P.m_HookMode = N.m_Action.m_HookMode;

@@ -89,6 +89,8 @@ class CAutoFinish : public CComponent
 	struct SPathNode
 	{
 		vec2 m_Pos = vec2(0.0f, 0.0f);
+		vec2 m_Vel = vec2(0.0f, 0.0f); // arrival velocity at this point
+		vec2 m_VelFrom = vec2(0.0f, 0.0f); // velocity the action needs when it starts
 		int m_Dir = 0;
 		bool m_Jump = false;
 		int m_HookMode = 0;
@@ -196,10 +198,17 @@ private:
 	int64_t m_NextReanchor = 0;
 	int64_t m_LastUpdateTime = 0;
 	int64_t m_PlanAirWaitStart = 0; // waiting to land before (re)planning starts
+	int64_t m_PlanStopWaitStart = 0; // waiting for the tee to stop sliding before seeding
 	int m_StuckCount = 0;
 	float m_PlanTickF = 0.0f; // ticks elapsed inside the current plan action
 	int m_PlanIdx = 0;
 	int m_PlanTotalTicks = 0;
+	vec2 m_PrevPos = vec2(0.0f, 0.0f); // last tick's position, for swept node claims
+	bool m_PrevPosValid = false;
+	int m_JumpTryNode = -1; // the node the current jump presses belong to
+	int m_JumpTries = 0; // jump presses spent on the current node
+	vec2 m_PlanStartPos = vec2(0.0f, 0.0f); // where the executed plan begins (the seed spot)
+	bool m_PlanStartPosValid = false;
 	bool m_ReplanAfterFreeze = false;
 	float m_OldZoom = 1.0f;
 	bool m_OldZoomValid = false;
@@ -300,6 +309,7 @@ private:
 	void RequestReplan(bool QuickReveal);
 	void BuildRouteFrom(const vec2 &Pos); // planner: rebuild the guide route scratch
 	void UpdateRouteProgress(const vec2 &Pos); // game thread: advance m_RouteIdx
+	vec2 PlanLookaheadPoint(float LookaheadTicks, const vec2 &FallbackFrom) const; // game thread: reference point on the planned trajectory
 
 	// planner thread lifecycle
 	void StartPlanner(); // game thread: capture the seed and wake the planner
