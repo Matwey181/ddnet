@@ -47,6 +47,11 @@ namespace
 	constexpr int MAX_PLAN_RETRIES = 2;
 	constexpr int PERIODIC_REPLAN_SECONDS = 15;
 	constexpr int MAX_SEARCH_ATTEMPTS = 4;
+	// partial-route fallback: a candidate must buy this much progress over its search start
+	constexpr float MIN_PARTIAL_GAIN_TICKS = 15.0f;
+	// consecutive partial routes must improve on the previous one by this much
+	constexpr float MIN_PARTIAL_IMPROVE_TICKS = 5.0f;
+	constexpr int MAX_PARTIAL_STAGNANT = 3;
 	constexpr float REVEAL_SECONDS = 1.1f;
 }
 
@@ -131,6 +136,11 @@ void CAutoFinish::RequestReplan(bool QuickReveal)
 	m_PlanIdx = 0;
 	m_PlanTickF = 0.0f;
 	m_SearchAttempt = 0;
+	m_PartialPlan = false;
+	m_HasPartialCandidate = false;
+	m_BestPartialH = 1e30f;
+	m_vPartialPath.clear();
+	m_vPartialPath.shrink_to_fit();
 	m_RevealStart = QuickReveal ? std::max(0.4f, m_RevealProgress * 0.7f) : 0.3f;
 	ClearSearchData();
 }
@@ -144,6 +154,7 @@ void CAutoFinish::ClearSearchData()
 	m_SearchBudgetHit = false;
 	m_SearchStartRelaxed = 1e30f;
 	m_SearchBestH = 1e30f;
+	m_SearchBestNode = -1;
 	m_vSearchNodes.clear();
 	m_vSearchNodes.shrink_to_fit();
 	m_OpenHeap = std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
@@ -169,6 +180,13 @@ void CAutoFinish::Activate()
 	m_TotalPathLen = 0.0f;
 	m_RevealProgress = 0.0f;
 	m_RevealStart = 0.0f;
+	m_PartialPlan = false;
+	m_HasPartialCandidate = false;
+	m_BestPartialH = 1e30f;
+	m_LastPartialTargetH = 1e30f;
+	m_PartialStagnant = 0;
+	m_vPartialPath.clear();
+	m_vPartialPath.shrink_to_fit();
 	m_LastProgressTime = time_get();
 	m_LastUpdateTime = m_LastProgressTime;
 	m_NextPeriodicReplan = m_LastProgressTime + (int64_t)time_freq() * PERIODIC_REPLAN_SECONDS;
@@ -370,6 +388,13 @@ void CAutoFinish::OnUpdate()
 
 	if(m_PlanIdx >= (int)m_vPath.size())
 	{
+		if(m_PartialPlan)
+		{
+			// walked as far as the planner could see: plan again from here
+			SetStatusMessage("AUTO-FINISH: partial route walked, planning further", 3.0f);
+			RequestReplan(true);
+			return;
+		}
 		SetStatusMessage("AUTO-FINISH: MAP COMPLETED", 6.0f);
 		Deactivate(REASON_FINISHED);
 		return;
@@ -515,6 +540,7 @@ void CAutoFinish::StartSearch(bool AllowFreeze, bool Coarse)
 	m_SearchBudgetHit = false;
 	m_SearchExpansions = 0;
 	m_GoalNode = -1;
+	m_SearchBestNode = 0; // the start node is the initial best
 
 	m_vSearchNodes.clear();
 	m_OpenHeap = std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
@@ -642,6 +668,7 @@ bool CAutoFinish::SearchStep()
 	if(h < m_SearchBestH)
 	{
 		m_SearchBestH = h;
+		m_SearchBestNode = NodeIdx;
 	}
 
 	ExpandNode(NodeIdx);
@@ -672,6 +699,13 @@ void CAutoFinish::FinishSearchAttempt()
 		m_RevealProgress = m_RevealStart;
 		m_PlanRetries = 0;
 		m_StuckCount = 0;
+		m_PartialPlan = false;
+		m_HasPartialCandidate = false;
+		m_BestPartialH = 1e30f;
+		m_LastPartialTargetH = 1e30f;
+		m_PartialStagnant = 0;
+		m_vPartialPath.clear();
+		m_vPartialPath.shrink_to_fit();
 		if(m_PlanUsedFreeze)
 		{
 			SetStatusMessage("AUTO-FINISH: the route unavoidably passes freeze tiles", 4.0f);
@@ -680,10 +714,73 @@ void CAutoFinish::FinishSearchAttempt()
 		return;
 	}
 
+	// this attempt found nothing: remember how far it got as a partial route
+	if(m_SearchBestNode > 0 && m_SearchBestH < m_SearchStartRelaxed - MIN_PARTIAL_GAIN_TICKS)
+	{
+		// keep the route that is currently being rendered while planning
+		std::vector<SPathNode> vOldPath = m_vPath;
+		const int OldTotalTicks = m_PlanTotalTicks;
+		const float OldPathLen = m_TotalPathLen;
+		BuildPlanFromSearch(m_SearchBestNode);
+		if(!m_vPath.empty() && (!m_HasPartialCandidate || m_SearchBestH < m_BestPartialH - 0.05f))
+		{
+			m_HasPartialCandidate = true;
+			m_BestPartialH = m_SearchBestH;
+			m_vPartialPath = m_vPath;
+			m_PartialTotalTicks = m_PlanTotalTicks;
+			m_PartialPathLen = m_TotalPathLen;
+			m_PartialUsedFreeze = m_SearchAllowFreeze;
+		}
+		m_vPath = std::move(vOldPath);
+		m_PlanTotalTicks = OldTotalTicks;
+		m_TotalPathLen = OldPathLen;
+	}
+
 	// this attempt found nothing, try the next one
 	m_SearchAttempt++;
 	if(m_SearchAttempt >= MAX_SEARCH_ATTEMPTS)
 	{
+		// no complete route anywhere: walk the best partial route and
+		// plan again from where it ends
+		if(m_HasPartialCandidate)
+		{
+			const bool Improving = m_BestPartialH < m_LastPartialTargetH - MIN_PARTIAL_IMPROVE_TICKS;
+			m_PartialStagnant = Improving ? 0 : m_PartialStagnant + 1;
+			m_LastPartialTargetH = m_BestPartialH;
+			if(m_PartialStagnant < MAX_PARTIAL_STAGNANT)
+			{
+				m_vPath = std::move(m_vPartialPath);
+				m_PlanTotalTicks = m_PartialTotalTicks;
+				m_TotalPathLen = m_PartialPathLen;
+				m_PlanUsedFreeze = m_PartialUsedFreeze;
+				m_PartialPlan = true;
+				m_HasPartialCandidate = false;
+				m_BestPartialH = 1e30f;
+				m_vPartialPath.clear();
+				m_vPartialPath.shrink_to_fit();
+				m_RunState = 1;
+				m_PlanIdx = 0;
+				m_PlanTickF = 0.0f;
+				m_SearchAttempt = 0;
+				m_PlanRetries = 0;
+				m_StuckCount = 0;
+				m_LastProgressTime = time_get();
+				m_LastUpdateTime = m_LastProgressTime;
+				m_NextPeriodicReplan = m_LastProgressTime + (int64_t)time_freq() * PERIODIC_REPLAN_SECONDS;
+				m_NextReanchor = 0;
+				m_RevealProgress = m_RevealStart;
+				SetStatusMessage(m_PlanUsedFreeze ?
+							 "AUTO-FINISH: no full route, walking the partial one (freeze ahead)" :
+							 "AUTO-FINISH: no full route, walking the partial one",
+					4.0f);
+				ClearSearchData();
+				return;
+			}
+			m_HasPartialCandidate = false;
+			m_vPartialPath.clear();
+			m_vPartialPath.shrink_to_fit();
+			str_copy(m_aPlanError, "partial routes stopped making progress");
+		}
 		m_PlanRetries++;
 		if(m_PlanRetries >= MAX_PLAN_RETRIES)
 		{
@@ -1324,6 +1421,12 @@ void CAutoFinish::PushSuccessor(int ParentIdx, const SSearchNode &State)
 	Node.m_Parent = ParentIdx;
 	m_vSearchNodes.push_back(Node);
 	m_OpenHeap.push({g + h, (int)m_vSearchNodes.size() - 1});
+
+	if(h < m_SearchBestH)
+	{
+		m_SearchBestH = h;
+		m_SearchBestNode = (int)m_vSearchNodes.size() - 1;
+	}
 }
 
 uint64_t CAutoFinish::StateKey(const SSearchNode &Node) const
@@ -1723,7 +1826,8 @@ void CAutoFinish::RenderStatus()
 		}
 		else
 		{
-			str_format(aLabel, sizeof(aLabel), "AUTO-FINISH · %d/%d · ~%.1fs%s",
+			str_format(aLabel, sizeof(aLabel), "AUTO-FINISH%s · %d/%d · ~%.1fs%s",
+				m_PartialPlan ? " · PARTIAL" : "",
 				std::min(m_PlanIdx + 1, (int)m_vPath.size()), (int)m_vPath.size(),
 				m_PlanTotalTicks / 50.0f,
 				m_PlanUsedFreeze ? " · freeze ahead" : "");

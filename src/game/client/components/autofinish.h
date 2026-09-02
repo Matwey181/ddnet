@@ -142,6 +142,17 @@ private:
 	float m_RevealProgress = 0.0f; // 0..1, controls how much of the strip is drawn
 	float m_RevealStart = 0.0f; // progress value the reveal restarts at after replans
 
+	// --- partial-route fallback (no complete route to the finish found) ---
+	bool m_PartialPlan = false; // the executed route ends short of the finish
+	bool m_HasPartialCandidate = false; // this planning cycle produced a partial route
+	float m_BestPartialH = 1e30f; // relaxed ticks at the end of the best partial route
+	float m_LastPartialTargetH = 1e30f; // relaxed ticks at the end of the last walked partial route
+	int m_PartialStagnant = 0; // consecutive partial cycles without real progress
+	std::vector<SPathNode> m_vPartialPath;
+	int m_PartialTotalTicks = 0;
+	float m_PartialPathLen = 0.0f;
+	bool m_PartialUsedFreeze = false;
+
 	// --- status message shown above the HUD ---
 	char m_aStatusMessage[128] = {};
 	float m_StatusMessageTime = 0.0f; // remaining seconds
@@ -164,6 +175,7 @@ private:
 	int m_SearchTeam = 0;
 	float m_SearchStartRelaxed = 1e30f;
 	float m_SearchBestH = 1e30f;
+	int m_SearchBestNode = -1; // node with the smallest heuristic in the current attempt
 	std::vector<SSearchNode> m_vSearchNodes;
 	std::priority_queue<std::pair<float, int>, std::vector<std::pair<float, int>>,
 		std::greater<std::pair<float, int>>>
