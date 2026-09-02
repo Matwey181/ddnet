@@ -702,8 +702,6 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
 
         // Pushin client — Var List: apply prefix and nick color override if the player is war/team
         {
-                char aPushinNameBuf[MAX_NAME_LENGTH + 24];
-                aPushinNameBuf[0] = '\0';
                 ColorRGBA PushinColor(1.0f, 1.0f, 1.0f, 1.0f);
                 char aPushinPrefix[24];
                 aPushinPrefix[0] = '\0';
@@ -711,8 +709,9 @@ void CNamePlates::RenderNamePlateGame(vec2 Position, const CNetObj_PlayerInfo *p
                 {
                         if(aPushinPrefix[0] != '\0')
                         {
+                                char aPushinNameBuf[sizeof(Data.m_aName)];
                                 str_format(aPushinNameBuf, sizeof(aPushinNameBuf), "[%s] %s", aPushinPrefix, GameClient()->m_aClients[pPlayerInfo->m_ClientId].m_aName);
-                                Data.m_pName = aPushinNameBuf;
+                                str_copy(Data.m_aName, aPushinNameBuf, sizeof(Data.m_aName));
                         }
                         if(g_Config.m_PushinVarTintNick)
                         {
