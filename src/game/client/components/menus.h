@@ -689,7 +689,6 @@ public:
                 SETTINGS_DDNET,
                 SETTINGS_ASSETS,
                 SETTINGS_TOUCH,
-                SETTINGS_SH1ZOOO,
                 SETTINGS_PUSHIN,
 
                 SETTINGS_LENGTH,
@@ -850,5 +849,8 @@ private:
         int m_PushinDraggingClientId = -1;
         int m_PushinSelectedClientId = -1;
         int m_PushinVarListTab = 0;
+        // Currently selected player name for drag-and-drop across columns.
+        // Empty string means nothing selected.
+        char m_PushinSelectedName[MAX_NAME_LENGTH] = "";
 };
 #endif

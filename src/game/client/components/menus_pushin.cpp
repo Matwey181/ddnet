@@ -433,16 +433,7 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
 
         // Currently selected player name (across all columns). Selected by tapping
         // a player row; tapping a column title moves the selected player there.
-        static char s_aSelectedName[MAX_NAME_LENGTH] = "";
-        // Auto-clear the selection if the settings menu was closed and reopened
-        // (the static char persists across frames, so we only reset it on first entry).
-        static bool s_PushinFirstEntry = true;
-        if(s_PushinFirstEntry)
-        {
-                s_aSelectedName[0] = '\0';
-                s_PushinFirstEntry = false;
-        }
-
+        // Stored as a member (m_PushinSelectedName) so it survives across frames.
         auto &&DrawColumn = [&](CUIRect &Col, const char *pTitle, const std::vector<std::pair<std::string, int>> &vEntries, int ColKind) -> void {
                 CUIRect Title, List;
                 Col.HSplitTop(20.0f, &Title, &Col);
@@ -475,16 +466,18 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
                         CUIRect RowR = Item.m_Rect;
                         RowR.Margin(2.0f, &RowR);
 
-                        // Tap on the row to select this player.
-                        if(Ui()->DoButtonLogic(&s_aColItemIds[ColKind][i], 0, &RowR, BUTTONFLAG_LEFT) == 1)
+                        // Detect tap on this row via raw mouse hover + click (avoid calling
+                        // DoButtonLogic twice, which conflicts with the listbox's own click
+                        // handling and causes the selection to flicker / disappear).
+                        if(Ui()->MouseHovered(&RowR) && Ui()->MouseButtonClicked(0))
                         {
-                                str_copy(s_aSelectedName, Name.c_str(), sizeof(s_aSelectedName));
+                                str_copy(m_PushinSelectedName, Name.c_str(), sizeof(m_PushinSelectedName));
                         }
 
                         // Highlight the selected row.
-                        if(s_aSelectedName[0] != '\0' && str_comp_nocase(s_aSelectedName, Name.c_str()) == 0)
+                        if(m_PushinSelectedName[0] != '\0' && str_comp_nocase(m_PushinSelectedName, Name.c_str()) == 0)
                         {
-                                ColorRGBA SelColor(1.0f, 1.0f, 1.0f, 0.18f);
+                                ColorRGBA SelColor(1.0f, 1.0f, 1.0f, 0.25f);
                                 RowR.Draw(SelColor, IGraphics::CORNER_ALL, 4.0f);
                         }
 
@@ -545,42 +538,40 @@ void CMenus::RenderPushinVarList(CUIRect MainView)
         DrawColumn(ColTeam, pTeamLabel, vTeamPlayers, 2);
 
         // Drop-zone click detection on column titles. Tapping a title moves the
-        // currently selected player into that column (war/team/none). Works both
-        // in-game and out-of-game (uses the player's name, not their client ID).
+        // currently selected player into that column (war/team/none). Uses raw
+        // mouse hover + click for the same reason as row selection above.
         auto &&TitleClick = [&](CUIRect &Col, int TargetKind) -> bool {
                 CUIRect Title;
                 Col.HSplitTop(20.0f, &Title, nullptr);
-                static int s_TitleIds[3] = {0, 1, 2};
-                int Res = Ui()->DoButtonLogic(&s_TitleIds[TargetKind], 0, &Title, BUTTONFLAG_LEFT);
-                return Res == 1;
+                return Ui()->MouseHovered(&Title) && Ui()->MouseButtonClicked(0);
         };
-        if(s_aSelectedName[0] != '\0')
+        if(m_PushinSelectedName[0] != '\0')
         {
                 if(TitleClick(ColWar, 1))
                 {
-                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_WAR);
-                        s_aSelectedName[0] = '\0';
+                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_WAR);
+                        m_PushinSelectedName[0] = '\0';
                 }
                 else if(TitleClick(ColTeam, 2))
                 {
-                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_TEAM);
-                        s_aSelectedName[0] = '\0';
+                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_TEAM);
+                        m_PushinSelectedName[0] = '\0';
                 }
                 else if(TitleClick(ColPlayers, 0))
                 {
-                        SetPushinStatus(s_aSelectedName, PUSHIN_VAR_NONE);
-                        s_aSelectedName[0] = '\0';
+                        SetPushinStatus(m_PushinSelectedName, PUSHIN_VAR_NONE);
+                        m_PushinSelectedName[0] = '\0';
                 }
         }
 
         // Show the currently selected player near the top of the customization panel,
         // so the user knows what's currently being dragged.
-        if(s_aSelectedName[0] != '\0')
+        if(m_PushinSelectedName[0] != '\0')
         {
                 CUIRect SelLabel;
                 LeftPanel.HSplitTop(20.0f, &SelLabel, &LeftPanel);
-                char aSelText[128];
-                str_format(aSelText, sizeof(aSelText), Localize("Selected: %s — tap a column title to move"), s_aSelectedName);
+                char aSelText[160];
+                str_format(aSelText, sizeof(aSelText), Localize("Selected: %s — tap a column title to move"), m_PushinSelectedName);
                 TextRender()->TextColor(PushinConfigColorToRGBA(g_Config.m_PushinVarWarColor));
                 Ui()->DoLabel(&SelLabel, aSelText, 11.0f, TEXTALIGN_ML);
                 TextRender()->TextColor(TextRender()->DefaultTextColor());

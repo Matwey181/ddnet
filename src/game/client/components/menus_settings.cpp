@@ -2212,7 +2212,6 @@ void CMenus::RenderSettings(CUIRect MainView)
                 Localize("DDNet"),
                 Localize("Assets"),
                 Localize("Touch"),
-                "sh1zooo client",
                 Localize("Pushin client")};
         static CButtonContainer s_aTabButtons[SETTINGS_LENGTH];
 
@@ -2281,11 +2280,6 @@ void CMenus::RenderSettings(CUIRect MainView)
         {
                 GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
                 RenderSettingsTouch(MainView);
-        }
-        else if(g_Config.m_UiSettingsPage == SETTINGS_SH1ZOOO)
-        {
-                GameClient()->m_MenuBackground.ChangePosition(CMenuBackground::POS_SETTINGS_ASSETS);
-                RenderSettingsSh1zooo(MainView);
         }
         else if(g_Config.m_UiSettingsPage == SETTINGS_PUSHIN)
         {
