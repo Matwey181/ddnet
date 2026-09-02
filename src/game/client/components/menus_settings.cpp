@@ -2174,7 +2174,7 @@ void CMenus::RenderSettingsSh1zooo(CUIRect MainView)
 			CUIRect Hint;
 			AfContainer.HSplitTop(AfHintH, &Hint, &AfContainer);
 			TextRender()->TextColor(0.48f, 0.50f, 0.55f, 1.0f);
-			Ui()->DoLabel(&Hint, Localize("Bind a touch button to the command 'autofinish' to toggle the bot while playing. The route avoids freeze tiles when possible."), 10.0f, TEXTALIGN_ML);
+			Ui()->DoLabel(&Hint, Localize("Bind a touch button to the command 'autofinish' to toggle the bot while playing. The route is planned with the real game physics (jumps, hook, teleporters, speedups) and avoids freeze tiles when possible."), 10.0f, TEXTALIGN_ML);
 			TextRender()->TextColor(TextRender()->DefaultTextColor());
 		}
 	}
