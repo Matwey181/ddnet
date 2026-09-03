@@ -195,3 +195,19 @@ Touch API в порту:
    m_PushinVarColorNick, m_PushinTeamColorNick (bool)
    m_PushinVarUsePrefix, m_PushinTeamUsePrefix (bool)
    m_PushinVarPrefix[16], m_PushinTeamPrefix[16] (char)
+
+### 2026-09-04 (финал — полная версия)
+- CI #62 (коммит `d37db5478`) СОБРАЛСЯ УСПЕШНО с ПОЛНОЙ версией Pushin
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 19:09 UTC)
+- Ссылка: https://github.com/Matwey181/ddnet/actions/runs/33794085372
+- Реализовано по ТЗ:
+  * Раздел "Пушин клиент" в настройках
+  * Сворачиваемая строка "вар лист" со стрелкой ▼
+  * 3 колонки (Players/Team/Var) с независимым скроллом
+  * Drag-and-drop: хватаем игрока, тащим в тим/вар, отпускаем
+  * Мини-меню справа: тим (сверху) / вар (снизу) — drop targets
+  * Настройки: цвет (RGB), % красноты/зелёности, вкл/выкл tint скина,
+    вкл/выкл color nick, вкл/выкл prefix, свои префиксы
+  * Превью: тии смотрит за курсором, ник сверху, 2 кнопки тим/вар
+  * Skin tinting 40% cap, emote override (var=angry, team=happy)
+  * Touch support через Ui()->MouseX/Y/MouseButton (SDL проксирует)
