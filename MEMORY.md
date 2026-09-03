@@ -211,3 +211,33 @@ Touch API в порту:
   * Превью: тии смотрит за курсором, ник сверху, 2 кнопки тим/вар
   * Skin tinting 40% cap, emote override (var=angry, team=happy)
   * Touch support через Ui()->MouseX/Y/MouseButton (SDL проксирует)
+
+### 2026-09-04 ~19:30 UTC — правки по отзывам пользователя
+Пользователь сообщил:
+1. Чёрные края → Info.plist: добавил UILaunchImageFile, UIRequiresFullScreen=true
+2. "Пушин клиент" → "пушин клиент" (маленькая буква) — сделано
+3. Все функции на русском маленькими — сделано
+4. Tint всегда белый — ПОЧИНЕНО: проблема была в том что DoLine_ColorPicker
+   хранит цвет как HSLA packed 0xHHSSLLAA, а дефолты 0xFF0000FF/0x00FF00FF
+   интерпретировались как H=255,S=0,L=0 (чёрный) или H=0,S=0,L=255 (белый).
+   Сменил дефолты на правильные HSLA: 0x00FF80FF (красный) / 0x55FF80FF (зелёный)
+5. Две бесполезные кнопки вар/тим справа — УБРАЛ мини-меню полностью
+6. Рандомные люди добавлялись — ПОЧИНЕНО: проблема была в том что
+   RenderPushinPlayerRow ставил s_PushinDragClientId при любом клике на строку,
+   а RenderPushinColumn добавлял в колонку при отпускании мыши над ней.
+   Теперь: drag начинается только когда курсор ВЫШЕЛ за пределы строки
+   при зажатой кнопке. Drop срабатывает только если s_PushinDragging=true
+   и кнопка ТОЛЬКО ЧТО отпущена (через s_PushinMouseWasDown).
+7. Двойной клик не убирал — ПОЧИНЕНО: добавил double-click detection
+   (s_PushinLastClickTime + s_PushinLastClickClientId, 400ms окно).
+   Двойной клик по игроку в вар/тим → status=none.
+8. В игре не видно статус — ПОЧИНЕНО: добавил static accessors в CMenus
+   (GetPushinStatus, GetPushinDisplayName, GetPushinNickColor,
+   ApplyPushinToRenderInfo, GetPushinEmote). Подключил:
+   - nameplates.cpp: префикс ника + цвет ника
+   - players.cpp: tint скина + emote override (var=angry, team=happy)
+   - scoreboard.cpp: префикс ника + цвет ника + tint скина + emote
+9. Заголовки колонок не менялись — ПОЧИНЕНО: RenderPushinColumn теперь
+   использует префикс из конфига для заголовков вар/тим колонок.
+
+Коммиты готовлю.

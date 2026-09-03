@@ -838,6 +838,15 @@ private:
         void RenderSettingsAppearance(CUIRect MainView);
         void RenderSettingsPushin(CUIRect MainView);
 
+        // Pushin client — runtime accessors used by players.cpp, nameplates.cpp,
+        // scoreboard.cpp to apply the var/team tint+prefix+emote in-game.
+        // Definitions in menus_settings_pushin.cpp.
+        static int GetPushinStatus(int ClientId);
+        static void GetPushinDisplayName(char *pBuf, int BufSize, int ClientId, const char *pOriginalName);
+        static ColorRGBA GetPushinNickColor(int ClientId);
+        static void ApplyPushinToRenderInfo(CTeeRenderInfo &Info, int ClientId);
+        static int GetPushinEmote(int ClientId);
+
         // Pushin client — internal helpers (implementation in menus_settings_pushin.cpp)
         // Declared as members so they can access protected CComponent interfaces
         // (GameClient, TextRender, Graphics, etc.) and private CMenus UI helpers

@@ -59,13 +59,17 @@
 // so the same drag logic works for both mouse and touch.
 // ----------------------------------------------------------------------------
 
-namespace {
+// Per-player pushin status. Indexed by client id.
+// Defined at file scope (not anonymous namespace) so the static accessor
+// methods declared in menus.h can read it.
+int s_aPushinStatus[MAX_CLIENTS] = {};
+
+// Status codes — also used by the static accessors.
 constexpr int PUSHIN_STATUS_NONE = 0;
 constexpr int PUSHIN_STATUS_VAR = 1;
 constexpr int PUSHIN_STATUS_TEAM = 2;
 
-// Per-player pushin status. Indexed by client id.
-int s_aPushinStatus[MAX_CLIENTS] = {};
+namespace {
 
 // Drag state: which client id is currently being dragged (-1 = none).
 int s_PushinDragClientId = -1;
@@ -74,9 +78,22 @@ bool s_PushinDragging = false;
 // Preview status: cycles none → team → var → none when clicking preview buttons.
 int s_PushinPreviewStatus = PUSHIN_STATUS_NONE;
 
-// Helper: get a color RGBA from a packed HSLA config variable.
+// Double-click detection: last click time + client id, per row.
+std::chrono::steady_clock::time_point s_PushinLastClickTime{};
+int s_PushinLastClickClientId = -1;
+constexpr auto PUSHIN_DOUBLE_CLICK_TIME = std::chrono::milliseconds(400);
+
+// Mouse button state tracking (to detect "just pressed" vs "just released").
+bool s_PushinMouseWasDown = false;
+
+// Helper: get a color RGBA from a packed RGBA config variable.
+// The config variable is stored as a packed RGBA unsigned int (0xRRGGBBAA)
+// to match what DoLine_ColorPicker produces when Alpha=false — but since
+// DoLine_ColorPicker actually uses HSLA, we convert HSLA→RGBA here.
 ColorRGBA PushinColorToRGBA(unsigned int PackedHsla)
 {
+        // DoLine_ColorPicker stores HSLA packed as 0xHHSSLLAA.
+        // ColorHSLA(PackedHsla, false) interprets the int as H/S/L/A bytes.
         const ColorHSLA Hsla(PackedHsla, false);
         return color_cast<ColorRGBA>(Hsla.UnclampLighting(ColorHSLA::DARKEST_LGT));
 }
@@ -193,27 +210,27 @@ void CMenus::RenderPushinSettingsPanel(CUIRect View)
                 VarCol.HSplitTop(22.0f, &Label, &VarCol);
                 const ColorRGBA VarRgba = PushinColorToRGBA(g_Config.m_PushinVarColor);
                 TextRender()->TextColor(VarRgba.r, VarRgba.g, VarRgba.b, 1.0f);
-                Ui()->DoLabel(&Label, "вар settings", 16.0f, TEXTALIGN_ML);
+                Ui()->DoLabel(&Label, "настройки варов", 16.0f, TEXTALIGN_ML);
                 TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
                 VarCol.HSplitTop(4.0f, nullptr, &VarCol);
 
                 static CButtonContainer s_VarColorReset;
                 unsigned int VarColorUnsigned = (unsigned int)g_Config.m_PushinVarColor;
                 DoLine_ColorPicker(&s_VarColorReset, ColorPickerLineSize, ColorPickerLabelSize,
-                        ColorPickerLineSpacing, &VarCol, "var color", &VarColorUnsigned,
+                        ColorPickerLineSpacing, &VarCol, "цвет варов", &VarColorUnsigned,
                         ColorRGBA(0.9f, 0.2f, 0.2f, 1.0f), false, &g_Config.m_PushinVarTintSkin);
                 g_Config.m_PushinVarColor = (int)VarColorUnsigned;
 
                 VarCol.HSplitTop(LineSize, &Button, &VarCol);
                 Ui()->DoScrollbarOption(&g_Config.m_PushinVarTintPercent, &g_Config.m_PushinVarTintPercent, &Button,
-                        "var tint strength", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
+                        "сила цвета варов", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
 
                 VarCol.HSplitTop(LineSize, &Button, &VarCol);
-                if(DoButton_CheckBox(&g_Config.m_PushinVarColorNick, "color var nicknames", g_Config.m_PushinVarColorNick, &Button))
+                if(DoButton_CheckBox(&g_Config.m_PushinVarColorNick, "красить ники варов", g_Config.m_PushinVarColorNick, &Button))
                         g_Config.m_PushinVarColorNick ^= 1;
 
                 VarCol.HSplitTop(LineSize, &Button, &VarCol);
-                if(DoButton_CheckBox(&g_Config.m_PushinVarUsePrefix, "add prefix to var nicks", g_Config.m_PushinVarUsePrefix, &Button))
+                if(DoButton_CheckBox(&g_Config.m_PushinVarUsePrefix, "префикс для варов", g_Config.m_PushinVarUsePrefix, &Button))
                         g_Config.m_PushinVarUsePrefix ^= 1;
 
                 VarCol.HSplitTop(LineSize, &Button, &VarCol);
@@ -227,27 +244,27 @@ void CMenus::RenderPushinSettingsPanel(CUIRect View)
                 TeamCol.HSplitTop(22.0f, &Label, &TeamCol);
                 const ColorRGBA TeamRgba = PushinColorToRGBA(g_Config.m_PushinTeamColor);
                 TextRender()->TextColor(TeamRgba.r, TeamRgba.g, TeamRgba.b, 1.0f);
-                Ui()->DoLabel(&Label, "тим settings", 16.0f, TEXTALIGN_ML);
+                Ui()->DoLabel(&Label, "настройки тимов", 16.0f, TEXTALIGN_ML);
                 TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
                 TeamCol.HSplitTop(4.0f, nullptr, &TeamCol);
 
                 static CButtonContainer s_TeamColorReset;
                 unsigned int TeamColorUnsigned = (unsigned int)g_Config.m_PushinTeamColor;
                 DoLine_ColorPicker(&s_TeamColorReset, ColorPickerLineSize, ColorPickerLabelSize,
-                        ColorPickerLineSpacing, &TeamCol, "team color", &TeamColorUnsigned,
+                        ColorPickerLineSpacing, &TeamCol, "цвет тимов", &TeamColorUnsigned,
                         ColorRGBA(0.2f, 0.9f, 0.4f, 1.0f), false, &g_Config.m_PushinTeamTintSkin);
                 g_Config.m_PushinTeamColor = (int)TeamColorUnsigned;
 
                 TeamCol.HSplitTop(LineSize, &Button, &TeamCol);
                 Ui()->DoScrollbarOption(&g_Config.m_PushinTeamTintPercent, &g_Config.m_PushinTeamTintPercent, &Button,
-                        "team tint strength", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
+                        "сила цвета тимов", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
 
                 TeamCol.HSplitTop(LineSize, &Button, &TeamCol);
-                if(DoButton_CheckBox(&g_Config.m_PushinTeamColorNick, "color team nicknames", g_Config.m_PushinTeamColorNick, &Button))
+                if(DoButton_CheckBox(&g_Config.m_PushinTeamColorNick, "красить ники тимов", g_Config.m_PushinTeamColorNick, &Button))
                         g_Config.m_PushinTeamColorNick ^= 1;
 
                 TeamCol.HSplitTop(LineSize, &Button, &TeamCol);
-                if(DoButton_CheckBox(&g_Config.m_PushinTeamUsePrefix, "add prefix to team nicks", g_Config.m_PushinTeamUsePrefix, &Button))
+                if(DoButton_CheckBox(&g_Config.m_PushinTeamUsePrefix, "префикс для тимов", g_Config.m_PushinTeamUsePrefix, &Button))
                         g_Config.m_PushinTeamUsePrefix ^= 1;
 
                 TeamCol.HSplitTop(LineSize, &Button, &TeamCol);
@@ -299,17 +316,47 @@ void CMenus::RenderPushinPlayerRow(const CUIRect &Row, int ClientId, const char 
         Ui()->DoLabel(&StatusBox, pStatusText, 12.0f, TEXTALIGN_MR);
         TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        // Drag start: if mouse pressed inside this row, grab this client.
-        if(Ui()->MouseInside(&Row) && Ui()->MouseButton(0) && !s_PushinDragging && s_PushinDragClientId < 0)
+        // Click handling on this row:
+        //   - single click while inside: if the row is in var/team column, double-click
+        //     within 400ms removes the player back to Players (status = none).
+        //   - press-and-hold + drag: start a drag only if the cursor moves outside
+        //     the row while the button is held.
+        const bool MouseInsideRow = Ui()->MouseInside(&Row);
+        const bool MouseJustClicked = MouseInsideRow && Ui()->MouseButtonClicked(0);
+        const bool MouseHeld = Ui()->MouseButton(0);
+
+        if(MouseJustClicked && !s_PushinDragging)
         {
-                s_PushinDragClientId = ClientId;
+                // Double-click detection: if same row clicked within 400ms, toggle off.
+                const auto Now = std::chrono::steady_clock::now();
+                const bool IsDoubleClick = (s_PushinLastClickClientId == ClientId) &&
+                        (Now - s_PushinLastClickTime < PUSHIN_DOUBLE_CLICK_TIME);
+                if(IsDoubleClick && Status != PUSHIN_STATUS_NONE)
+                {
+                        s_aPushinStatus[ClientId] = PUSHIN_STATUS_NONE;
+                        s_PushinLastClickClientId = -1; // reset so triple-click doesn't re-add
+                }
+                else
+                {
+                        s_PushinLastClickClientId = ClientId;
+                        s_PushinLastClickTime = Now;
+                        // Begin a potential drag — actual drag starts when cursor moves
+                        // outside the row while still held.
+                        s_PushinDragClientId = ClientId;
+                }
+        }
+
+        // Promote to "dragging" once the cursor leaves the row while the button
+        // is still held. This prevents accidental assignment on a simple click.
+        if(s_PushinDragClientId == ClientId && MouseHeld && !MouseInsideRow)
+        {
                 s_PushinDragging = true;
         }
 }
 
 int CMenus::RenderPushinColumn(CUIRect View, const char *pTitle, const std::vector<int> &vClientIds, int ColumnStatus)
 {
-        // Drop target highlight
+        // Drop target highlight — only when actually dragging.
         const bool IsDropTarget = s_PushinDragging && Ui()->MouseInside(&View);
         if(IsDropTarget)
                 View.Draw(ColorRGBA(1.0f, 1.0f, 1.0f, 0.15f), IGraphics::CORNER_ALL, 6.0f);
@@ -317,10 +364,26 @@ int CMenus::RenderPushinColumn(CUIRect View, const char *pTitle, const std::vect
                 View.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_ALL, 6.0f);
         View.Margin(4.0f, &View);
 
-        // Title
+        // Title — for var/team columns, use the configured prefix if enabled.
+        char aTitleBuf[32];
+        if(ColumnStatus == PUSHIN_STATUS_VAR)
+        {
+                const char *pPref = (g_Config.m_PushinVarUsePrefix && g_Config.m_PushinVarPrefix[0]) ? g_Config.m_PushinVarPrefix : "вар";
+                str_format(aTitleBuf, sizeof(aTitleBuf), "%s", pPref);
+        }
+        else if(ColumnStatus == PUSHIN_STATUS_TEAM)
+        {
+                const char *pPref = (g_Config.m_PushinTeamUsePrefix && g_Config.m_PushinTeamPrefix[0]) ? g_Config.m_PushinTeamPrefix : "тим";
+                str_format(aTitleBuf, sizeof(aTitleBuf), "%s", pPref);
+        }
+        else
+        {
+                str_format(aTitleBuf, sizeof(aTitleBuf), "%s", pTitle);
+        }
+
         CUIRect TitleRect;
         View.HSplitTop(20.0f, &TitleRect, &View);
-        Ui()->DoLabel(&TitleRect, pTitle, 14.0f, TEXTALIGN_MC);
+        Ui()->DoLabel(&TitleRect, aTitleBuf, 14.0f, TEXTALIGN_MC);
         View.HSplitTop(4.0f, nullptr, &View);
 
         // Scrollable list — one static CListBox per column index.
@@ -346,10 +409,13 @@ int CMenus::RenderPushinColumn(CUIRect View, const char *pTitle, const std::vect
 
         ListBox.DoEnd();
 
-        // Drop detection: if the drag just ended (mouse released) and the cursor
-        // is inside this column, assign the dragged client to this column's status.
+        // Drop detection: only when a real drag is in progress and the button
+        // was just released. This prevents the "random player gets added" bug
+        // where a simple click on a row in the Players column would trigger a
+        // drop because the cursor happened to be inside the column on release.
         int DroppedClientId = -1;
-        if(s_PushinDragging && !Ui()->MouseButton(0) && s_PushinDragClientId >= 0 && Ui()->MouseInside(&View))
+        const bool MouseJustReleased = !Ui()->MouseButton(0) && s_PushinMouseWasDown;
+        if(s_PushinDragging && MouseJustReleased && s_PushinDragClientId >= 0 && Ui()->MouseInside(&View))
         {
                 DroppedClientId = s_PushinDragClientId;
                 s_aPushinStatus[DroppedClientId] = ColumnStatus;
@@ -479,7 +545,7 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         CUIRect Title, Body;
         MainView.HSplitTop(30.0f, &Title, &Body);
         Body.HSplitTop(8.0f, nullptr, &Body);
-        Ui()->DoLabel(&Title, "Пушин клиент", 22.0f, TEXTALIGN_MC);
+        Ui()->DoLabel(&Title, "пушин клиент", 22.0f, TEXTALIGN_MC);
 
         // Collapsible "вар лист" row
         CUIRect VarListRow, Rest;
@@ -496,16 +562,12 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         ColumnsAndPreview.HSplitTop(6.0f, nullptr, &ColumnsAndPreview);
         RenderPushinSettingsPanel(SettingsView);
 
-        // Three columns + mini-menu on the right
-        CUIRect ColumnsRow, MiniMenuCol, PreviewArea;
+        // Three columns (no mini-menu — user removed it)
+        CUIRect ColumnsRow, PreviewArea;
         ColumnsAndPreview.HSplitTop(220.0f, &ColumnsRow, &PreviewArea);
         PreviewArea.HSplitTop(6.0f, nullptr, &PreviewArea);
 
-        // Reserve 80px on the right for the mini-menu
-        ColumnsRow.VSplitRight(80.0f, &ColumnsRow, &MiniMenuCol);
-        MiniMenuCol.HMargin(20.0f, &MiniMenuCol);
-
-        // Split the remaining width into 3 columns
+        // Split the width into 3 equal columns
         CUIRect ColPlayers, ColTeam, ColVar;
         const float Gap = 4.0f;
         ColumnsRow.VSplitMid(&ColPlayers, &ColTeam, Gap);
@@ -530,22 +592,68 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         }
 
         // Render the three columns
-        (void)RenderPushinColumn(ColPlayers, "Players", vAll, PUSHIN_STATUS_NONE);
-        (void)RenderPushinColumn(ColTeam, "Team", vTeam, PUSHIN_STATUS_TEAM);
-        (void)RenderPushinColumn(ColVar, "Var", vVar, PUSHIN_STATUS_VAR);
+        (void)RenderPushinColumn(ColPlayers, "игроки", vAll, PUSHIN_STATUS_NONE);
+        (void)RenderPushinColumn(ColTeam, "тим", vTeam, PUSHIN_STATUS_TEAM);
+        (void)RenderPushinColumn(ColVar, "вар", vVar, PUSHIN_STATUS_VAR);
 
-        // Mini-menu (drop target)
-        (void)RenderPushinMiniMenu(MiniMenuCol);
-
-        // Update drag state: if mouse released, end the drag.
+        // Update drag state: if mouse released, end the drag and clear the
+        // pending drag client id. Also track s_PushinMouseWasDown for the
+        // "just released" detection in RenderPushinColumn.
         const bool MouseDown = Ui()->MouseButton(0);
-        if(!MouseDown && s_PushinDragging)
+        if(!MouseDown)
         {
                 s_PushinDragging = false;
                 s_PushinDragClientId = -1;
         }
+        s_PushinMouseWasDown = MouseDown;
 
         // Preview at the bottom
         RenderPushinPreview(PreviewArea);
+}
+// ============================================================================
+// Static accessor methods — used by players.cpp, nameplates.cpp, scoreboard.cpp
+// to apply the var/team tint+prefix+emote in-game.
+// ============================================================================
+
+int CMenus::GetPushinStatus(int ClientId)
+{
+        if(ClientId < 0 || ClientId >= MAX_CLIENTS)
+                return PUSHIN_STATUS_NONE;
+        return s_aPushinStatus[ClientId];
+}
+
+void CMenus::GetPushinDisplayName(char *pBuf, int BufSize, int ClientId, const char *pOriginalName)
+{
+        const int Status = GetPushinStatus(ClientId);
+        const char *pPrefix = nullptr;
+        if(Status == PUSHIN_STATUS_VAR && g_Config.m_PushinVarUsePrefix)
+                pPrefix = g_Config.m_PushinVarPrefix;
+        else if(Status == PUSHIN_STATUS_TEAM && g_Config.m_PushinTeamUsePrefix)
+                pPrefix = g_Config.m_PushinTeamPrefix;
+
+        if(pPrefix && pPrefix[0] != '\0')
+                str_format(pBuf, BufSize, "[%s] %s", pPrefix, pOriginalName);
+        else
+                str_copy(pBuf, pOriginalName, BufSize);
+}
+
+ColorRGBA CMenus::GetPushinNickColor(int ClientId)
+{
+        const int Status = GetPushinStatus(ClientId);
+        if(Status == PUSHIN_STATUS_VAR && g_Config.m_PushinVarColorNick)
+                return PushinColorToRGBA(g_Config.m_PushinVarColor);
+        if(Status == PUSHIN_STATUS_TEAM && g_Config.m_PushinTeamColorNick)
+                return PushinColorToRGBA(g_Config.m_PushinTeamColor);
+        return ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
+void CMenus::ApplyPushinToRenderInfo(CTeeRenderInfo &Info, int ClientId)
+{
+        ApplyPushinTintToTee(Info, GetPushinStatus(ClientId));
+}
+
+int CMenus::GetPushinEmote(int ClientId)
+{
+        return PushinEmote(GetPushinStatus(ClientId));
 }
 // ---- end Pushin client ----
