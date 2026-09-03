@@ -138,3 +138,9 @@ CI workflow `build-ios-ipa.yml` запущен через API (run #54), ждё�
     Клик по чипу разворачивает 2 кнопки var/team прямо в строке.
     Префикс [var]/[team] в имени + цвет ника (красный/зелёный).
 - Готовлю коммит и буду триггерить CI
+
+### 2026-09-03 (финал 2)
+- CI #58 (коммит `2b1402010`) СОБРАЛСЯ УСПЕШНО с разделом "Пушин клиент"
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, от 15:14 UTC)
+- В бинарнике подтверждено: `RenderSettingsPushin`, `s_PushinExpandedIndex`
+- Ссылка на CI: https://github.com/Matwey181/ddnet/actions/runs/33770925159
