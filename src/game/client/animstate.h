@@ -3,7 +3,7 @@
 #ifndef GAME_CLIENT_ANIMSTATE_H
 #define GAME_CLIENT_ANIMSTATE_H
 
-#include <game/generated/client_data.h>
+#include <generated/data_types.h>
 
 class CAnimState
 {
@@ -19,8 +19,8 @@ public:
 	const CAnimKeyframe *GetBackFoot() const { return &m_BackFoot; }
 	const CAnimKeyframe *GetFrontFoot() const { return &m_FrontFoot; }
 	const CAnimKeyframe *GetAttach() const { return &m_Attach; }
-	void Set(CAnimation *pAnim, float Time);
-	void Add(CAnimation *pAnim, float Time, float Amount);
+	void Set(const CAnimation *pAnim, float Time);
+	void Add(const CAnimation *pAnim, float Time, float Amount);
 
 	const static CAnimState *GetIdle();
 };

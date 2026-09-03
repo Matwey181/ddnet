@@ -1,9 +1,15 @@
 #include "test.h"
-#include <gtest/gtest.h>
 
+#include <base/fs.h>
 #include <base/logger.h>
-#include <base/system.h>
+#include <base/net.h>
+#include <base/os.h>
+#include <base/process.h>
+#include <base/str.h>
+
 #include <engine/storage.h>
+
+#include <gtest/gtest.h>
 
 #include <algorithm>
 
@@ -27,7 +33,7 @@ CTestInfo::CTestInfo()
 		}
 	}
 	str_format(m_aFilenamePrefix, sizeof(m_aFilenamePrefix), "%s.%s-%d",
-		aTestCaseName, pTestInfo->name(), pid());
+		aTestCaseName, pTestInfo->name(), process_id());
 	Filename(m_aFilename, sizeof(m_aFilename), ".tmp");
 }
 
@@ -140,15 +146,9 @@ int main(int argc, const char **argv)
 	CCmdlineFix CmdlineFix(&argc, &argv);
 	log_set_global_logger_default();
 	::testing::InitGoogleTest(&argc, const_cast<char **>(argv));
+	GTEST_FLAG_SET(death_test_style, "threadsafe");
 	net_init();
-	if(secure_random_init())
-	{
-		fprintf(stderr, "random init failed\n");
-		return 1;
-	}
-	int Result = RUN_ALL_TESTS();
-	secure_random_uninit();
-	return Result;
+	return RUN_ALL_TESTS();
 }
 
 TEST(TestInfo, Sort)

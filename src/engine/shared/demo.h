@@ -3,6 +3,8 @@
 #ifndef ENGINE_SHARED_DEMO_H
 #define ENGINE_SHARED_DEMO_H
 
+#include "snapshot.h"
+
 #include <base/hash.h>
 
 #include <engine/demo.h>
@@ -10,8 +12,6 @@
 
 #include <functional>
 #include <vector>
-
-#include "snapshot.h"
 
 typedef std::function<void()> TUpdateIntraTimesFunc;
 
@@ -42,7 +42,7 @@ class CDemoRecorder : public IDemoRecorder
 
 public:
 	CDemoRecorder(class CSnapshotDelta *pSnapshotDelta, bool NoMapData = false);
-	CDemoRecorder() {}
+	CDemoRecorder() = default;
 	~CDemoRecorder() override;
 
 	int Start(class IStorage *pStorage, class IConsole *pConsole, const char *pFilename, const char *pNetversion, const char *pMap, const SHA256_DIGEST &Sha256, unsigned MapCrc, const char *pType, unsigned MapSize, unsigned char *pMapData, IOHANDLE MapFile, DEMOFUNC_FILTER pfnFilter, void *pUser);
@@ -66,7 +66,7 @@ public:
 	class IListener
 	{
 	public:
-		virtual ~IListener() {}
+		virtual ~IListener() = default;
 		virtual void OnDemoPlayerSnapshot(void *pData, int Size) = 0;
 		virtual void OnDemoPlayerMessage(void *pData, int Size) = 0;
 	};
@@ -80,6 +80,7 @@ public:
 		IDemoPlayer::CInfo m_Info;
 
 		int64_t m_LastUpdate;
+		int64_t m_LastScan;
 		int64_t m_CurrentTime;
 
 		int m_NextTick;
@@ -88,6 +89,10 @@ public:
 		float m_IntraTick;
 		float m_IntraTickSincePrev;
 		float m_TickTime;
+
+		bool m_LiveStateUpdating;
+		int m_LiveStateFailedCount;
+		int m_LiveStateUnchangedCount;
 	};
 
 private:
@@ -144,7 +149,13 @@ private:
 	};
 	EReadChunkHeaderResult ReadChunkHeader(int *pType, int *pSize, int *pTick);
 	void DoTick();
-	bool ScanFile();
+	enum class EScanFileResult
+	{
+		SUCCESS,
+		ERROR_RECOVERABLE,
+		ERROR_UNRECOVERABLE,
+	};
+	EScanFileResult ScanFile();
 	void UpdateTimes();
 
 	int64_t Time();
@@ -169,17 +180,17 @@ public:
 	void SetSpeed(float Speed) override;
 	void SetSpeedIndex(int SpeedIndex) override;
 	void AdjustSpeedIndex(int Offset) override;
-	int SeekPercent(float Percent) override;
-	int SeekTime(float Seconds) override;
-	int SeekTick(ETickOffset TickOffset) override;
-	int SetPos(int WantedTick) override;
+	bool SeekPercent(float Percent) override;
+	bool SeekTime(float Seconds) override;
+	bool SeekTick(ETickOffset TickOffset) override;
+	bool SetPos(int WantedTick) override;
 	const CInfo *BaseInfo() const override { return &m_Info.m_Info; }
 	void GetDemoName(char *pBuffer, size_t BufferSize) const override;
 	bool GetDemoInfo(class IStorage *pStorage, class IConsole *pConsole, const char *pFilename, int StorageType, CDemoHeader *pDemoHeader, CTimelineMarkers *pTimelineMarkers, CMapInfo *pMapInfo, IOHANDLE *pFile = nullptr, char *pErrorMessage = nullptr, size_t ErrorMessageSize = 0) const override;
 	const char *Filename() const { return m_aFilename; }
 	const char *ErrorMessage() const override { return m_aErrorMessage; }
 
-	int Update(bool RealTime = true);
+	void Update(bool RealTime = true);
 	bool IsSixup() const { return m_Sixup; }
 
 	const CPlaybackInfo *Info() const { return &m_Info; }

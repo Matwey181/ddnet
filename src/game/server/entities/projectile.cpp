@@ -1,15 +1,16 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "projectile.h"
+
 #include "character.h"
 
 #include <engine/shared/config.h>
 
-#include <game/generated/protocol.h>
-#include <game/mapitems.h>
+#include <generated/protocol.h>
 
+#include <game/mapitems.h>
 #include <game/server/gamecontext.h>
-#include <game/server/gamemodes/DDRace.h>
+#include <game/server/gamemodes/ddnet.h>
 
 CProjectile::CProjectile(
 	CGameWorld *pGameWorld,
@@ -31,7 +32,6 @@ CProjectile::CProjectile(
 	m_Direction = Dir;
 	m_LifeSpan = Span;
 	m_Owner = Owner;
-	//m_Damage = Damage;
 	m_SoundImpact = SoundImpact;
 	m_StartTick = Server()->Tick();
 	m_Explosive = Explosive;
@@ -60,48 +60,23 @@ vec2 CProjectile::GetPos(float Time)
 {
 	float Curvature = 0;
 	float Speed = 0;
+	CTuningParams *pTuning = GetTuning(m_TuneZone);
 
 	switch(m_Type)
 	{
 	case WEAPON_GRENADE:
-		if(!m_TuneZone)
-		{
-			Curvature = Tuning()->m_GrenadeCurvature;
-			Speed = Tuning()->m_GrenadeSpeed;
-		}
-		else
-		{
-			Curvature = TuningList()[m_TuneZone].m_GrenadeCurvature;
-			Speed = TuningList()[m_TuneZone].m_GrenadeSpeed;
-		}
-
+		Curvature = pTuning->m_GrenadeCurvature;
+		Speed = pTuning->m_GrenadeSpeed;
 		break;
 
 	case WEAPON_SHOTGUN:
-		if(!m_TuneZone)
-		{
-			Curvature = Tuning()->m_ShotgunCurvature;
-			Speed = Tuning()->m_ShotgunSpeed;
-		}
-		else
-		{
-			Curvature = TuningList()[m_TuneZone].m_ShotgunCurvature;
-			Speed = TuningList()[m_TuneZone].m_ShotgunSpeed;
-		}
-
+		Curvature = pTuning->m_ShotgunCurvature;
+		Speed = pTuning->m_ShotgunSpeed;
 		break;
 
 	case WEAPON_GUN:
-		if(!m_TuneZone)
-		{
-			Curvature = Tuning()->m_GunCurvature;
-			Speed = Tuning()->m_GunSpeed;
-		}
-		else
-		{
-			Curvature = TuningList()[m_TuneZone].m_GunCurvature;
-			Speed = TuningList()[m_TuneZone].m_GunSpeed;
-		}
+		Curvature = pTuning->m_GunCurvature;
+		Speed = pTuning->m_GunSpeed;
 		break;
 	}
 
@@ -194,13 +169,13 @@ void CProjectile::Tick()
 			{
 				// Delay specifies which weapon the tile should work for.
 				// Delay = 0 means all.
-				int delay = GameServer()->Collision()->GetSwitchDelay(MapIndex);
+				int Delay = GameServer()->Collision()->GetSwitchDelay(MapIndex);
 
-				if(delay == 1 && m_Type != WEAPON_GUN)
+				if(Delay == 1 && m_Type != WEAPON_GUN)
 					IsSwitchTeleGun = IsBlueSwitchTeleGun = false;
-				if(delay == 2 && m_Type != WEAPON_GRENADE)
+				if(Delay == 2 && m_Type != WEAPON_GRENADE)
 					IsSwitchTeleGun = IsBlueSwitchTeleGun = false;
-				if(delay == 3 && m_Type != WEAPON_LASER)
+				if(Delay == 3 && m_Type != WEAPON_LASER)
 					IsSwitchTeleGun = IsBlueSwitchTeleGun = false;
 			}
 
@@ -365,7 +340,7 @@ void CProjectile::Snap(int SnappingClient)
 
 void CProjectile::SwapClients(int Client1, int Client2)
 {
-	m_Owner = m_Owner == Client1 ? Client2 : m_Owner == Client2 ? Client1 : m_Owner;
+	m_Owner = m_Owner == Client1 ? Client2 : (m_Owner == Client2 ? Client1 : m_Owner);
 }
 
 // DDRace

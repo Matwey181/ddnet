@@ -3,11 +3,15 @@
 #ifndef ENGINE_SERVER_SERVER_H
 #define ENGINE_SERVER_SERVER_H
 
+#include "antibot.h"
+#include "authmanager.h"
+#include "name_ban.h"
+#include "snap_id_pool.h"
+
 #include <base/hash.h>
 
 #include <engine/console.h>
 #include <engine/server.h>
-
 #include <engine/shared/demo.h>
 #include <engine/shared/econ.h>
 #include <engine/shared/fifo.h>
@@ -22,11 +26,6 @@
 #include <optional>
 #include <vector>
 
-#include "antibot.h"
-#include "authmanager.h"
-#include "name_ban.h"
-#include "snap_id_pool.h"
-
 #if defined(CONF_UPNP)
 #include "upnp.h"
 #endif
@@ -37,7 +36,6 @@ class CLogMessage;
 class CMsgPacker;
 class CPacker;
 class IEngine;
-class IEngineMap;
 class ILogger;
 
 class CServerBan : public CNetBan
@@ -84,10 +82,8 @@ class CServer : public IServer
 
 	class CDbConnectionPool *m_pConnectionPool;
 
-#ifdef CONF_DEBUG
 	int m_PreviousDebugDummies = 0;
 	void UpdateDebugDummies(bool ForceDisconnect);
-#endif
 
 public:
 	class IGameServer *GameServer() { return m_pGameServer; }
@@ -104,6 +100,16 @@ public:
 		MAX_RCONCMD_SEND = 16,
 	};
 
+	enum class EDnsblState
+	{
+		NONE,
+		PENDING,
+		BLACKLISTED,
+		WHITELISTED,
+	};
+
+	static const char *DnsblStateStr(EDnsblState State);
+
 	class CClient
 	{
 	public:
@@ -116,15 +122,13 @@ public:
 			STATE_CONNECTING,
 			STATE_READY,
 			STATE_INGAME,
+		};
 
+		enum
+		{
 			SNAPRATE_INIT = 0,
 			SNAPRATE_FULL,
 			SNAPRATE_RECOVER,
-
-			DNSBL_STATE_NONE = 0,
-			DNSBL_STATE_PENDING,
-			DNSBL_STATE_BLACKLISTED,
-			DNSBL_STATE_WHITELISTED,
 		};
 
 		class CInput
@@ -146,6 +150,7 @@ public:
 		int m_LastInputTick;
 		CSnapshotStorage m_Snapshots;
 
+		CNetMsg_Sv_PreInput m_LastPreInput = {};
 		CInput m_LatestInput;
 		CInput m_aInputs[200]; // TODO: handle input better
 		int m_CurrentInput;
@@ -154,7 +159,6 @@ public:
 		char m_aClan[MAX_CLAN_LENGTH];
 		int m_Country;
 		std::optional<int> m_Score;
-		int m_Authed;
 		int m_AuthKey;
 		int m_AuthTries;
 		bool m_AuthHidden;
@@ -162,11 +166,12 @@ public:
 		int m_Flags;
 		bool m_ShowIps;
 		bool m_DebugDummy;
+		bool m_ForceHighBandwidthOnSpectate;
 		NETADDR m_DebugDummyAddr;
 		std::array<char, NETADDR_MAXSTRSIZE> m_aDebugDummyAddrString;
 		std::array<char, NETADDR_MAXSTRSIZE> m_aDebugDummyAddrStringNoPort;
 
-		const IConsole::CCommandInfo *m_pRconCmdToSend;
+		const IConsole::ICommandInfo *m_pRconCmdToSend;
 		enum
 		{
 			MAPLIST_UNINITIALIZED = -1,
@@ -182,7 +187,6 @@ public:
 
 		// DDRace
 
-		NETADDR m_Addr;
 		bool m_GotDDNetVersionPacket;
 		bool m_DDNetVersionSettled;
 		int m_DDNetVersion;
@@ -191,7 +195,7 @@ public:
 		int64_t m_RedirectDropTime;
 
 		// DNSBL
-		int m_DnsblState;
+		EDnsblState m_DnsblState;
 		std::shared_ptr<CHostLookup> m_pDnsblLookup;
 
 		bool m_Sixup;
@@ -200,12 +204,9 @@ public:
 		{
 			return m_State != STATE_EMPTY && !m_DebugDummy;
 		}
-
-		int ConsoleAccessLevel() const
-		{
-			return m_Authed == AUTHED_ADMIN ? IConsole::ACCESS_LEVEL_ADMIN : m_Authed == AUTHED_MOD ? IConsole::ACCESS_LEVEL_MOD : IConsole::ACCESS_LEVEL_HELPER;
-		}
 	};
+
+	IConsole::EAccessLevel ConsoleAccessLevel(int ClientId) const;
 
 	CClient m_aClients[MAX_CLIENTS];
 	int m_aIdMap[MAX_CLIENTS * VANILLA_MAX_CLIENTS];
@@ -219,10 +220,7 @@ public:
 	CServerBan m_ServerBan;
 	CHttp m_Http;
 
-	IEngineMap *m_pMap;
-
 	int64_t m_GameStartTime;
-	//int m_CurrentGameTick;
 
 	enum
 	{
@@ -256,8 +254,6 @@ public:
 		NUM_RECORDERS = MAX_CLIENTS + 2,
 	};
 
-	char m_aCurrentMap[IO_MAX_PATH_LENGTH];
-	const char *m_pCurrentMapName;
 	SHA256_DIGEST m_aCurrentMapSha256[NUM_MAP_TYPES];
 	unsigned m_aCurrentMapCrc[NUM_MAP_TYPES];
 	unsigned char *m_apCurrentMapData[NUM_MAP_TYPES];
@@ -281,7 +277,7 @@ public:
 	std::shared_ptr<ILogger> m_pStdoutLogger = nullptr;
 
 	CServer();
-	~CServer();
+	~CServer() override;
 
 	bool IsClientNameAvailable(int ClientId, const char *pNameRequest);
 	bool SetClientNameImpl(int ClientId, const char *pNameRequest, bool Set);
@@ -302,18 +298,18 @@ public:
 
 	void DemoRecorder_HandleAutoStart() override;
 
-	//int Tick()
 	int64_t TickStartTime(int Tick);
-	//int TickSpeed()
 
 	int Init();
 
+	static bool StrHideIps(const char *pInput, char *pOutputWithIps, int OutputWithIpsSize, char *pOutputWithoutIps, int OutputWithoutIpsSize);
 	void SendLogLine(const CLogMessage *pMessage);
 	void SetRconCid(int ClientId) override;
 	int GetAuthedState(int ClientId) const override;
+	bool IsRconAuthed(int ClientId) const override;
+	bool IsRconAuthedAdmin(int ClientId) const override;
 	const char *GetAuthName(int ClientId) const override;
 	bool HasAuthHidden(int ClientId) const override;
-	void GetMapInfo(char *pMapName, int MapNameSize, int *pMapSize, SHA256_DIGEST *pMapSha256, int *pMapCrc) override;
 	bool GetClientInfo(int ClientId, CClientInfo *pInfo) const override;
 	void SetClientDDNetVersion(int ClientId, int DDNetVersion) override;
 	const NETADDR *ClientAddr(int ClientId) const override;
@@ -349,8 +345,8 @@ public:
 	// Accepts -1 as ClientId to mean "all clients with at least auth level admin"
 	void SendRconLogLine(int ClientId, const CLogMessage *pMessage);
 
-	void SendRconCmdAdd(const IConsole::CCommandInfo *pCommandInfo, int ClientId);
-	void SendRconCmdRem(const IConsole::CCommandInfo *pCommandInfo, int ClientId);
+	void SendRconCmdAdd(const IConsole::ICommandInfo *pCommandInfo, int ClientId);
+	void SendRconCmdRem(const IConsole::ICommandInfo *pCommandInfo, int ClientId);
 	void SendRconCmdGroupStart(int ClientId);
 	void SendRconCmdGroupEnd(int ClientId);
 	int NumRconCommands(int ClientId);
@@ -372,6 +368,11 @@ public:
 
 	bool CheckReservedSlotAuth(int ClientId, const char *pPassword);
 	void ProcessClientPacket(CNetChunk *pPacket);
+	void OnNetMsgClientVer(int ClientId, CUuid *pConnectionId, int DDNetVersion, const char *pDDNetVersionStr);
+	void OnNetMsgReady(int ClientId);
+	void OnNetMsgEnterGame(int ClientId);
+	void OnNetMsgRconCmd(int ClientId, const char *pCmd);
+	void OnNetMsgRconAuth(int ClientId, const char *pName, const char *pPw, bool SendRconCmds);
 
 	class CCache
 	{
@@ -396,24 +397,25 @@ public:
 	};
 	CCache m_aServerInfoCache[3 * 2];
 	CCache m_aSixupServerInfoCache[2];
-	bool m_ServerInfoNeedsUpdate;
+	bool m_ServerInfoNeedsUpdate = false;
+	bool m_ServerInfoNeedsResend = false;
 
 	void FillAntibot(CAntibotRoundData *pData) override;
 
 	void ExpireServerInfo() override;
+	void ExpireServerInfoAndQueueResend();
 	void CacheServerInfo(CCache *pCache, int Type, bool SendClients);
 	void CacheServerInfoSixup(CCache *pCache, bool SendClients, int MaxConsideredClients);
 	void SendServerInfo(const NETADDR *pAddr, int Token, int Type, bool SendClients);
-	void GetServerInfoSixup(CPacker *pPacker, int Token, bool SendClients);
+	void GetServerInfoSixup(CPacker *pPacker, bool SendClients);
 	bool RateLimitServerInfoConnless();
 	void SendServerInfoConnless(const NETADDR *pAddr, int Token, int Type);
 	void UpdateRegisterServerInfo();
-	void UpdateServerInfo(bool Resend = false);
+	void UpdateServerInfo(bool Resend);
 
 	void PumpNetwork(bool PacketWaiting);
 
 	void ChangeMap(const char *pMap) override;
-	const char *GetMapName() const override;
 	void ReloadMap() override;
 	int LoadMap(const char *pMapName);
 
@@ -434,6 +436,7 @@ public:
 	static void ConLogout(IConsole::IResult *pResult, void *pUser);
 	static void ConShowIps(IConsole::IResult *pResult, void *pUser);
 	static void ConHideAuthStatus(IConsole::IResult *pResult, void *pUser);
+	static void ConForceHighBandwidthOnSpectate(IConsole::IResult *pResult, void *pUser);
 
 	static void ConAuthAdd(IConsole::IResult *pResult, void *pUser);
 	static void ConAuthAddHashed(IConsole::IResult *pResult, void *pUser);
@@ -456,15 +459,16 @@ public:
 	void LogoutClient(int ClientId, const char *pReason);
 	void LogoutKey(int Key, const char *pReason);
 
-	void ConchainRconPasswordChangeGeneric(int Level, const char *pCurrent, IConsole::IResult *pResult);
+	void ConchainRconPasswordChangeGeneric(const char *pRoleName, const char *pCurrent, IConsole::IResult *pResult);
 	static void ConchainRconPasswordChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainRconModPasswordChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainRconHelperPasswordChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainMapUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainSixupUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainRegisterCommunityTokenRedact(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainLoglevel(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainStdoutOutputLevel(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
-	static void ConchainAnnouncementFileName(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainAnnouncementFilename(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainInputFifo(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 #if defined(CONF_FAMILY_UNIX)
@@ -492,24 +496,26 @@ public:
 	void InitDnsbl(int ClientId);
 	bool DnsblWhite(int ClientId) override
 	{
-		return m_aClients[ClientId].m_DnsblState == CClient::DNSBL_STATE_NONE ||
-		       m_aClients[ClientId].m_DnsblState == CClient::DNSBL_STATE_WHITELISTED;
+		return m_aClients[ClientId].m_DnsblState == EDnsblState::NONE ||
+		       m_aClients[ClientId].m_DnsblState == EDnsblState::WHITELISTED;
 	}
 	bool DnsblPending(int ClientId) override
 	{
-		return m_aClients[ClientId].m_DnsblState == CClient::DNSBL_STATE_PENDING;
+		return m_aClients[ClientId].m_DnsblState == EDnsblState::PENDING;
 	}
 	bool DnsblBlack(int ClientId) override
 	{
-		return m_aClients[ClientId].m_DnsblState == CClient::DNSBL_STATE_BLACKLISTED;
+		return m_aClients[ClientId].m_DnsblState == EDnsblState::BLACKLISTED;
 	}
 
+	static bool CanClientUseCommandCallback(int ClientId, const IConsole::ICommandInfo *pCommand, void *pUser);
+	bool CanClientUseCommand(int ClientId, const IConsole::ICommandInfo *pCommand) const;
 	void AuthRemoveKey(int KeySlot);
 	bool ClientPrevIngame(int ClientId) override { return m_aPrevStates[ClientId] == CClient::STATE_INGAME; }
 	const char *GetNetErrorString(int ClientId) override { return m_NetServer.ErrorString(ClientId); }
 	void ResetNetErrorString(int ClientId) override { m_NetServer.ResetErrorString(ClientId); }
 	bool SetTimedOut(int ClientId, int OrigId) override;
-	void SetTimeoutProtected(int ClientId) override { m_NetServer.SetTimeoutProtected(ClientId); }
+	void SetTimeoutProtected(int ClientId) override { m_NetServer.IgnoreTimeouts(ClientId); }
 
 	void SendMsgRaw(int ClientId, const void *pData, int Size, int Flags) override;
 
@@ -530,6 +536,8 @@ public:
 	void SendConnLoggingCommand(CONN_LOGGING_CMD Cmd, const NETADDR *pAddr);
 #endif
 };
+
+bool IsInterrupted();
 
 extern CServer *CreateServer();
 #endif

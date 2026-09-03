@@ -2,6 +2,7 @@
 
 #include <base/log.h>
 #include <base/system.h>
+
 #include <engine/server/databases/connection.h>
 #include <engine/server/databases/connection_pool.h>
 #include <engine/server/sql_string_helpers.h>
@@ -107,7 +108,7 @@ bool CTeamrank::GetSqlTop5Team(IDbConnection *pSqlServer, bool *pEnd, char *pErr
 	{
 		bool Last = false;
 		float Time = pSqlServer->GetFloat(2);
-		str_time_float(Time, TIME_HOURS_CENTISECS, aTime, sizeof(aTime));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aTime, sizeof(aTime));
 		int Rank = pSqlServer->GetInt(3);
 		int TeamSize = pSqlServer->GetInt(4);
 
@@ -448,7 +449,7 @@ bool CScoreWorker::MapInfo(IDbConnection *pSqlServer, const ISqlData *pGameData,
 		char aMedianString[60] = "\0";
 		if(Median > 0)
 		{
-			str_time((int64_t)Median * 100, TIME_HOURS, aBuf, sizeof(aBuf));
+			str_time((int64_t)Median * 100, ETimeFormat::HOURS, aBuf, sizeof(aBuf));
 			str_format(aMedianString, sizeof(aMedianString), " in %s median", aBuf);
 		}
 
@@ -467,7 +468,7 @@ bool CScoreWorker::MapInfo(IDbConnection *pSqlServer, const ISqlData *pGameData,
 		char aOwnFinishesString[40] = "\0";
 		if(OwnTime > 0)
 		{
-			str_time_float(OwnTime, TIME_HOURS_CENTISECS, aBuf, sizeof(aBuf));
+			str_time_float(OwnTime, ETimeFormat::HOURS_CENTISECS, aBuf, sizeof(aBuf));
 			str_format(aOwnFinishesString, sizeof(aOwnFinishesString),
 				", your time: %s", aBuf);
 		}
@@ -714,6 +715,7 @@ bool CScoreWorker::SaveTeamScore(IDbConnection *pSqlServer, const ISqlData *pGam
 	{
 		// get the names sorted in a tab separated string
 		std::vector<std::string> vNames;
+		vNames.reserve(pData->m_Size);
 		for(unsigned int i = 0; i < pData->m_Size; i++)
 			vNames.emplace_back(pData->m_aaNames[i]);
 
@@ -883,17 +885,18 @@ bool CScoreWorker::ShowRank(IDbConnection *pSqlServer, const ISqlData *pGameData
 	{
 		int Rank = pSqlServer->GetInt(1);
 		float Time = pSqlServer->GetFloat(2);
-		// CEIL and FLOOR are not supported in SQLite
-		int BetterThanPercent = std::floor(100.0f - 100.0f * pSqlServer->GetFloat(3));
-		str_time_float(Time, TIME_HOURS_CENTISECS, aBuf, sizeof(aBuf));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aBuf, sizeof(aBuf));
+
 		if(g_Config.m_SvHideScore)
 		{
 			str_format(pResult->m_Data.m_aaMessages[0], sizeof(pResult->m_Data.m_aaMessages[0]),
-				"Your time: %s, better than %d%%", aBuf, BetterThanPercent);
+				"Your time: %s", aBuf);
 		}
 		else
 		{
 			pResult->m_MessageKind = CScorePlayerResult::ALL;
+			// CEIL and FLOOR are not supported in SQLite
+			int BetterThanPercent = std::floor(100.0f - 100.0f * pSqlServer->GetFloat(3));
 
 			if(str_comp_nocase(pData->m_aRequestingPlayer, pData->m_aName) == 0)
 			{
@@ -970,7 +973,7 @@ bool CScoreWorker::ShowTeamRank(IDbConnection *pSqlServer, const ISqlData *pGame
 	if(!End)
 	{
 		float Time = pSqlServer->GetFloat(3);
-		str_time_float(Time, TIME_HOURS_CENTISECS, aBuf, sizeof(aBuf));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aBuf, sizeof(aBuf));
 		int Rank = pSqlServer->GetInt(4);
 		// CEIL and FLOOR are not supported in SQLite
 		int BetterThanPercent = std::floor(100.0f - 100.0f * pSqlServer->GetFloat(5));
@@ -1060,7 +1063,7 @@ bool CScoreWorker::ShowTop(IDbConnection *pSqlServer, const ISqlData *pGameData,
 		char aName[MAX_NAME_LENGTH];
 		pSqlServer->GetString(1, aName, sizeof(aName));
 		float Time = pSqlServer->GetFloat(2);
-		str_time_float(Time, TIME_HOURS_CENTISECS, aTime, sizeof(aTime));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aTime, sizeof(aTime));
 		int Rank = pSqlServer->GetInt(3);
 		str_format(pResult->m_Data.m_aaMessages[Line], sizeof(pResult->m_Data.m_aaMessages[Line]),
 			"%d. %s Time: %s", Rank, aName, aTime);
@@ -1095,7 +1098,7 @@ bool CScoreWorker::ShowTop(IDbConnection *pSqlServer, const ISqlData *pGameData,
 		char aName[MAX_NAME_LENGTH];
 		pSqlServer->GetString(1, aName, sizeof(aName));
 		float Time = pSqlServer->GetFloat(2);
-		str_time_float(Time, TIME_HOURS_CENTISECS, aTime, sizeof(aTime));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aTime, sizeof(aTime));
 		int Rank = pSqlServer->GetInt(3);
 		str_format(pResult->m_Data.m_aaMessages[Line], sizeof(pResult->m_Data.m_aaMessages[Line]),
 			"%d. %s Time: %s", Rank, aName, aTime);
@@ -1125,10 +1128,14 @@ bool CScoreWorker::ShowTeamTop5(IDbConnection *pSqlServer, const ISqlData *pGame
 		"  FROM (" // teamrank score board
 		"    SELECT RANK() OVER w AS Ranking, COUNT(*) AS Teamsize, Id, Server "
 		"    FROM ("
-		"      SELECT tr.Map, tr.Time, tr.Id, rr.Server FROM %s_teamrace as tr "
-		"      INNER JOIN %s_race as rr ON tr.Map = rr.Map AND tr.Name = rr.Name AND tr.Time = rr.Time"
+		"      SELECT tr.Map, tr.Time, tr.Id, ("
+		"        SELECT rr.Server FROM %s_race AS rr "
+		"        WHERE rr.Map = tr.Map AND rr.Name = tr.Name AND rr.Time = tr.Time "
+		"        LIMIT 1"
+		"      ) AS Server "
+		"      FROM %s_teamrace AS tr "
+		"      WHERE tr.Map = ? "
 		"    ) AS ll "
-		"    WHERE Map = ? "
 		"    GROUP BY ID "
 		"    WINDOW w AS (ORDER BY Min(Time))"
 		"  ) as l1 "
@@ -1250,7 +1257,7 @@ bool CScoreWorker::ShowPlayerTeamTop5(IDbConnection *pSqlServer, const ISqlData 
 		for(Line = 1; Line < 6; Line++) // print
 		{
 			float Time = pSqlServer->GetFloat(3);
-			str_time_float(Time, TIME_HOURS_CENTISECS, aBuf, sizeof(aBuf));
+			str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aBuf, sizeof(aBuf));
 			int Rank = pSqlServer->GetInt(4);
 			CTeamrank Teamrank;
 			bool Last;
@@ -1358,7 +1365,7 @@ bool CScoreWorker::ShowTimes(IDbConnection *pSqlServer, const ISqlData *pGameDat
 	do
 	{
 		float Time = pSqlServer->GetFloat(1);
-		str_time_float(Time, TIME_HOURS_CENTISECS, aBuf, sizeof(aBuf));
+		str_time_float(Time, ETimeFormat::HOURS_CENTISECS, aBuf, sizeof(aBuf));
 		int Ago = pSqlServer->GetInt(2);
 		int Stamp = pSqlServer->GetInt(3);
 		char aServer[5];
@@ -1505,18 +1512,19 @@ bool CScoreWorker::RandomMap(IDbConnection *pSqlServer, const ISqlData *pGameDat
 	auto *pResult = dynamic_cast<CScoreRandomMapResult *>(pGameData->m_pResult.get());
 
 	char aBuf[512];
-	if(0 <= pData->m_Stars && pData->m_Stars <= 5)
+	if(in_range(pData->m_MinStars, 0, 5) && in_range(pData->m_MaxStars, 0, 5))
 	{
 		str_format(aBuf, sizeof(aBuf),
 			"SELECT Map FROM %s_maps "
-			"WHERE Server = ? AND Map != ? AND Stars = ? "
+			"WHERE Server = ? AND Map != ? AND Stars BETWEEN ? AND ? "
 			"ORDER BY %s LIMIT 1",
 			pSqlServer->GetPrefix(), pSqlServer->Random());
 		if(!pSqlServer->PrepareStatement(aBuf, pError, ErrorSize))
 		{
 			return false;
 		}
-		pSqlServer->BindInt(3, pData->m_Stars);
+		pSqlServer->BindInt(3, pData->m_MinStars);
+		pSqlServer->BindInt(4, pData->m_MaxStars);
 	}
 	else
 	{
@@ -1555,12 +1563,12 @@ bool CScoreWorker::RandomUnfinishedMap(IDbConnection *pSqlServer, const ISqlData
 	auto *pResult = dynamic_cast<CScoreRandomMapResult *>(pGameData->m_pResult.get());
 
 	char aBuf[512];
-	if(pData->m_Stars >= 0)
+	if(in_range(pData->m_MinStars, 0, 5) && in_range(pData->m_MaxStars, 0, 5))
 	{
 		str_format(aBuf, sizeof(aBuf),
 			"SELECT Map "
 			"FROM %s_maps "
-			"WHERE Server = ? AND Map != ? AND Stars = ? AND Map NOT IN ("
+			"WHERE Server = ? AND Map != ? AND Stars BETWEEN ? AND ? AND Map NOT IN ("
 			"  SELECT Map "
 			"  FROM %s_race "
 			"  WHERE Name = ?"
@@ -1573,8 +1581,9 @@ bool CScoreWorker::RandomUnfinishedMap(IDbConnection *pSqlServer, const ISqlData
 		}
 		pSqlServer->BindString(1, pData->m_aServerType);
 		pSqlServer->BindString(2, pData->m_aCurrentMap);
-		pSqlServer->BindInt(3, pData->m_Stars);
-		pSqlServer->BindString(4, pData->m_aRequestingPlayer);
+		pSqlServer->BindInt(3, pData->m_MinStars);
+		pSqlServer->BindInt(4, pData->m_MaxStars);
+		pSqlServer->BindString(5, pData->m_aRequestingPlayer);
 	}
 	else
 	{
@@ -1673,6 +1682,9 @@ bool CScoreWorker::SaveTeam(IDbConnection *pSqlServer, const ISqlData *pGameData
 	dbg_msg("score/dbg", "code=%s failure=%d", pData->m_aCode, (int)w);
 	bool UseGeneratedCode = pData->m_aCode[0] == '\0' || w != Write::NORMAL;
 
+	str_copy(pResult->m_aGeneratedCode, pData->m_aGeneratedCode);
+	str_copy(pResult->m_aCode, UseGeneratedCode ? "" : pData->m_aCode);
+
 	bool Retry = false;
 	// two tries, first use the user provided code, then the autogenerated
 	do
@@ -1706,42 +1718,19 @@ bool CScoreWorker::SaveTeam(IDbConnection *pSqlServer, const ISqlData *pGameData
 		}
 		if(NumInserted == 1)
 		{
-			if(w == Write::NORMAL)
-			{
-				pResult->m_aBroadcast[0] = '\0';
-				if(str_comp(pData->m_aServer, g_Config.m_SvSqlServerName) == 0)
-				{
-					str_format(pResult->m_aMessage, sizeof(pResult->m_aMessage),
-						"Team successfully saved by %s. Use '/load %s' to continue",
-						pData->m_aClientName, aCode);
-				}
-				else
-				{
-					str_format(pResult->m_aMessage, sizeof(pResult->m_aMessage),
-						"Team successfully saved by %s. Use '/load %s' on %s to continue",
-						pData->m_aClientName, aCode, pData->m_aServer);
-				}
-			}
-			else
-			{
-				str_copy(pResult->m_aBroadcast,
-					"Database connection failed, teamsave written to a file instead. Admins will add it manually in a few days.",
-					sizeof(pResult->m_aBroadcast));
-				if(str_comp(pData->m_aServer, g_Config.m_SvSqlServerName) == 0)
-				{
-					str_format(pResult->m_aMessage, sizeof(pResult->m_aMessage),
-						"Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue",
-						pData->m_aClientName, aCode);
-				}
-				else
-				{
-					str_format(pResult->m_aMessage, sizeof(pResult->m_aMessage),
-						"Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue",
-						pData->m_aClientName, aCode, pData->m_aServer);
-				}
-			}
-
 			pResult->m_Status = CScoreSaveResult::SAVE_SUCCESS;
+			if(UseGeneratedCode)
+			{
+				pResult->m_aCode[0] = '\0';
+			}
+			if(w != Write::NORMAL)
+			{
+				if(str_comp(pData->m_aServer, g_Config.m_SvSqlServerName) == 0)
+				{
+					pResult->m_aServer[0] = '\0';
+				}
+				pResult->m_Status = CScoreSaveResult::SAVE_FALLBACKFILE;
+			}
 		}
 		else if(!UseGeneratedCode)
 		{
@@ -1750,7 +1739,10 @@ bool CScoreWorker::SaveTeam(IDbConnection *pSqlServer, const ISqlData *pGameData
 		}
 	} while(Retry);
 
-	if(pResult->m_Status != CScoreSaveResult::SAVE_SUCCESS)
+	if(
+		pResult->m_Status != CScoreSaveResult::SAVE_SUCCESS &&
+		pResult->m_Status != CScoreSaveResult::SAVE_WARNING &&
+		pResult->m_Status != CScoreSaveResult::SAVE_FALLBACKFILE)
 	{
 		dbg_msg("sql", "ERROR: This save-code already exists");
 		pResult->m_Status = CScoreSaveResult::SAVE_FAILED;

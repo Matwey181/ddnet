@@ -7,6 +7,7 @@
 #include <engine/graphics.h>
 
 #include <game/client/component.h>
+#include <game/client/ui.h>
 #include <game/client/ui_rect.h>
 
 class CScoreboard : public CComponent
@@ -21,29 +22,75 @@ class CScoreboard : public CComponent
 			m_TeamStartX(0), m_TeamStartY(0), m_CurrentDDTeamSize(0) {}
 	};
 
-	void RenderTitle(CUIRect TitleBar, int Team, const char *pTitle);
+	void RenderTitleScore(CUIRect ScoreLabel, int Team, float TitleFontSize);
+	void RenderTitle(CUIRect TitleLabel, int Team, const char *pTitle, float TitleFontSize);
+	void RenderTitleBar(CUIRect TitleBar, int Team, const char *pTitle);
 	void RenderGoals(CUIRect Goals);
 	void RenderSpectators(CUIRect Spectators);
 	void RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart, int CountEnd, CScoreboardRenderState &State);
 	void RenderRecordingNotification(float x);
 
 	static void ConKeyScoreboard(IConsole::IResult *pResult, void *pUserData);
+	static void ConToggleScoreboardCursor(IConsole::IResult *pResult, void *pUserData);
+
 	const char *GetTeamName(int Team) const;
 
 	bool m_Active;
-	float m_ServerRecord;
 
 	IGraphics::CTextureHandle m_DeadTeeTexture;
 
+	std::optional<vec2> m_LastMousePos;
+	bool m_MouseUnlocked = false;
+
+	void SetUiMousePos(vec2 Pos);
+	void LockMouse();
+
+	class CScoreboardPopupContext : public SPopupMenuId
+	{
+	public:
+		CScoreboard *m_pScoreboard = nullptr;
+		CButtonContainer m_FriendAction;
+		CButtonContainer m_MuteAction;
+		CButtonContainer m_EmoticonAction;
+
+		CButtonContainer m_SpectateButton;
+
+		int m_ClientId;
+		bool m_IsLocal;
+		bool m_IsSpectating;
+
+		static CUi::EPopupMenuFunctionResult Render(void *pContext, CUIRect View, bool Active);
+	} m_ScoreboardPopupContext;
+
+	class CMapTitlePopupContext : public SPopupMenuId
+	{
+	public:
+		CScoreboard *m_pScoreboard = nullptr;
+
+		float m_FontSize;
+
+		static CUi::EPopupMenuFunctionResult Render(void *pContext, CUIRect View, bool Active);
+	} m_MapTitlePopupContext;
+	char m_MapTitleButtonId;
+
+	class CPlayerElement
+	{
+	public:
+		char m_PlayerButtonId;
+		char m_SpectatorSecondLineButtonId;
+	};
+	CPlayerElement m_aPlayers[MAX_CLIENTS];
+
 public:
 	CScoreboard();
-	virtual int Sizeof() const override { return sizeof(*this); }
-	virtual void OnConsoleInit() override;
-	virtual void OnInit() override;
-	virtual void OnReset() override;
-	virtual void OnRender() override;
-	virtual void OnRelease() override;
-	virtual void OnMessage(int MsgType, void *pRawMsg) override;
+	int Sizeof() const override { return sizeof(*this); }
+	void OnConsoleInit() override;
+	void OnInit() override;
+	void OnReset() override;
+	void OnRender() override;
+	void OnRelease() override;
+	bool OnCursorMove(float x, float y, IInput::ECursorType CursorType) override;
+	bool OnInput(const IInput::CEvent &Event) override;
 
 	bool IsActive() const;
 };

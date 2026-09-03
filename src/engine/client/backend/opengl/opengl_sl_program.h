@@ -1,5 +1,5 @@
 // This file can be included several times.
-#if(!defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_OPENGL_SL_PROGRAM_H)) || \
+#if (!defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_OPENGL_SL_PROGRAM_H)) || \
 	(defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_OPENGL_SL_PROGRAM_H_AS_ES))
 
 #if !defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_OPENGL_SL_PROGRAM_H)
@@ -12,6 +12,7 @@
 
 #include <base/color.h>
 #include <base/vmath.h>
+
 #include <engine/client/graphics_defines.h>
 
 class CGLSL;
@@ -24,7 +25,7 @@ public:
 
 	bool AddShader(CGLSL *pShader) const;
 
-	void LinkProgram();
+	bool LinkProgram();
 	void UseProgram() const;
 	TWGLuint GetProgramId() const;
 

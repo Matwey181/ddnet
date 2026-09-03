@@ -6,8 +6,10 @@
 #error "This header should only be included when compiling for Android"
 #endif
 
+#include <cstddef>
+
 /**
- * @defgroup Android
+ * @defgroup Android Android
  *
  * Android-specific functions to interact with the ClientActivity.
  *

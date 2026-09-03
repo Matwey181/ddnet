@@ -22,9 +22,6 @@ Abort
 Add
 == Dodaj
 
-Add Friend
-== Dodaj prijatelja
-
 Address
 == Adresa
 
@@ -438,8 +435,6 @@ Yes
 
 You must restart the game for all settings to take effect.
 == Morate ponovo pokrenuti igru da bi sva podešavanja bila primenjena
-
-##### needs translation #####
 
 Demo
 == Snimak
@@ -864,9 +859,6 @@ Show text entities
 Show others (own team only)
 == Prikaži ostale (samo svoj tim)
 
-Show quads
-== Prikaži quads
-
 AntiPing
 == AntiPing
 
@@ -1272,20 +1264,8 @@ Hook collision line
 Hook collision line opacity
 == Providnost linije za dodir kuke
 
-Colors of the hook collision line, in case of a possible collision with:
-== Boje linije za dodir kuke,u slučaju da možeš da se zakačiš:
-
 Your movements are not taken into account when calculating the line colors
 == Vaši pokreti se ne uzimaju u obzir pri izračunavanju boja linija
-
-Nothing hookable
-== Ništa zakačivo
-
-Something hookable
-== Nešto zakačivo
-
-A Tee
-== Igrač
 
 Normal Color
 == Normalna boja
@@ -1294,7 +1274,7 @@ Highlight Color
 == Istaknuta Boja
 
 When you cross the start line, show a ghost tee replicating the movements of your best time
-== Kada kreneš da se trkaš, prikaži tvog najbržeg duha 
+== Kada kreneš da se trkaš, prikaži tvog najbržeg duha
 
 Opacity
 == Providnost
@@ -1334,9 +1314,6 @@ https://ddnet.org/discord
 
 Tutorial
 == Uvod
-
-Can't find a Tutorial server
-== Nemožemo pronaći uvodni server
 
 Loading race demo files
 == Učitavam trkačke demo fajlove
@@ -1430,9 +1407,6 @@ Are you sure that you want to remove the player '%s' from your friends list?
 Are you sure that you want to remove the clan '%s' from your friends list?
 == Да ли сте сигурни да желите да уклоните клан '%s' са листе пријатеља?
 
-Add Clan
-== Додај клан
-
 Play the current demo
 == Пусти тренутни демо запис
 
@@ -1510,9 +1484,6 @@ Unable to delete the folder '%s'. Make sure it's empty first.
 
 Menu opened. Press Esc key again to close menu.
 == Мени је отворен. Поново притисните тастер Esc да бисте затворили мени.
-
-Save power by lowering refresh rate (higher input latency)
-== Уштедите струју смањивањем стопе освежавања (већа улазна латенција)
 
 Open the settings file
 == Отворите датотеку са подешавањима
@@ -1616,6 +1587,9 @@ Could not resolve connect address '%s'. See local console for details.
 Connect address error
 == 
 
+Press Ctrl+Shift+G to disable debug graphs.
+== 
+
 Could not connect dummy
 == 
 
@@ -1643,7 +1617,19 @@ Loading demo file from storage
 Some fonts could not be loaded. Check the local console for details.
 == 
 
-Loading background map
+Team save in progress. You'll be able to load with '/load %s'
+== 
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== 
+
+Save failed!
 == 
 
 Auto-sync player camera
@@ -1703,6 +1689,10 @@ Loading maps…
 == 
 
 [Spectating]
+Following %d: %s
+== 
+
+[Spectating]
 Following %s
 == 
 
@@ -1710,16 +1700,35 @@ Following %s
 AUTO
 == 
 
+[Important alert message]
+Press Esc or Tab to dismiss…
+== 
+
+Server alert
+== 
+
+Moderator alert
+== 
+
+Press a key…
+== 
+
+Server could not be started. Make sure to grant the notification permission in the app settings so the server can run in the background.
+== 
+
+Server could not be started
+== 
+
 Some map images could not be loaded. Check the local console for details.
+== 
+
+Loading map
 == 
 
 Some map sounds could not be loaded. Check the local console for details.
 == 
 
 Loading menu themes
-== 
-
-Press a key…
 == 
 
 Main menu
@@ -1729,6 +1738,9 @@ Render complete
 == 
 
 Are you sure that you want to restart?
+== 
+
+Joining Tutorial server
 == 
 
 Save skin
@@ -1743,13 +1755,55 @@ There's an unsaved map in the editor, you might want to save it.
 Continue anyway?
 == 
 
+There's an unsaved change in the touch controls editor, you might want to save it.
+== 
+
 This name cannot be used for files and folders
+== 
+
+You will be disconnected from the server.
 == 
 
 Videos directory
 == 
 
 Video was saved to '%s'
+== 
+
+Could not get server list from master server
+== 
+
+There are no Tutorial servers available
+== 
+
+Please wait…
+== 
+
+Retrying…
+== 
+
+Error joining Tutorial server
+== 
+
+Could not find a Tutorial server. Check your internet connection.
+== 
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 
+
+Waiting for local server to stop…
+== 
+
+Waiting for local server to start…
+== 
+
+Error checking player name
+== 
+
+Could not check for existing player with your name. Check your internet connection.
 == 
 
 Unable to save the skin with a reserved name
@@ -1764,6 +1818,9 @@ Unable to save the skin
 No local servers found (ports %d-%d)
 == 
 
+Start and connect to local server
+== 
+
 Example of usage
 == 
 
@@ -1771,6 +1828,15 @@ No login required
 == 
 
 Communities
+== 
+
+Error loading communities
+== 
+
+Click to remove this community from your favorites.
+== 
+
+Click to add this community to your favorites.
 == 
 
 Online friends (%d)
@@ -1782,21 +1848,35 @@ Add friends by entering their name below or by clicking their name in the player
 Add clanmates by entering their clan below and leaving the name blank.
 == 
 
+Add clan
+== 
+
+Add friend
+== 
+
 Server filter
 == 
 
 Friends
 == 
 
+[Demo playback]
+Live
+== 
+
+[Demo playback]
+Go to Live
+== 
+
 Go back the specified duration
 == 
 
 [Demo player duration]
-%d min.
+%s min.
 == 
 
 [Demo player duration]
-%d sec.
+%s sec.
 == 
 
 Change the skip duration
@@ -1830,75 +1910,22 @@ Map size
 map not included
 == 
 
-Dummy is not allowed on this server
+Are you sure that you want to disconnect and play this demo?
 == 
 
-Please wait…
+Dummy is not allowed on this server
 == 
 
 Edit touch controls
 == 
 
-Close
-== 
-
-https://wiki.ddnet.org/wiki/Touch_controls
-== 
-
-Save changes
-== 
-
-Error saving touch controls
-== 
-
-Could not save touch controls to file. See local console for details.
-== 
-
 Unsaved changes
 == 
 
-Discard changes
+Save all changes before turning off the editor?
 == 
 
-Are you sure that you want to discard the current changes to the touch controls?
-== 
-
-Are you sure that you want to reset the touch controls to default?
-== 
-
-Import from clipboard
-== 
-
-Are you sure that you want to import the touch controls from the clipboard? This will overwrite your current touch controls.
-== 
-
-Export to clipboard
-== 
-
-Direct touch input while ingame
-== 
-
-[Direct touch input]
-Disabled
-== 
-
-[Direct touch input]
-Active action
-== 
-
-[Direct touch input]
-Aim
-== 
-
-[Direct touch input]
-Fire
-== 
-
-[Direct touch input]
-Hook
-== 
-
-Direct touch input while spectating
+Close
 == 
 
 Error loading touch controls
@@ -1911,6 +1938,9 @@ Could not load default touch controls from file. See local console for details.
 == 
 
 Could not load touch controls from clipboard. See local console for details.
+== 
+
+https://wiki.ddnet.org/wiki/Touch_controls
 == 
 
 Community
@@ -1958,8 +1988,381 @@ Activate all
 Deactivate all
 == 
 
+Layout
+== 
+
+Visibility
+== 
+
+Behavior
+== 
+
+Save changes
+== 
+
+Discard changes
+== 
+
+Delete button
+== 
+
+Are you sure that you want to delete this button?
+== 
+
+Duplicate
+== 
+
+Please save your changes before duplicating a button.
+== 
+
+Deselect
+== 
+
+You'll lose unsaved changes after deselecting.
+== 
+
+Width
+== 
+
+Height
+== 
+
+Shape
+== 
+
+[Touch button shape]
+Rectangle
+== 
+
+[Touch button shape]
+Circle
+== 
+
+[Touch button label type]
+Plain
+== 
+
+[Touch button label type]
+Localized
+== 
+
+[Touch button label type]
+Icon
+== 
+
+Behavior type
+== 
+
+[Touch button behavior]
+Bind
+== 
+
+[Touch button behavior]
+Bind Toggle
+== 
+
+[Touch button behavior]
+Predefined
+== 
+
+Info
+== 
+
+Command
+== 
+
+Label
+== 
+
+Label type
+== 
+
+Add command
+== 
+
+Delete command
+== 
+
+[Touch button visibility preview]
+Included
+== 
+
+[Touch button visibility preview]
+Excluded
+== 
+
+[Touch button visibility preview]
+Ignore
+== 
+
+Button browser
+== 
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 
+
+New button
+== 
+
+Select button by touch
+== 
+
+No buttons match your filter criteria
+== 
+
+File
+== 
+
+Buttons
+== 
+
+Active color
+== 
+
+Inactive color
+== 
+
+Direct touch input while ingame
+== 
+
+[Direct touch input]
+Disabled
+== 
+
+[Direct touch input]
+Active action
+== 
+
+[Direct touch input]
+Aim
+== 
+
+[Direct touch input]
+Fire
+== 
+
+[Direct touch input]
+Hook
+== 
+
+Direct touch input while spectating
+== 
+
+Preview visibilities
+== 
+
+Preview button visibility while the editor is active.
+== 
+
+Show all buttons
+== 
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 
+
+Open DDNet Wiki
+== 
+
+Error saving touch controls
+== 
+
+Could not save touch controls to file. See local console for details.
+== 
+
+Are you sure that you want to discard the current changes to the touch controls?
+== 
+
+Are you sure that you want to reset the touch controls to default?
+== 
+
+Import from clipboard
+== 
+
+Are you sure that you want to import the touch controls from the clipboard? This will overwrite your current touch controls.
+== 
+
+Export to clipboard
+== 
+
+Save all changes before switching selected button?
+== 
+
+Discard
+== 
+
+No space for button
+== 
+
+There is not enough space available for the button. Check its visibilities and size.
+== 
+
+Selected button not visible
+== 
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 
+
+Edit
+== 
+
+Width and height are required to be within the range from %d to %d.
+== 
+
+Button position is outside of the screen.
+== 
+
+The selected button is overlapping with other buttons.
+== 
+
+Wrong button settings
+== 
+
+There is not enough space available to place another button.
+== 
+
+[Touch button visibilities]
+Ingame
+== 
+
+[Touch button visibilities]
+Zoom Allowed
+== 
+
+[Touch button visibilities]
+Vote Active
+== 
+
+[Touch button visibilities]
+Dummy Allowed
+== 
+
+[Touch button visibilities]
+Dummy Connected
+== 
+
+[Touch button visibilities]
+Rcon Authed
+== 
+
+[Touch button visibilities]
+Demo Player
+== 
+
+[Touch button visibilities]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 
+
+[Predefined touch button behaviors]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Emoticon
+== 
+
+[Predefined touch button behaviors]
+Spectate
+== 
+
+[Predefined touch button behaviors]
+Swap Action
+== 
+
+[Predefined touch button behaviors]
+Use Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 
+
+Buttons with this behavior execute console commands like regular key binds.
+== 
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 
+
+Buttons with this behavior execute some predefined actions.
+== 
+
+Opens the ingame menu immediately when released.
+== 
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 
+
+Opens the emoticon selector (this does not work with binds).
+== 
+
+Opens the spectator menu (this does not work with binds).
+== 
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 
+
+Uses the active action with the current aiming position.
+== 
+
+Virtual joystick which uses the active action.
+== 
+
+Virtual joystick which only aims without using an action.
+== 
+
+Virtual joystick which always uses fire.
+== 
+
+Virtual joystick which always uses hook.
+== 
+
+Player is ingame, i.e. not spectating.
+== 
+
+Zoom is allowed on this server.
+== 
+
+A vote is currently active.
+== 
+
+Dummy is allowed on this server.
+== 
+
+Dummy is currently connected.
+== 
+
+Player is currently authed in rcon.
+== 
+
+Demo player is currently active.
+== 
+
+The extra menu with the given number is activated.
+== 
+
 [Hertz]
 Hz
+== 
+
+Update Rate
+== 
+
+Save power by lowering update rate (higher input latency)
 == 
 
 Saves file
@@ -2019,10 +2422,16 @@ Always show chat
 Show only chat messages from team members
 == 
 
+Censor profanity
+== 
+
 Chat font size
 == 
 
 Chat width
+== 
+
+Chat background color
 == 
 
 [Show name plates]
@@ -2050,7 +2459,7 @@ Show friend icon in name plates
 Show client IDs in name plates
 == 
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == 
 
 Client IDs size
@@ -2114,6 +2523,25 @@ Width of your own hook collision line
 Width of others' hook collision line
 == 
 
+Colors of the hook collision line:
+== 
+
+[Hook collision line color]
+When nothing is hookable
+== 
+
+[Hook collision line color]
+When something is hookable
+== 
+
+[Hook collision line color]
+When a Tee is hookable
+== 
+
+[Hook collision line color]
+Hook collision line tip
+== 
+
 Preview 'Hook collisions' being pressed
 == 
 
@@ -2130,6 +2558,9 @@ Enable ghost
 == 
 
 Only save improvements
+== 
+
+Show background quads
 == 
 
 AntiPing: prediction margin
@@ -2156,7 +2587,10 @@ Delete skin
 Unable to delete skin
 == 
 
-Server could not be started. Make sure to grant the notification permission in the app settings so the server can run in the background.
+Scoreboard cursor
+== 
+
+Download
 == 
 
 [Spectators]
@@ -2168,6 +2602,18 @@ Server could not be started. Make sure to grant the notification permission in t
 == 
 
 Team %d (%d/%d)
+== 
+
+Unmute
+== 
+
+Mute
+== 
+
+Unmute emoticons
+== 
+
+Mute emoticons
 == 
 
 [skins]

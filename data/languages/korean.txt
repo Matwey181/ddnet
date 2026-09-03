@@ -22,9 +22,6 @@ Abort
 Add
 == 추가
 
-Add Friend
-== 친구 추가
-
 Address
 == 주소
 
@@ -389,7 +386,7 @@ Use team colors for name plates
 == 이름에 팀 색상 사용
 
 V-Sync
-== V-Sync
+== 수직 동기화
 
 Version
 == 버전
@@ -420,8 +417,6 @@ Yes
 
 You must restart the game for all settings to take effect.
 == 설정을 적용하기 위해 게임을 재시작해야 합니다.
-
-##### needs translation #####
 
 Game paused
 == 게임 일시정지됨
@@ -502,10 +497,10 @@ Name plates size
 == 이름 표시 크기
 
 Successfully saved the replay!
-== 리플레이 저장에 성공했습니다!
+== 리플레이 저장 성공!
 
 Replay feature is disabled!
-== 리플레이 기능을 비활성화했습니다!
+== 리플레이 기능이 비활성화됐습니다!
 
 Warning
 == 주의
@@ -553,10 +548,10 @@ Are you sure that you want to disconnect your dummy?
 == 더미 연결을 해제하시겠습니까?
 
 Welcome to DDNet
-== DDNet에 오신 것을 환영합니다.
+== DDNet에 오신 것을 환영합니다
 
 DDraceNetwork is a cooperative online game where the goal is for you and your group of tees to reach the finish line of the map. As a newcomer you should start on Novice servers, which host the easiest maps. Consider the ping to choose a server close to you.
-== DDraceNetwork는 온라인 협동 게임으로, 당신과 당신의 Tee 동료들이 맵의 결승선에 도달하는 것이 목표입니다. 당신이 초보자라면 가장 난이도가 낮은 맵들로 구성된 Novice 서버에서 시작할 것을 권장합니다. 핑을 고려해 자신의 근처에 있는 서버를 선택하십시오.
+== DDraceNetwork는 온라인 협동 게임으로, 당신과 당신의 Tee 동료들이 맵의 결승선에 도달하는 것이 목표입니다. 당신이 초보자라면 가장 난이도가 낮은 맵들로 구성된 Novice 서버에서 시작할 것을 권장합니다. 핑을 고려해 당신의 근처에 있는 서버를 선택하십시오.
 
 Use k key to kill (restart), q to pause and watch other players. See settings for other key binds.
 == 죽기(재시작) 위해서는 K 키를 눌러야 합니다. Q 키를 눌러 일시정지하면 다른 플레이어를 관전할 수 있습니다. 다른 키 바인드는 설정 창을 참고하십시오.
@@ -595,7 +590,7 @@ Theme
 == 테마
 
 Getting server list from master server
-== 마스터 서버에서 서버 목록을 받는 중
+== 마스터 서버에서 서버 목록을 불러오는 중
 
 Search
 == 검색
@@ -921,9 +916,6 @@ Show text entities
 Show others (own team only)
 == 팀 내의 다른 플레이어 표시
 
-Show quads
-== 배경 표시
-
 AntiPing
 == 안티 핑
 
@@ -1127,16 +1119,13 @@ default
 == 기본
 
 custom
-== 커스텀
+== 사용자 정의
 
 auto
 == 자동
 
 Tutorial
 == 튜토리얼
-
-Can't find a Tutorial server
-== 튜토리얼 서버를 찾을 수 없음
 
 Choose default eyes when joining a server
 == 서버 입장 시의 기본 눈을 선택합니다.
@@ -1329,20 +1318,8 @@ Hook collision line
 Hook collision line opacity
 == 갈고리 보조선 불투명도
 
-Colors of the hook collision line, in case of a possible collision with:
-== 갈고리 보조선 색상:
-
 Your movements are not taken into account when calculating the line colors
 == 당신의 움직임은 색상 계산에 고려되지 않습니다.
-
-Nothing hookable
-== 갈고리 불가
-
-Something hookable
-== 갈고리 가능
-
-A Tee
-== Tee 대상
 
 Loading assets
 == 에셋 로딩 중
@@ -1354,19 +1331,19 @@ Loading sound files
 == 소리 파일 로딩 중
 
 Play the current demo
-== 데모 재생
+== 재생
 
 Pause the current demo
-== 데모 일시정지
+== 일시정지
 
 Stop the current demo
-== 데모 정지
+== 정지
 
 Slow down the demo
-== 데모 속도 낮추기
+== 속도 낮추기
 
 Speed up the demo
-== 데모 속도 높이기
+== 속도 높이기
 
 Export cut as a separate demo
 == 자른 부분을 다른 이름으로 저장
@@ -1468,9 +1445,6 @@ Are you sure that you want to delete the demo '%s'?
 Unable to delete the demo '%s'
 == 데모 '%s'을(를) 삭제할 수 없음
 
-Save power by lowering refresh rate (higher input latency)
-== 화면 주사율을 낮춰 전력 절약 (입력 지연 증가)
-
 Open the settings file
 == 설정 파일을 엽니다.
 
@@ -1516,9 +1490,6 @@ Quitting. Please wait…
 
 Restarting. Please wait…
 == 재시작 중입니다. 잠시만 기다려 주십시오…
-
-Loading background map
-== 배경 맵 로딩 중
 
 Searching
 == 검색
@@ -1570,19 +1541,16 @@ Click to select server. Double click to join your friend.
 == 클릭해 서버를 선택합니다. 더블클릭해 친구가 있는 서버에 입장합니다.
 
 Click to remove this player from your friends list.
-== 클릭해 해당 플레이어를 친구 목록에서 제거합니다.
+== 클릭해 이 플레이어를 친구 목록에서 제거합니다.
 
 Click to remove this clan from your friends list.
-== 클릭해 해당 클랜을 친구 목록에서 제거합니다.
+== 클릭해 이 클랜을 친구 목록에서 제거합니다.
 
 Add friends by entering their name below or by clicking their name in the player list.
 == 아래에 이름을 입력하거나 플레이어 목록에서 이름을 클릭해 친구를 추가합니다.
 
 Add clanmates by entering their clan below and leaving the name blank.
 == 아래에 이름을 빈칸으로 두고 클랜명만 입력해 클랜원을 추가합니다.
-
-Add Clan
-== 클랜 추가
 
 Server filter
 == 서버 필터
@@ -1591,12 +1559,12 @@ Friends
 == 친구
 
 [Demo player duration]
-%d min.
-== %d 분
+%s min.
+== %s 분
 
 [Demo player duration]
-%d sec.
-== %d 초
+%s sec.
+== %s 초
 
 Folder Link
 == 폴더 주소
@@ -1614,7 +1582,7 @@ Save changes
 == 변경사항 저장
 
 Unsaved changes
-== 변경사항 저장되지 않음
+== 변경사항이 저장되지 않음
 
 Discard changes
 == 변경사항 버리기
@@ -1669,19 +1637,19 @@ Hook Strength
 == 갈고리 세기
 
 Show hook strength icon indicator
-== 갈고리 세기 기호 표시
+== 갈고리 세기 아이콘 표시
 
 Show hook strength number indicator
 == 갈고리 세기 정도 표시
 
 Size of hook strength icon and number indicator
-== 갈고리 세기 기호 및 수치 크기
+== 갈고리 세기 아이콘 및 정도 크기
 
 Key Presses
 == 키 입력
 
 Size of key press icons
-== 키 입력 기호 크기
+== 키 입력 아이콘 크기
 
 Show own player's hook collision line
 == 내 갈고리 보조선 표시
@@ -1745,7 +1713,7 @@ Decoration
 
 [skins]
 Hands
-== 손 
+== 손
 
 [skins]
 Feet
@@ -1759,10 +1727,10 @@ Aim
 == 조준
 
 Active: Fire
-== 발사 활성화
+== 발사 활성 상태
 
 Active: Hook
-== 갈고리 활성화
+== 갈고리 활성 상태
 
 Moved ingame
 == 게임 내에서 이동됨
@@ -1783,7 +1751,7 @@ Error playing demo
 == 데모 재생 오류
 
 Failed saving the replay!
-== 리플레이 저장에 실패했습니다!
+== 리플레이 저장 실패!
 
 Saving settings to '%s' failed
 == '%s' 설정 저장 실패
@@ -1820,14 +1788,14 @@ Unavailable for this player
 
 [Auto camera]
 Inactive
-== 비활성화
+== 비활성 상태
 
 [Auto camera]
 Active
-== 활성화
+== 활성 상태
 
 Match %d of %d
-== 경기 %d of %d
+== 경기 %d / %d
 
 No results
 == 결과 없음
@@ -1883,10 +1851,10 @@ Are you sure you want to save your skin? If a skin with this name already exists
 == 당신의 스킨을 저장하시겠습니까? 만약 같은 이름의 스킨이 있을 경우, 덮어쓰기됩니다.
 
 There's an unsaved map in the editor, you might want to save it.
-== 맵 편집기에 저장되지 않은 맵이 있습니다. 돌아가 해당 맵을 저장하실 수 있습니다.
+== 편집기에 저장되지 않은 맵이 있습니다. 돌아가 해당 맵을 저장하실 수 있습니다.
 
 Continue anyway?
-== 계속하시겠습니까?
+== 그래도 계속하시겠습니까?
 
 A demo with this name already exists
 == 같은 이름의 데모가 이미 있습니다.
@@ -1986,7 +1954,7 @@ Could not save touch controls to file. See local console for details.
 == 터치 조작 설정을 파일에 저장할 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
 
 Are you sure that you want to discard the current changes to the touch controls?
-== 터치 조작 설정 변경사항을 버리시겠습니까?
+== 터치 조작 설정의 변경사항을 버리시겠습니까?
 
 Are you sure that you want to reset the touch controls to default?
 == 터치 조작 설정을 초기화하시겠습니까?
@@ -1995,7 +1963,7 @@ Import from clipboard
 == 클립보드에서 가져오기
 
 Are you sure that you want to import the touch controls from the clipboard? This will overwrite your current touch controls.
-== 클립보드에서 터치 조작 설정을 가져오시겠습니까? 그럴 경우, 현재 터치 조작 설정은 덮어쓰기됩니다.
+== 클립보드에서 터치 조작 설정을 가져오시겠습니까? 현재 터치 조작 설정은 덮어쓰기됩니다.
 
 Export to clipboard
 == 클립보드로 내보내기
@@ -2005,11 +1973,11 @@ Direct touch input while ingame
 
 [Direct touch input]
 Disabled
-== 비활성화됨
+== 비활성화
 
 [Direct touch input]
 Active action
-== 활성화
+== 활성 동작
 
 [Direct touch input]
 Aim
@@ -2027,16 +1995,16 @@ Direct touch input while spectating
 == 관전 중 직접 터치 입력
 
 Error loading touch controls
-== 터치 조작 로딩 오류
+== 터치 조작 설정 로딩 오류
 
 Could not load touch controls from file. See local console for details.
-== 파일로부터 터치 조작을 로딩할 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
+== 파일로부터 터치 조작 설정을 불러올 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
 
 Could not load default touch controls from file. See local console for details.
-== 파일로부터 기본 터치 조작을 로딩할 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
+== 파일로부터 기본 터치 조작 설정을 불러올 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
 
 Could not load touch controls from clipboard. See local console for details.
-== 클립보드로부터 터치 조작을 로딩할 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
+== 클립보드로부터 터치 조작 설정을 불러올 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
 
 Community
 == 커뮤니티
@@ -2094,7 +2062,7 @@ Renders your frame rate in the top right
 
 [Translation credits: Add your own name here when you update translations]
 English translation by the DDNet Team
-== 한국어 번역: ksgcln72, Pathos and CHaBek
+== 한국어 번역: ksgcln72, Pathos, CHaBek, 언더
 
 Show spectator cursor
 == 관전자 커서 표시
@@ -2103,7 +2071,7 @@ Basic
 == 기본
 
 Custom
-== 사용자 지정
+== 사용자 정의
 
 Server could not be started. Make sure to grant the notification permission in the app settings so the server can run in the background.
 == 서버를 열 수 없습니다. 백그라운드에서 서버를 구동하기 위해 앱 설정에서 알림 권한을 허용하십시오.
@@ -2119,89 +2087,567 @@ Marking
 Show number of spectators
 == 관전자 수 표시
 
-[Graphics error]
-Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom assets (skins, entities, etc.), especially those with high resolution.
-== 
+Press Ctrl+Shift+G to disable debug graphs.
+== Ctrl+Shift+G를 눌러 디버그 그래프를 비활성화할 수 있습니다.
 
-No demo with this filename exists
-== 
+[Spectating]
+Following %d: %s
+== %d: %s 관전 중
+
+Server could not be started
+== 서버를 열 수 없습니다.
+
+Loading map
+== 맵 로딩 중
 
 This name cannot be used for files and folders
-== 
+== 이 이름은 파일 및 폴더에 사용할 수 없습니다.
+
+Error checking player name
+== 플레이어 이름 검색 오류
+
+Could not get server list from master server
+== 마스터 서버에서 서버 목록을 불러올 수 없습니다.
 
 Map size
-== 
+== 맵 크기
 
-This skin name cannot be used.
-== 
-
-Skin could not be loaded due to an error. Check the local console for details.
-== 
-
-Skin could not be found.
-== 
-
-No skins match your filter criteria
-== 
+Chat background color
+== 채팅 배경 색상
 
 [Show name plates]
 None
-== 
+== 끔
 
 [Show name plates]
 Own
-== 
+== 나만
 
 [Show name plates]
 Others
-== 
+== 타인만
 
 [Show name plates]
 All
-== 
+== 모두
 
 Name plates offset
-== 
+== 이름 표시 간격
 
 Show friend icon in name plates
-== 
+== 이름에 친구 아이콘 표시
 
-Show client IDs on a seperate line
-== 
+Show client IDs on a separate line
+== 클라이언트 ID를 별도의 줄에 표시
 
 Client IDs size
-== 
+== 클라이언트 ID 크기
 
 Show players' key presses
-== 
+== 플레이어 키 입력 표시
 
 [Show players' key presses]
 None
-== 
+== 끔
 
 [Show players' key presses]
 Own
-== 
+== 나만
 
 [Show players' key presses]
 Others
-== 
+== 타인만
 
 [Show players' key presses]
 All
-== 
+== 모두
 
 Preview player's name plate
-== 
+== 플레이어 이름 표시 미리보기
 
 Preview dummy's name plate
-== 
+== 더미 이름 표시 미리보기
+
+[Graphics error]
+Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom assets (skins, entities, etc.), especially those with high resolution.
+== VRAM 용량이 부족합니다. 'cl_skins_loaded_max'를 더 낮은 값으로 설정하거나 고해상도의 사용자 정의 에셋(스킨 및 엔티티 등)을 삭제해 보십시오.
+
+No demo with this filename exists
+== 해당 이름의 데모가 존재하지 않음
+
+Could not check for existing player with your name. Check your internet connection.
+== 당신의 이름을 기존 플레이어 목록에서 검색할 수 없습니다. 인터넷 연결 상태를 확인하십시오.
+
+[Demo playback]
+Live
+== 실시간
+
+[Demo playback]
+Go to Live
+== 실시간으로 재생
+
+Save all changes before turning off the editor?
+== 편집기를 종료하기 전에 모든 변경사항을 저장하시겠습니까?
+
+Layout
+== 레이아웃
+
+Visibility
+== 표시
+
+Behavior
+== 행위
+
+Delete button
+== 버튼 삭제
+
+Are you sure that you want to delete this button?
+== 이 버튼을 삭제하시겠습니까?
+
+Duplicate
+== 복제
+
+Please save your changes before duplicating a button.
+== 버튼을 복제하기 전에 변경사항을 저장하십시오.
+
+No space for button
+== 버튼 공간 없음
+
+There is not enough space available to place another button.
+== 다른 버튼을 배치할 공간이 부족합니다.
+
+Deselect
+== 선택 해제
+
+You'll lose unsaved changes after deselecting.
+== 선택 해제 시 저장되지 않은 변경사항은 버려집니다.
+
+Width
+== 너비
+
+Height
+== 높이
+
+Shape
+== 형태
+
+[Touch button shape]
+Rectangle
+== 직사각형
+
+[Touch button shape]
+Circle
+== 원형
+
+[Touch button label type]
+Plain
+== 그대로
+
+[Touch button label type]
+Localized
+== 번역하기
+
+[Touch button label type]
+Icon
+== 아이콘
+
+Behavior type
+== 행위 종류
+
+[Touch button behavior]
+Bind
+== 바인드
+
+[Touch button behavior]
+Bind Toggle
+== 토글 바인드
+
+[Touch button behavior]
+Predefined
+== 지정 행위
+
+Command
+== 명령어
+
+Label
+== 문구
+
+Label type
+== 문구 종류
+
+Add command
+== 명령어 추가
+
+Delete command
+== 명령어 삭제
+
+[Touch button visibility preview]
+Included
+== 포함
+
+[Touch button visibility preview]
+Excluded
+== 제외
+
+[Touch button visibility preview]
+Ignore
+== 무시
+
+New button
+== 새 버튼
+
+Select button by touch
+== 터치해 버튼 선택
+
+No buttons match your filter criteria
+== 필터에 일치하는 버튼이 없음
+
+File
+== 파일
+
+Buttons
+== 버튼
+
+Active color
+== 활성화 시 색상
+
+Inactive color
+== 비활성화 시 색상
+
+Preview button visibility while the editor is active.
+== 편집기 활성화 시의 버튼 표시 상태를 미리보기합니다.
+
+Show all buttons
+== 모든 버튼 표시
+
+Save all changes before switching selected button?
+== 다른 버튼을 선택하기 전에 모든 변경사항을 저장하시겠습니까?
+
+Discard
+== 버리기
+
+There is not enough space available for the button. Check its visibilities and size.
+== 버튼에 사용 가능한 공간이 부족합니다. 표시 조건과 크기를 확인하십시오.
+
+Selected button not visible
+== 선택한 버튼이 보이지 않음
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 선택한 버튼이 보이지 않습니다. 선택을 해제하거나 표시 조건을 수정하시겠습니까?
+
+Edit
+== 수정
+
+Width and height are required to be within the range from %d to %d.
+== 너비와 높이의 허용 범위는 %d 에서 %d 까지입니다.
+
+Button position is outside of the screen.
+== 버튼 위치가 화면 밖에 있습니다.
+
+The selected button is overlapping with other buttons.
+== 선택한 버튼이 다른 버튼과 겹쳐 있습니다.
+
+Wrong button settings
+== 잘못된 버튼 설정
+
+[Touch button visibilities]
+Ingame
+== 인게임
+
+[Touch button visibilities]
+Zoom Allowed
+== 시야 조절 허용됨
+
+[Touch button visibilities]
+Vote Active
+== 투표 진행 시
+
+[Touch button visibilities]
+Dummy Allowed
+== 더미 허용됨
+
+[Touch button visibilities]
+Dummy Connected
+== 더미 연결됨
+
+[Touch button visibilities]
+Rcon Authed
+== 원격 콘솔 인증됨
+
+[Touch button visibilities]
+Demo Player
+== 데모 재생기
+
+[Touch button visibilities]
+Extra Menu
+== 기타 메뉴
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 인게임 메뉴
+
+[Predefined touch button behaviors]
+Extra Menu
+== 기타 메뉴
+
+[Predefined touch button behaviors]
+Emoticon
+== 이모티콘
+
+[Predefined touch button behaviors]
+Spectate
+== 관전
+
+[Predefined touch button behaviors]
+Swap Action
+== 동작 전환
+
+[Predefined touch button behaviors]
+Use Action
+== 동작 실행
+
+[Predefined touch button behaviors]
+Joystick Action
+== 조이스틱 동작
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 조이스틱 조준
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 조이스틱 발사
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 조이스틱 갈고리
+
+This skin name cannot be used.
+== 이 스킨 이름은 사용할 수 없습니다.
+
+Skin could not be loaded due to an error. Check the local console for details.
+== 오류로 인해 스킨을 불러올 수 없습니다. 세부사항은 로컬 콘솔을 확인하십시오.
+
+Skin could not be found.
+== 스킨을 찾지 못했습니다.
+
+No skins match your filter criteria
+== 필터에 일치하는 스킨이 없음
+
+Censor profanity
+== 비속어 검열
 
 Dragger Outline Color
-== 
+== 드래거 테두리 색상
 
 Dragger Inner Color
-== 
+== 드래거 광선 색상
 
 AntiPing: prediction margin
-== 
+== 안티 핑: 예측 허용 범위
+
+Download
+== 다운로드
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== Esc 또는 Tab을 눌러 닫기…
+
+Server alert
+== 서버 알림
+
+Moderator alert
+== 모더레이터 알림
+
+You will be disconnected from the server.
+== 현재 서버에서 연결이 끊깁니다.
+
+Are you sure that you want to disconnect and play this demo?
+== 데모를 재생하기 위해 연결을 끊으시겠습니까?
+
+Team save in progress. You'll be able to load with '/load %s'
+== 팀 진행 상태를 저장 중입니다. 이후 '/load %s'(으)로 불러올 수 있습니다.
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 팀 진행 상태를 저장 중입니다. 저장 성공 시 '/load %s'(으)로, 실패 시 '/load %s'(으)로 불러올 수 있습니다.
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== %s 님이 팀 진행 상태를 저장했습니다. 데이터베이스 연결에 실패하여, 충돌 방지를 위해 생성된 저장 코드를 사용했습니다. '/load %s'을(를) 사용해 계속하십시오.
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== %1$s 님이 팀 진행 상태를 저장했습니다. 데이터베이스 연결에 실패하여, 충돌 방지를 위해 생성된 저장 코드를 사용했습니다. %3$s 에서 '/load %2$s'을(를) 사용해 계속하십시오.
+
+Save failed!
+== 저장 실패!
+
+Show background quads
+== 맵 배경 표시
+
+Scoreboard cursor
+== 점수판 커서
+
+Add friend
+== 친구 추가
+
+Unmute
+== 채팅 차단 해제
+
+Mute
+== 채팅 차단
+
+Unmute emoticons
+== 이모티콘 차단 해제
+
+Mute emoticons
+== 이모티콘 차단
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== 터치 조작 설정 편집기에 저장되지 않은 변경사항이 있습니다. 돌아가 해당 변경사항을 저장하실 수 있습니다.
+
+Start and connect to local server
+== 로컬 서버 시작 후 연결
+
+Add clan
+== 클랜 추가
+
+Info
+== 정보
+
+Button browser
+== 버튼 브라우저
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 아래 목록에서 직접 버튼을 선택하거나 화면상의 터치 버튼을 길게 눌러 선택하실 수 있습니다. 또한 터치를 통해 버튼의 위치와 크기를 조절하실 수 있습니다.
+
+Preview visibilities
+== 미리보기 표시
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 이 페이지에서 터치 조작 설정을 관리하실 수 있습니다. 클라이언트를 재시작한 후에는 저장된 변경사항만이 유지됩니다. 터치 조작을 클립보드로 내보내면 다른 사람에게 공유할 수 있습니다.\n\nDDNet 위키에서 터치 조작에 대한 더 자세한 정보를 찾으실 수 있습니다.
+
+Open DDNet Wiki
+== DDNet 위키 열기
+
+Buttons with this behavior execute console commands like regular key binds.
+== 이 행위에 대한 버튼은 콘솔 명령어 일반 키 바인드와 같은 콘솔 명령어를 실행합니다.
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 이 행위에 대한 버튼은 하나 또는 둘 이상의 특정 명령어를 순환하며 실행합니다.
+
+Buttons with this behavior execute some predefined actions.
+== 이 행위에 대한 버튼은 미리 정의된 동작을 실행합니다.
+
+Opens the ingame menu immediately when released.
+== 버튼을 놓을 시 인게임 메뉴를 엽니다.
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== "기타 메뉴" 표시 상태를 가진 버튼들의 표시 여부를 전환하는 기타 메뉴 버튼입니다. 또한 길게 눌러 인게임 메뉴를 여실 수 있습니다.
+
+Opens the emoticon selector (this does not work with binds).
+== 이모티콘 선택창을 엽니다. (바인드로는 작동하지 않음)
+
+Opens the spectator menu (this does not work with binds).
+== 관전자 메뉴를 엽니다. (바인드로는 작동하지 않음)
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 직접 터치 입력과 가상 조이스틱의 활성 동작(발사 및 갈고리)을 전환합니다.
+
+Uses the active action with the current aiming position.
+== 현재 조준 위치에서 활성 동작을 실행합니다.
+
+Virtual joystick which uses the active action.
+== 활성 동작을 사용하는 가상 조이스틱
+
+Virtual joystick which only aims without using an action.
+== 동작 없이 조준만 하는 가상 조이스틱
+
+Virtual joystick which always uses fire.
+== 항상 무기를 발사하는 가상 조이스틱
+
+Virtual joystick which always uses hook.
+== 항상 갈고리를 사용하는 가상 조이스틱
+
+Player is ingame, i.e. not spectating.
+== 플레이어가 관전 상태가 아니며, 게임 중입니다.
+
+Zoom is allowed on this server.
+== 이 서버는 시야 조절을 허용합니다.
+
+A vote is currently active.
+== 현재 투표가 진행되고 있습니다.
+
+Dummy is allowed on this server.
+== 이 서버는 더미를 허용합니다.
+
+Dummy is currently connected.
+== 더미가 현재 연결돼 있습니다.
+
+Player is currently authed in rcon.
+== 플레이어가 현재 원격 콘솔에 인증돼 있습니다.
+
+Demo player is currently active.
+== 데모 재생기가 현재 활성 상태입니다.
+
+The extra menu with the given number is activated.
+== 지정된 번호의 기타 메뉴가 활성화됐습니다.
+
+Joining Tutorial server
+== 튜토리얼 서버에 입장 중
+
+There are no Tutorial servers available
+== 현재 접속이 가능한 튜토리얼 서버가 없습니다.
+
+Retrying…
+== 재시도 중…
+
+Error joining Tutorial server
+== 튜토리얼 서버 연결 오류
+
+Could not find a Tutorial server. Check your internet connection.
+== 튜토리얼 서버를 찾을 수 없습니다. 인터넷 연결 상태를 확인하십시오.
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 현재 온라인 튜토리얼 서버가 발견되지 않아, 로컬 서버에서 플레이하고 있습니다.\n\n당신의 기록은 로컬 파일에만 저장될 것입니다.
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 온라인 튜토리얼 서버를 찾을 수 없습니다.\n로컬 서버 시작 및 연결 중…
+
+Waiting for local server to stop…
+== 로컬 서버 종료 대기 중…
+
+Waiting for local server to start…
+== 로컬 서버 시작 대기 중…
+
+Error loading communities
+== 커뮤니티 로딩 오류
+
+Click to remove this community from your favorites.
+== 클릭해 이 커뮤니티를 즐겨찾기에서 제거합니다.
+
+Click to add this community to your favorites.
+== 클릭해 이 커뮤니티를 즐겨찾기에 추가합니다.
+
+Update Rate
+== 업데이트 빈도
+
+Save power by lowering update rate (higher input latency)
+== 업데이트 빈도를 줄여 전력 절약 (입력 지연 시간 증가)
+
+Colors of the hook collision line:
+== 갈고리 보조선 색상:
+
+[Hook collision line color]
+When nothing is hookable
+== 갈고리 불가 시
+
+[Hook collision line color]
+When something is hookable
+== 갈고리 가능 시
+
+[Hook collision line color]
+When a Tee is hookable
+== Tee 대상 시
+
+[Hook collision line color]
+Hook collision line tip
+== 갈고리 끝부분

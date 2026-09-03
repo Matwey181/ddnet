@@ -1,19 +1,23 @@
 #ifndef ENGINE_SHARED_HTTP_H
 #define ENGINE_SHARED_HTTP_H
 
+#include <base/dbg.h>
 #include <base/hash_ctxt.h>
+#include <base/mem.h>
+#include <base/str.h>
+#include <base/types.h>
 
+#include <engine/http.h>
 #include <engine/shared/jobs.h>
 
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdlib>
 #include <deque>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
-
-#include <engine/http.h>
 
 typedef struct _json_value json_value;
 class IStorage;
@@ -75,8 +79,7 @@ class CHttpRequest : public IHttpRequest
 			return "POST";
 		}
 
-		// Unreachable, maybe assert instead?
-		return "UNKNOWN";
+		dbg_assert_failed("unreachable");
 	}
 
 	char m_aUrl[256] = {0};
@@ -93,9 +96,9 @@ class CHttpRequest : public IHttpRequest
 	int64_t m_IfModifiedSince = -1;
 	REQUEST m_Type = REQUEST::GET;
 
-	SHA256_DIGEST m_ActualSha256 = SHA256_ZEROED;
+	std::optional<SHA256_DIGEST> m_ActualSha256;
 	SHA256_CTX m_ActualSha256Ctx;
-	SHA256_DIGEST m_ExpectedSha256 = SHA256_ZEROED;
+	std::optional<SHA256_DIGEST> m_ExpectedSha256;
 
 	bool m_WriteToMemory = true;
 	bool m_WriteToFile = false;
@@ -336,9 +339,9 @@ public:
 	bool Init(std::chrono::milliseconds ShutdownDelay);
 
 	// User
-	virtual void Run(std::shared_ptr<IHttpRequest> pRequest) override;
+	void Run(std::shared_ptr<IHttpRequest> pRequest) override;
 	void Shutdown() override;
-	~CHttp();
+	~CHttp() override;
 };
 
 #endif // ENGINE_SHARED_HTTP_H

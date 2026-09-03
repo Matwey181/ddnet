@@ -14,8 +14,9 @@
 #include <engine/shared/http.h>
 #include <engine/storage.h>
 
+#include <generated/client_data.h>
+
 #include <game/client/gameclient.h>
-#include <game/generated/client_data.h>
 #include <game/localization.h>
 
 using namespace std::chrono_literals;
@@ -45,7 +46,6 @@ CSkins::CSkinContainer::CSkinContainer(CSkins *pSkins, const char *pName, EType 
 	m_StorageType(StorageType)
 {
 	str_copy(m_aName, pName);
-	str_utf8_tolower(m_aName, m_aNormalizedName, sizeof(m_aNormalizedName));
 	m_Vanilla = IsVanillaSkin(m_aName);
 	m_Special = IsSpecialSkin(m_aName);
 	m_AlwaysLoaded = m_Vanilla; // Vanilla skins are loaded immediately and not unloaded
@@ -61,7 +61,7 @@ CSkins::CSkinContainer::~CSkinContainer()
 
 bool CSkins::CSkinContainer::operator<(const CSkinContainer &Other) const
 {
-	return str_comp(m_aNormalizedName, Other.m_aNormalizedName) < 0;
+	return str_comp(m_aName, Other.m_aName) < 0;
 }
 
 static constexpr std::chrono::nanoseconds MIN_REQUESTED_TIME_FOR_PENDING = 250ms;
@@ -109,7 +109,7 @@ void CSkins::CSkinContainer::RequestLoad()
 		{
 			m_pSkins->m_SkinsUsageList.erase(m_UsageEntryIterator.value());
 		}
-		m_pSkins->m_SkinsUsageList.emplace_front(NormalizedName());
+		m_pSkins->m_SkinsUsageList.emplace_front(Name());
 		m_UsageEntryIterator = m_pSkins->m_SkinsUsageList.begin();
 	}
 }
@@ -170,7 +170,7 @@ bool CSkins::CSkinListEntry::operator<(const CSkins::CSkinListEntry &Other) cons
 	{
 		return false;
 	}
-	return str_comp(m_pSkinContainer->NormalizedName(), Other.m_pSkinContainer->NormalizedName()) < 0;
+	return str_comp(m_pSkinContainer->Name(), Other.m_pSkinContainer->Name()) < 0;
 }
 
 void CSkins::CSkinListEntry::RequestLoad()
@@ -198,16 +198,16 @@ CSkins::CSkins() :
 	m_PlaceholderSkin.m_Metrics.m_Feet.m_MaxHeight = 32;
 }
 
+bool CSkins::IsSpecialSkin(const char *pName)
+{
+	return str_utf8_comp_nocase_num(pName, "x_", 2) == 0;
+}
+
 bool CSkins::IsVanillaSkin(const char *pName)
 {
 	return std::any_of(std::begin(VANILLA_SKINS), std::end(VANILLA_SKINS), [pName](const char *pVanillaSkin) {
-		return str_utf8_comp_nocase(pName, pVanillaSkin) == 0;
+		return str_comp(pName, pVanillaSkin) == 0;
 	});
-}
-
-bool CSkins::IsSpecialSkin(const char *pName)
-{
-	return str_utf8_find_nocase(pName, "x_") == pName;
 }
 
 class CSkinScanUser
@@ -244,13 +244,8 @@ int CSkins::SkinScan(const char *pName, int IsDir, int StorageType, void *pUser)
 
 	CSkinContainer SkinContainer(pSelf, aSkinName, CSkinContainer::EType::LOCAL, StorageType);
 	auto &&pSkinContainer = std::make_unique<CSkinContainer>(std::move(SkinContainer));
-	const auto &[SkinIt, Inserted] = pSelf->m_Skins.insert({pSkinContainer->NormalizedName(), std::move(pSkinContainer)});
-	if(!Inserted)
-	{
-		return 0;
-	}
-
-	SkinIt->second->SetState(SkinIt->second->DetermineInitialState());
+	pSkinContainer->SetState(pSkinContainer->DetermineInitialState());
+	pSelf->m_Skins.insert({pSkinContainer->Name(), std::move(pSkinContainer)});
 	pUserReal->m_SkinLoadedCallback();
 	return 0;
 }
@@ -282,10 +277,10 @@ static void CheckMetrics(CSkin::CSkinMetricVariable &Metrics, const uint8_t *pIm
 		}
 	}
 
-	Metrics.m_Width = clamp((MaxX - MinX) + 1, 1, CheckWidth);
-	Metrics.m_Height = clamp((MaxY - MinY) + 1, 1, CheckHeight);
-	Metrics.m_OffsetX = clamp(MinX, 0, CheckWidth - 1);
-	Metrics.m_OffsetY = clamp(MinY, 0, CheckHeight - 1);
+	Metrics.m_Width = std::clamp((MaxX - MinX) + 1, 1, CheckWidth);
+	Metrics.m_Height = std::clamp((MaxY - MinY) + 1, 1, CheckHeight);
+	Metrics.m_OffsetX = std::clamp(MinX, 0, CheckWidth - 1);
+	Metrics.m_OffsetY = std::clamp(MinY, 0, CheckHeight - 1);
 	Metrics.m_MaxWidth = CheckWidth;
 	Metrics.m_MaxHeight = CheckHeight;
 }
@@ -354,7 +349,8 @@ bool CSkins::LoadSkinData(const char *pName, CSkinLoadData &Data) const
 				}
 			}
 		}
-		Data.m_BloodColor = ColorRGBA(normalize(vec3(aColors[0], aColors[1], aColors[2])));
+		const vec3 NormalizedColor = normalize(vec3(aColors[0], aColors[1], aColors[2]));
+		Data.m_BloodColor = ColorRGBA(NormalizedColor.x, NormalizedColor.y, NormalizedColor.z);
 	}
 
 	CheckMetrics(Data.m_Metrics.m_Body, Data.m_Info.m_pData, Pitch, 0, 0, BodyWidth, BodyHeight);
@@ -448,20 +444,23 @@ void CSkins::LoadSkinFinish(CSkinContainer *pSkinContainer, const CSkinLoadData 
 		log_trace("skins", "Loaded skin '%s'", Skin.GetName());
 	}
 
-	auto SkinIt = m_Skins.find(pSkinContainer->NormalizedName());
-	dbg_assert(SkinIt != m_Skins.end(), "LoadSkinFinish on skin '%s' which is not in m_Skins", pSkinContainer->NormalizedName());
+	auto SkinIt = m_Skins.find(pSkinContainer->Name());
+	dbg_assert(SkinIt != m_Skins.end(), "LoadSkinFinish on skin '%s' which is not in m_Skins", pSkinContainer->Name());
 	SkinIt->second->m_pSkin = std::make_unique<CSkin>(std::move(Skin));
 	pSkinContainer->SetState(CSkinContainer::EState::LOADED);
 }
 
 void CSkins::LoadSkinDirect(const char *pName)
 {
-	auto &&pSkinContainer = std::make_unique<CSkinContainer>(this, pName, CSkinContainer::EType::LOCAL, IStorage::TYPE_ALL);
-	const auto &[SkinIt, Inserted] = m_Skins.insert({pSkinContainer->NormalizedName(), std::move(pSkinContainer)});
-	if(!Inserted)
+	if(m_Skins.contains(pName))
 	{
 		return;
 	}
+	CSkinContainer SkinContainer(this, pName, CSkinContainer::EType::LOCAL, IStorage::TYPE_ALL);
+	auto &&pSkinContainer = std::make_unique<CSkinContainer>(std::move(SkinContainer));
+	pSkinContainer->SetState(pSkinContainer->DetermineInitialState());
+	const auto &[SkinIt, _] = m_Skins.insert({pSkinContainer->Name(), std::move(pSkinContainer)});
+
 	char aPath[IO_MAX_PATH_LENGTH];
 	str_format(aPath, sizeof(aPath), "skins/%s.png", pName);
 	CSkinLoadData DefaultSkinData;
@@ -495,15 +494,7 @@ void CSkins::OnConsoleInit()
 
 void CSkins::OnInit()
 {
-	m_aEventSkinPrefix[0] = '\0';
-
-	if(g_Config.m_Events)
-	{
-		if(time_season() == SEASON_XMAS)
-		{
-			str_copy(m_aEventSkinPrefix, "santa");
-		}
-	}
+	RefreshEventSkins();
 
 	// load skins
 	Refresh([this]() {
@@ -527,14 +518,14 @@ void CSkins::OnUpdate()
 {
 	// Only update skins periodically to reduce FPS impact
 	const std::chrono::nanoseconds StartTime = time_get_nanoseconds();
-	const std::chrono::nanoseconds MaxTime = std::chrono::microseconds(maximum(round_to_int(Client()->RenderFrameTime() / 8.0f), 25));
+	const std::chrono::nanoseconds MaxTime = std::chrono::milliseconds(std::clamp(round_to_int(Client()->RenderFrameTime() * 50000.0f), 25, 500));
 	if(m_ContainerUpdateTime.has_value() && StartTime - m_ContainerUpdateTime.value() < MaxTime)
 	{
 		return;
 	}
 	m_ContainerUpdateTime = StartTime;
 
-	// Update loaded state of managed skins which are not retrieved with the FindImpl function
+	// Update loaded state of managed skins which are not retrieved with the FindOrNullptr function
 	GameClient()->CollectManagedTeeRenderInfos([&](const char *pSkinName) {
 		// This will update the loaded state of the container
 		dbg_assert(FindContainerOrNullptr(pSkinName) != nullptr, "No skin container found for managed tee render info: %s", pSkinName);
@@ -617,8 +608,7 @@ void CSkins::UpdateStartLoading(CSkinLoadingStats &Stats)
 			pSkinContainer->m_pLoadJob = std::make_shared<CSkinDownloadJob>(this, pSkinContainer->Name());
 			break;
 		default:
-			dbg_assert(false, "pSkinContainer->Type() invalid");
-			dbg_break();
+			dbg_assert_failed("pSkinContainer->Type() invalid");
 		}
 		Engine()->AddJob(pSkinContainer->m_pLoadJob);
 		pSkinContainer->SetState(CSkinContainer::EState::LOADING);
@@ -670,6 +660,19 @@ void CSkins::UpdateFinishLoading(CSkinLoadingStats &Stats, std::chrono::nanoseco
 				Stats.m_NumError++;
 			}
 			pSkinContainer->m_pLoadJob = nullptr;
+		}
+	}
+}
+
+void CSkins::RefreshEventSkins()
+{
+	m_aEventSkinPrefix[0] = '\0';
+
+	if(g_Config.m_Events)
+	{
+		if(time_season() == ETimeSeason::XMAS)
+		{
+			str_copy(m_aEventSkinPrefix, "santa");
 		}
 	}
 }
@@ -746,6 +749,7 @@ CSkins::CSkinList &CSkins::SkinList()
 		FindContainerOrNullptr(FavoriteSkin.c_str());
 	}
 
+	m_SkinList.m_vSkins.reserve(m_Skins.size());
 	for(const auto &[_, pSkinContainer] : m_Skins)
 	{
 		if(pSkinContainer->IsSpecial())
@@ -753,15 +757,17 @@ CSkins::CSkinList &CSkins::SkinList()
 			continue;
 		}
 
-		const bool SelectedMain = str_utf8_comp_nocase(pSkinContainer->Name(), g_Config.m_ClPlayerSkin) == 0;
-		const bool SelectedDummy = str_utf8_comp_nocase(pSkinContainer->Name(), g_Config.m_ClDummySkin) == 0;
+		const bool SelectedMain = str_comp(pSkinContainer->Name(), g_Config.m_ClPlayerSkin) == 0;
+		const bool SelectedDummy = str_comp(pSkinContainer->Name(), g_Config.m_ClDummySkin) == 0;
+		const bool Favorite = IsFavorite(pSkinContainer->Name());
 
 		// Don't include skins in the list that couldn't be found in the database except the current player
 		// and dummy skins to avoid showing a lot of not-found entries while the user is typing a skin name.
 		if(pSkinContainer->m_State == CSkinContainer::EState::NOT_FOUND &&
 			!pSkinContainer->IsSpecial() &&
 			!SelectedMain &&
-			!SelectedDummy)
+			!SelectedDummy &&
+			!Favorite)
 		{
 			continue;
 		}
@@ -778,8 +784,7 @@ CSkins::CSkinList &CSkins::SkinList()
 			}
 			NameMatch = std::make_pair<int, int>(pNameMatchStart - pSkinContainer->Name(), pNameMatchEnd - pNameMatchStart);
 		}
-
-		m_SkinList.m_vSkins.emplace_back(pSkinContainer.get(), IsFavorite(pSkinContainer->Name()), SelectedMain, SelectedDummy, NameMatch);
+		m_SkinList.m_vSkins.emplace_back(pSkinContainer.get(), Favorite, SelectedMain, SelectedDummy, NameMatch);
 	}
 
 	std::sort(m_SkinList.m_vSkins.begin(), m_SkinList.m_vSkins.end());
@@ -803,40 +808,41 @@ const CSkin *CSkins::Find(const char *pName)
 
 const CSkins::CSkinContainer *CSkins::FindContainerOrNullptr(const char *pName)
 {
-	if(!CSkin::IsValidName(pName))
-	{
-		return nullptr;
-	}
-	CSkinContainer SkinContainer(this, pName, CSkinContainer::EType::DOWNLOAD, IStorage::TYPE_SAVE);
-	auto &&pSkinContainer = std::make_unique<CSkinContainer>(std::move(SkinContainer));
-	const auto &[SkinIt, Inserted] = m_Skins.insert({pSkinContainer->NormalizedName(), std::move(pSkinContainer)});
-	if(Inserted)
-	{
-		SkinIt->second->SetState(SkinIt->second->DetermineInitialState());
-	}
-	SkinIt->second->RequestLoad();
-	return SkinIt->second.get();
-}
-
-const CSkin *CSkins::FindOrNullptr(const char *pName, bool IgnorePrefix)
-{
-	const char *pSkinPrefix = m_aEventSkinPrefix[0] != '\0' ? m_aEventSkinPrefix : g_Config.m_ClSkinPrefix;
-	if(!g_Config.m_ClVanillaSkinsOnly && !IgnorePrefix && pSkinPrefix[0] != '\0')
+	const char *pSkinPrefix = SkinPrefix();
+	if(pSkinPrefix[0] != '\0')
 	{
 		char aNameWithPrefix[2 * MAX_SKIN_LENGTH + 2]; // Larger than skin name length to allow IsValidName to check if it's too long
 		str_format(aNameWithPrefix, sizeof(aNameWithPrefix), "%s_%s", pSkinPrefix, pName);
 		// If we find something, use it, otherwise fall back to normal skins.
-		const auto *pResult = FindImpl(aNameWithPrefix);
-		if(pResult != nullptr)
+		const CSkinContainer *pSkinContainer = FindContainerImpl(aNameWithPrefix);
+		if(pSkinContainer != nullptr && pSkinContainer->State() == CSkinContainer::EState::LOADED)
 		{
-			return pResult;
+			return pSkinContainer;
 		}
 	}
-
-	return FindImpl(pName);
+	return FindContainerImpl(pName);
 }
 
-const CSkin *CSkins::FindImpl(const char *pName)
+const CSkins::CSkinContainer *CSkins::FindContainerImpl(const char *pName)
+{
+	if(!CSkin::IsValidName(pName))
+	{
+		return nullptr;
+	}
+
+	auto ExistingSkin = m_Skins.find(pName);
+	if(ExistingSkin == m_Skins.end())
+	{
+		CSkinContainer SkinContainer(this, pName, CSkinContainer::EType::DOWNLOAD, IStorage::TYPE_SAVE);
+		auto &&pSkinContainer = std::make_unique<CSkinContainer>(std::move(SkinContainer));
+		pSkinContainer->SetState(pSkinContainer->DetermineInitialState());
+		ExistingSkin = m_Skins.insert({pSkinContainer->Name(), std::move(pSkinContainer)}).first;
+	}
+	ExistingSkin->second->RequestLoad();
+	return ExistingSkin->second.get();
+}
+
+const CSkin *CSkins::FindOrNullptr(const char *pName)
 {
 	const CSkinContainer *pSkinContainer = FindContainerOrNullptr(pName);
 	if(pSkinContainer == nullptr || pSkinContainer->m_State != CSkinContainer::EState::LOADED)
@@ -855,9 +861,7 @@ void CSkins::AddFavorite(const char *pName)
 		return;
 	}
 
-	char aNormalizedName[NORMALIZED_SKIN_NAME_LENGTH];
-	str_utf8_tolower(pName, aNormalizedName, sizeof(aNormalizedName));
-	const auto &[_, Inserted] = m_Favorites.emplace(aNormalizedName);
+	const auto &[_, Inserted] = m_Favorites.emplace(pName);
 	if(Inserted)
 	{
 		m_SkinList.ForceRefresh();
@@ -866,9 +870,7 @@ void CSkins::AddFavorite(const char *pName)
 
 void CSkins::RemoveFavorite(const char *pName)
 {
-	char aNormalizedName[NORMALIZED_SKIN_NAME_LENGTH];
-	str_utf8_tolower(pName, aNormalizedName, sizeof(aNormalizedName));
-	const auto FavoriteIt = m_Favorites.find(aNormalizedName);
+	const auto FavoriteIt = m_Favorites.find(pName);
 	if(FavoriteIt != m_Favorites.end())
 	{
 		m_Favorites.erase(FavoriteIt);
@@ -878,9 +880,7 @@ void CSkins::RemoveFavorite(const char *pName)
 
 bool CSkins::IsFavorite(const char *pName) const
 {
-	char aNormalizedName[NORMALIZED_SKIN_NAME_LENGTH];
-	str_utf8_tolower(pName, aNormalizedName, sizeof(aNormalizedName));
-	return m_Favorites.find(aNormalizedName) != m_Favorites.end();
+	return m_Favorites.contains(pName);
 }
 
 void CSkins::RandomizeSkin(int Dummy)
@@ -895,12 +895,12 @@ void CSkins::RandomizeSkin(int Dummy)
 		ColorHSLA Body;
 		Body.h = random_float();
 		Body.l = random_float(0.0f, MaxBodyLht);
-		Body.s = clamp(GoalSat * GoalSat / (1.0f - Body.l), 0.0f, 1.0f);
+		Body.s = std::clamp(GoalSat * GoalSat / (1.0f - Body.l), 0.0f, 1.0f);
 
 		ColorHSLA Feet;
 		Feet.h = std::fmod(Body.h + s_aSchemes[rand() % std::size(s_aSchemes)], 1.0f);
 		Feet.l = random_float();
-		Feet.s = clamp(GoalSat * GoalSat / (1.0f - Feet.l), 0.0f, 1.0f);
+		Feet.s = std::clamp(GoalSat * GoalSat / (1.0f - Feet.l), 0.0f, 1.0f);
 
 		unsigned *pColorBody = Dummy ? &g_Config.m_ClDummyColorBody : &g_Config.m_ClPlayerColorBody;
 		unsigned *pColorFeet = Dummy ? &g_Config.m_ClDummyColorFeet : &g_Config.m_ClPlayerColorFeet;
@@ -934,6 +934,19 @@ void CSkins::RandomizeSkin(int Dummy)
 	const size_t SkinNameSize = Dummy ? sizeof(g_Config.m_ClDummySkin) : sizeof(g_Config.m_ClPlayerSkin);
 	str_copy(pSkinName, pRandomSkin, SkinNameSize);
 	m_SkinList.ForceRefresh();
+}
+
+const char *CSkins::SkinPrefix() const
+{
+	if(g_Config.m_ClVanillaSkinsOnly)
+	{
+		return "";
+	}
+	if(m_aEventSkinPrefix[0] != '\0')
+	{
+		return m_aEventSkinPrefix;
+	}
+	return g_Config.m_ClSkinPrefix;
 }
 
 void CSkins::CSkinLoadJob::Run()

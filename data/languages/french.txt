@@ -22,9 +22,6 @@ Abort
 Add
 == Ajouter
 
-Add Friend
-== Ajouter aux amis
-
 Address
 == Adresse
 
@@ -435,8 +432,6 @@ Yes
 
 You must restart the game for all settings to take effect.
 == Les changements prendront effet au prochain redémarrage.
-
-##### needs translation #####
 
 New name:
 == Nouveau nom :
@@ -849,9 +844,6 @@ Automatically create statboard csv
 Video name:
 == Nom de la vidéo
 
-Show quads
-== Afficher les quads
-
 Best
 == Meilleur
 
@@ -1159,9 +1151,6 @@ Tries to predict other entities to give a feel of low latency
 Tutorial
 == Tutoriel
 
-Can't find a Tutorial server
-== Impossible de trouver un serveur tutoriel
-
 Super
 == Super
 
@@ -1293,9 +1282,6 @@ Show jumps indicator
 Hook collision line
 == Ligne de collision du grapin
 
-A Tee
-== Un Tee
-
 Loading assets
 == Chargement des assets
 
@@ -1341,17 +1327,8 @@ Hook Collisions
 Hook collision line opacity
 == Opacité de la ligne de collision du grappin
 
-Colors of the hook collision line, in case of a possible collision with:
-== Couleurs de la ligne de collision du grappin, dans le cas d'une collision possible avec :
-
 Your movements are not taken into account when calculating the line colors
 == Vos mouvements ne sont pas pris en compte lors du calcul des couleurs de la ligne
-
-Nothing hookable
-== Rien d'accrochable
-
-Something hookable
-== Quelque chose d'accrochable
 
 Loading race demo files
 == Chargement des fichiers de demo de course
@@ -1418,7 +1395,7 @@ File '%s' already exists, do you want to overwrite it?
 == Le fichier '%s' existe déjà, voulez-vous l'écraser ?
 
 Are you sure that you want to remove the player '%s' from your friends list?
-== Êtes-vous sûr de vouloir retirer le joueur '%s' de votre liste d'amis ? 
+== Êtes-vous sûr de vouloir retirer le joueur '%s' de votre liste d'amis ?
 
 Are you sure that you want to remove the clan '%s' from your friends list?
 == Êtes-vous sûr de vouloir retirer le clan '%s' de votre liste d'amis ?
@@ -1443,9 +1420,6 @@ Are you sure that you want to delete the demo '%s'?
 
 Unable to delete the demo '%s'
 == Impossible de supprimer la démo '%s'
-
-Save power by lowering refresh rate (higher input latency)
-== Économiser la puissance en diminuant le taux de rafraîchissement (augmente la latence d'entrée)
 
 Open the settings file
 == Ouvrir le fichier de configuration
@@ -1487,7 +1461,7 @@ Door Laser Inner Color
 == Couleur porte laser (intérieur)
 
 Freeze Laser Outline Color
-== Couleur laser gelant (contour) 
+== Couleur laser gelant (contour)
 
 Freeze Laser Inner Color
 == Couleur laser gelant (intérieur)
@@ -1526,9 +1500,6 @@ Click to remove this player from your friends list.
 
 Click to remove this clan from your friends list.
 == Cliquez pour retirer ce clan de votre liste d'amis
-
-Add Clan
-== Ajouter un clan
 
 Create a random skin
 == Créer un skin aléatoire
@@ -1657,12 +1628,12 @@ Go back the specified duration
 == Saut arrière de la durée spécifiée
 
 [Demo player duration]
-%d min.
-== %d min.
+%s min.
+== %s min.
 
 [Demo player duration]
-%d sec.
-== %d sec.
+%s sec.
+== %s sec.
 
 Change the skip duration
 == Modifier la durée du saut
@@ -2015,13 +1986,28 @@ English translation by the DDNet Team
 Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom assets (skins, entities, etc.), especially those with high resolution.
 == 
 
+Press Ctrl+Shift+G to disable debug graphs.
+== 
+
 No demo with this filename exists
 == 
 
 "%s" is not compatible with pnglite and cannot be loaded by old DDNet versions:
 == 
 
-Loading background map
+Team save in progress. You'll be able to load with '/load %s'
+== 
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== 
+
+Save failed!
 == 
 
 Auto-sync player camera
@@ -2050,17 +2036,114 @@ Active
 Loading maps…
 == 
 
+[Spectating]
+Following %d: %s
+== 
+
 [Spectating Camera Mode Icon]
 AUTO
 == 
 
+[Important alert message]
+Press Esc or Tab to dismiss…
+== 
+
+Server alert
+== 
+
+Moderator alert
+== 
+
+Server could not be started. Make sure to grant the notification permission in the app settings so the server can run in the background.
+== 
+
+Server could not be started
+== 
+
+Loading map
+== 
+
+Joining Tutorial server
+== 
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== 
+
 This name cannot be used for files and folders
+== 
+
+You will be disconnected from the server.
+== 
+
+Could not get server list from master server
+== 
+
+There are no Tutorial servers available
+== 
+
+Retrying…
+== 
+
+Error joining Tutorial server
+== 
+
+Could not find a Tutorial server. Check your internet connection.
+== 
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 
+
+Waiting for local server to stop…
+== 
+
+Waiting for local server to start…
+== 
+
+Error checking player name
+== 
+
+Could not check for existing player with your name. Check your internet connection.
+== 
+
+Start and connect to local server
+== 
+
+Error loading communities
+== 
+
+Click to remove this community from your favorites.
+== 
+
+Click to add this community to your favorites.
+== 
+
+Add clan
+== 
+
+Add friend
+== 
+
+[Demo playback]
+Live
+== 
+
+[Demo playback]
+Go to Live
 == 
 
 Toggle auto camera
 == 
 
 Map size
+== 
+
+Are you sure that you want to disconnect and play this demo?
+== 
+
+Save all changes before turning off the editor?
 == 
 
 https://wiki.ddnet.org/wiki/Touch_controls
@@ -2096,6 +2179,326 @@ minimum
 maximum
 == 
 
+Layout
+== 
+
+Visibility
+== 
+
+Behavior
+== 
+
+Delete button
+== 
+
+Are you sure that you want to delete this button?
+== 
+
+Duplicate
+== 
+
+Please save your changes before duplicating a button.
+== 
+
+Deselect
+== 
+
+You'll lose unsaved changes after deselecting.
+== 
+
+Width
+== 
+
+Height
+== 
+
+Shape
+== 
+
+[Touch button shape]
+Rectangle
+== 
+
+[Touch button shape]
+Circle
+== 
+
+[Touch button label type]
+Plain
+== 
+
+[Touch button label type]
+Localized
+== 
+
+[Touch button label type]
+Icon
+== 
+
+Behavior type
+== 
+
+[Touch button behavior]
+Bind
+== 
+
+[Touch button behavior]
+Bind Toggle
+== 
+
+[Touch button behavior]
+Predefined
+== 
+
+Info
+== 
+
+Command
+== 
+
+Label
+== 
+
+Label type
+== 
+
+Add command
+== 
+
+Delete command
+== 
+
+[Touch button visibility preview]
+Included
+== 
+
+[Touch button visibility preview]
+Excluded
+== 
+
+[Touch button visibility preview]
+Ignore
+== 
+
+Button browser
+== 
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 
+
+New button
+== 
+
+Select button by touch
+== 
+
+No buttons match your filter criteria
+== 
+
+File
+== 
+
+Buttons
+== 
+
+Active color
+== 
+
+Inactive color
+== 
+
+Preview visibilities
+== 
+
+Preview button visibility while the editor is active.
+== 
+
+Show all buttons
+== 
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 
+
+Open DDNet Wiki
+== 
+
+Save all changes before switching selected button?
+== 
+
+Discard
+== 
+
+No space for button
+== 
+
+There is not enough space available for the button. Check its visibilities and size.
+== 
+
+Selected button not visible
+== 
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 
+
+Edit
+== 
+
+Width and height are required to be within the range from %d to %d.
+== 
+
+Button position is outside of the screen.
+== 
+
+The selected button is overlapping with other buttons.
+== 
+
+Wrong button settings
+== 
+
+There is not enough space available to place another button.
+== 
+
+[Touch button visibilities]
+Ingame
+== 
+
+[Touch button visibilities]
+Zoom Allowed
+== 
+
+[Touch button visibilities]
+Vote Active
+== 
+
+[Touch button visibilities]
+Dummy Allowed
+== 
+
+[Touch button visibilities]
+Dummy Connected
+== 
+
+[Touch button visibilities]
+Rcon Authed
+== 
+
+[Touch button visibilities]
+Demo Player
+== 
+
+[Touch button visibilities]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 
+
+[Predefined touch button behaviors]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Emoticon
+== 
+
+[Predefined touch button behaviors]
+Spectate
+== 
+
+[Predefined touch button behaviors]
+Swap Action
+== 
+
+[Predefined touch button behaviors]
+Use Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 
+
+Buttons with this behavior execute console commands like regular key binds.
+== 
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 
+
+Buttons with this behavior execute some predefined actions.
+== 
+
+Opens the ingame menu immediately when released.
+== 
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 
+
+Opens the emoticon selector (this does not work with binds).
+== 
+
+Opens the spectator menu (this does not work with binds).
+== 
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 
+
+Uses the active action with the current aiming position.
+== 
+
+Virtual joystick which uses the active action.
+== 
+
+Virtual joystick which only aims without using an action.
+== 
+
+Virtual joystick which always uses fire.
+== 
+
+Virtual joystick which always uses hook.
+== 
+
+Player is ingame, i.e. not spectating.
+== 
+
+Zoom is allowed on this server.
+== 
+
+A vote is currently active.
+== 
+
+Dummy is allowed on this server.
+== 
+
+Dummy is currently connected.
+== 
+
+Player is currently authed in rcon.
+== 
+
+Demo player is currently active.
+== 
+
+The extra menu with the given number is activated.
+== 
+
+Update Rate
+== 
+
+Save power by lowering update rate (higher input latency)
+== 
+
 Saves file
 == 
 
@@ -2126,6 +2529,12 @@ Show spectator cursor
 Show number of spectators
 == 
 
+Censor profanity
+== 
+
+Chat background color
+== 
+
 [Show name plates]
 None
 == 
@@ -2151,7 +2560,7 @@ Show friend icon in name plates
 Show client IDs in name plates
 == 
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == 
 
 Client IDs size
@@ -2194,14 +2603,51 @@ Preview player's name plate
 Preview dummy's name plate
 == 
 
+Colors of the hook collision line:
+== 
+
+[Hook collision line color]
+When nothing is hookable
+== 
+
+[Hook collision line color]
+When something is hookable
+== 
+
+[Hook collision line color]
+When a Tee is hookable
+== 
+
+[Hook collision line color]
+Hook collision line tip
+== 
+
 Dragger Outline Color
 == 
 
 Dragger Inner Color
 == 
 
+Show background quads
+== 
+
 AntiPing: prediction margin
 == 
 
-Server could not be started. Make sure to grant the notification permission in the app settings so the server can run in the background.
+Scoreboard cursor
+== 
+
+Download
+== 
+
+Unmute
+== 
+
+Mute
+== 
+
+Unmute emoticons
+== 
+
+Mute emoticons
 == 

@@ -1,16 +1,17 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#include <engine/graphics.h>
-#include <engine/shared/config.h>
-#include <game/generated/protocol.h>
+#include "emoticon.h"
 
 #include "chat.h"
-#include "emoticon.h"
-#include <game/client/animstate.h>
-#include <game/client/render.h>
-#include <game/client/ui.h>
 
+#include <engine/graphics.h>
+#include <engine/shared/config.h>
+
+#include <generated/protocol.h>
+
+#include <game/client/animstate.h>
 #include <game/client/gameclient.h>
+#include <game/client/ui.h>
 
 CEmoticon::CEmoticon()
 {
@@ -20,7 +21,11 @@ CEmoticon::CEmoticon()
 void CEmoticon::ConKeyEmoticon(IConsole::IResult *pResult, void *pUserData)
 {
 	CEmoticon *pSelf = (CEmoticon *)pUserData;
-	if(!pSelf->m_pClient->m_Snap.m_SpecInfo.m_Active && pSelf->Client()->State() != IClient::STATE_DEMOPLAYBACK)
+
+	if(pSelf->GameClient()->m_Scoreboard.IsActive())
+		return;
+
+	if(!pSelf->GameClient()->m_Snap.m_SpecInfo.m_Active && pSelf->Client()->State() != IClient::STATE_DEMOPLAYBACK)
 		pSelf->m_Active = pResult->GetInteger(0) != 0;
 }
 
@@ -91,7 +96,7 @@ void CEmoticon::OnRender()
 		return;
 	}
 
-	if(m_pClient->m_Snap.m_SpecInfo.m_Active)
+	if(GameClient()->m_Snap.m_SpecInfo.m_Active || !GameClient()->m_Snap.m_pLocalCharacter)
 	{
 		m_Active = false;
 		m_WasActive = false;
@@ -133,15 +138,13 @@ void CEmoticon::OnRender()
 	m_SelectedEmote = -1;
 	m_SelectedEyeEmote = -1;
 	if(length(m_SelectorMouse) > 110.0f)
-		m_SelectedEmote = (int)(SelectedAngle / (2 * pi) * NUM_EMOTICONS);
+		m_SelectedEmote = (int)(SelectedAngle / (2 * pi) * (float)NUM_EMOTICONS);
 	else if(length(m_SelectorMouse) > 40.0f)
-		m_SelectedEyeEmote = (int)(SelectedAngle / (2 * pi) * NUM_EMOTES);
+		m_SelectedEyeEmote = (int)(SelectedAngle / (2 * pi) * (float)NUM_EMOTES);
 
 	const vec2 ScreenCenter = Screen.Center();
 
 	Ui()->MapScreen();
-
-	Graphics()->BlendNormal();
 
 	Graphics()->TextureClear();
 	Graphics()->QuadsBegin();
@@ -152,7 +155,7 @@ void CEmoticon::OnRender()
 	Graphics()->WrapClamp();
 	for(int Emote = 0; Emote < NUM_EMOTICONS; Emote++)
 	{
-		float Angle = 2 * pi * Emote / NUM_EMOTICONS;
+		float Angle = 2 * pi * Emote / (float)NUM_EMOTICONS;
 		if(Angle > pi)
 			Angle -= 2 * pi;
 
@@ -167,7 +170,7 @@ void CEmoticon::OnRender()
 	}
 	Graphics()->WrapNormal();
 
-	if(GameClient()->m_GameInfo.m_AllowEyeWheel && g_Config.m_ClEyeWheel && m_pClient->m_aLocalIds[g_Config.m_ClDummy] >= 0)
+	if(GameClient()->m_GameInfo.m_AllowEyeWheel && g_Config.m_ClEyeWheel && GameClient()->m_aLocalIds[g_Config.m_ClDummy] >= 0)
 	{
 		Graphics()->TextureClear();
 		Graphics()->QuadsBegin();
@@ -175,11 +178,11 @@ void CEmoticon::OnRender()
 		Graphics()->DrawCircle(ScreenCenter.x, ScreenCenter.y, 100.0f, 64);
 		Graphics()->QuadsEnd();
 
-		CTeeRenderInfo TeeInfo = m_pClient->m_aClients[m_pClient->m_aLocalIds[g_Config.m_ClDummy]].m_RenderInfo;
+		CTeeRenderInfo TeeInfo = GameClient()->m_aClients[GameClient()->m_aLocalIds[g_Config.m_ClDummy]].m_RenderInfo;
 
 		for(int Emote = 0; Emote < NUM_EMOTES; Emote++)
 		{
-			float Angle = 2 * pi * Emote / NUM_EMOTES;
+			float Angle = 2 * pi * Emote / (float)NUM_EMOTES;
 			if(Angle > pi)
 				Angle -= 2 * pi;
 

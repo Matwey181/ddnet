@@ -1,16 +1,19 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#include <SDL.h>
+#include "input.h"
+
+#include "keynames.h"
 
 #include <base/system.h>
+#include <base/windows.h>
+
 #include <engine/console.h>
 #include <engine/graphics.h>
 #include <engine/input.h>
 #include <engine/keys.h>
 #include <engine/shared/config.h>
 
-#include "input.h"
-#include "keynames.h"
+#include <SDL.h>
 
 // support older SDL version (pre 2.0.6)
 #ifndef SDL_JOYSTICK_AXIS_MIN
@@ -35,7 +38,8 @@
 void CInput::AddKeyEvent(int Key, int Flags)
 {
 	dbg_assert(Key >= KEY_FIRST && Key < KEY_LAST, "Key invalid: %d", Key);
-	dbg_assert((Flags & (FLAG_PRESS | FLAG_RELEASE)) != 0 && (Flags & ~(FLAG_PRESS | FLAG_RELEASE)) == 0, "Flags invalid");
+	dbg_assert((Flags & (FLAG_PRESS | FLAG_RELEASE)) != 0 && (Flags & ~(FLAG_PRESS | FLAG_RELEASE | FLAG_REPEAT)) == 0, "Flags invalid (unknown flag): %d", Flags);
+	dbg_assert((Flags & FLAG_REPEAT) == 0 || (Flags & FLAG_PRESS) != 0, "Flags invalid (key repeat implies key press): %d", Flags);
 
 	CEvent Event;
 	Event.m_Key = Key;
@@ -682,6 +686,18 @@ static int TranslateMouseWheelEventKey(const SDL_MouseWheelEvent &MouseWheelEven
 	}
 }
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+extern "C" {
+
+// This will be called from Emscripten JS code
+bool EmscriptenQuit = false;
+void EmscriptenCallbackQuit()
+{
+	EmscriptenQuit = true;
+}
+}
+#endif
+
 int CInput::Update()
 {
 	const int64_t Now = time_get();
@@ -704,6 +720,13 @@ int CInput::Update()
 			AddKeyEvent(Key, Flags);
 		}
 	};
+
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+	if(EmscriptenQuit)
+	{
+		return 1;
+	}
+#endif
 
 	while(SDL_PollEvent(&Event))
 	{
@@ -732,7 +755,7 @@ int CInput::Update()
 
 		// handle keys
 		case SDL_KEYDOWN:
-			AddKeyEventChecked(TranslateKeyEventKey(Event.key), IInput::FLAG_PRESS);
+			AddKeyEventChecked(TranslateKeyEventKey(Event.key), IInput::FLAG_PRESS | (Event.key.repeat != 0 ? FLAG_REPEAT : 0));
 			break;
 
 		case SDL_KEYUP:
@@ -791,6 +814,11 @@ int CInput::Update()
 			// shortcuts
 			switch(Event.window.event)
 			{
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+			case SDL_WINDOWEVENT_DISPLAY_CHANGED:
+				Graphics()->SwitchWindowScreen(Event.display.data1, false);
+				break;
+#endif
 			case SDL_WINDOWEVENT_MOVED:
 				Graphics()->Move(Event.window.data1, Event.window.data2);
 				break;
@@ -838,6 +866,18 @@ int CInput::Update()
 			}
 			break;
 
+#if defined(CONF_PLATFORM_IOS)
+		case SDL_APP_TERMINATING:
+		case SDL_APP_LOWMEMORY:
+		case SDL_APP_WILLENTERBACKGROUND:
+		case SDL_APP_DIDENTERBACKGROUND:
+			m_pConfigManager->Save();
+			break;
+		case SDL_APP_WILLENTERFOREGROUND:
+		case SDL_APP_DIDENTERFOREGROUND:
+			break;
+#endif
+
 		// other messages
 		case SDL_QUIT:
 			return 1;
@@ -875,6 +915,7 @@ void CInput::ProcessSystemMessage(SDL_SysWMmsg *pMsg)
 			m_vCandidates.clear();
 			if(pCandidateList && Size > 0)
 			{
+				m_vCandidates.reserve(std::min(pCandidateList->dwCount - pCandidateList->dwPageStart, pCandidateList->dwPageSize));
 				for(DWORD i = pCandidateList->dwPageStart; i < pCandidateList->dwCount && (int)m_vCandidates.size() < (int)pCandidateList->dwPageSize; i++)
 				{
 					LPCWSTR pCandidate = (LPCWSTR)((DWORD_PTR)pCandidateList + pCandidateList->dwOffset[i]);
@@ -899,8 +940,28 @@ void CInput::ProcessSystemMessage(SDL_SysWMmsg *pMsg)
 #endif
 }
 
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+extern "C" {
+
+// This will be called from Emscripten JS code
+char aEmscriptenDropFile[IO_MAX_PATH_LENGTH] = "";
+void EmscriptenCallbackDropFile(const char *pFile)
+{
+	str_copy(aEmscriptenDropFile, pFile);
+}
+}
+#endif
+
 bool CInput::GetDropFile(char *aBuf, int Len)
 {
+#if defined(CONF_PLATFORM_EMSCRIPTEN)
+	if(aEmscriptenDropFile[0] != '\0')
+	{
+		str_copy(aBuf, aEmscriptenDropFile, Len);
+		aEmscriptenDropFile[0] = '\0';
+		return true;
+	}
+#endif
 	if(m_aDropFile[0] != '\0')
 	{
 		str_copy(aBuf, m_aDropFile, Len);

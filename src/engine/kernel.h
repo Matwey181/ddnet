@@ -19,7 +19,7 @@ public:
 	IInterface() :
 		m_pKernel(nullptr) {}
 	virtual void Shutdown() {}
-	virtual ~IInterface() {}
+	virtual ~IInterface() = default;
 };
 
 #define MACRO_INTERFACE(Name) \
@@ -28,7 +28,7 @@ public: \
 \
 private:
 
-// This kernel thingie makes the structure very flat and basically singletons.
+// This kernel class makes the structure very flat and basically singletons.
 // I'm not sure if this is a good idea but it works for now.
 class IKernel
 {
@@ -40,7 +40,7 @@ class IKernel
 public:
 	static IKernel *Create();
 	virtual void Shutdown() = 0;
-	virtual ~IKernel() {}
+	virtual ~IKernel() = default;
 
 	// templated access to handle pointer conversions and interface names
 	template<class TINTERFACE>

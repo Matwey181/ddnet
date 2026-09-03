@@ -3,12 +3,12 @@
 #ifndef GAME_SERVER_ENTITY_H
 #define GAME_SERVER_ENTITY_H
 
+#include "gameworld.h"
+#include "save.h"
+
 #include <base/vmath.h>
 
 #include <game/alloc.h>
-
-#include "gameworld.h"
-#include "save.h"
 
 class CCollision;
 class CGameContext;
@@ -62,7 +62,7 @@ public: // TODO: Maybe make protected
 	/* Objects */
 	std::vector<SSwitchers> &Switchers() { return m_pGameWorld->m_Core.m_vSwitchers; }
 	CGameWorld *GameWorld() { return m_pGameWorld; }
-	CTuningParams *Tuning() { return GameWorld()->Tuning(); }
+	CTuningParams *GlobalTuning() { return &GameWorld()->TuningList()[0]; }
 	CTuningParams *TuningList() { return GameWorld()->TuningList(); }
 	CTuningParams *GetTuning(int i) { return GameWorld()->GetTuning(i); }
 	class CConfig *Config() { return m_pGameWorld->Config(); }
@@ -124,12 +124,6 @@ public: // TODO: Maybe make protected
 	virtual void Snap(int SnappingClient) {}
 
 	/*
-		Function: PostSnap
-			Called after all clients received their snapshot.
-	*/
-	virtual void PostSnap() {}
-
-	/*
 		Function: SwapClients
 			Called when two players have swapped their client ids.
 
@@ -177,7 +171,7 @@ public: // TODO: Maybe make protected
 	bool NetworkClippedLine(int SnappingClient, vec2 StartPos, vec2 EndPos) const;
 
 	bool GameLayerClipped(vec2 CheckPos);
-	virtual bool CanCollide(int ClientId) { return true; };
+	virtual bool CanCollide(int ClientId) { return true; }
 
 	// DDRace
 

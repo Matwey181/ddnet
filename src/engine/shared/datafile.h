@@ -3,12 +3,12 @@
 #ifndef ENGINE_SHARED_DATAFILE_H
 #define ENGINE_SHARED_DATAFILE_H
 
-#include <engine/storage.h>
+#include "uuid_manager.h"
 
 #include <base/hash.h>
 #include <base/types.h>
 
-#include "uuid_manager.h"
+#include <engine/storage.h>
 
 #include <cstdint>
 #include <map>
@@ -31,7 +31,8 @@ public:
 	~CDataFileReader();
 	CDataFileReader &operator=(CDataFileReader &&Other);
 
-	bool Open(class IStorage *pStorage, const char *pFilename, int StorageType);
+	[[nodiscard]] bool Open(const char *pFullName, IStorage *pStorage, const char *pPath, int StorageType);
+	[[nodiscard]] bool Open(IStorage *pStorage, const char *pPath, int StorageType);
 	void Close();
 	bool IsOpen() const;
 	IOHANDLE File() const;
@@ -51,9 +52,12 @@ public:
 	void *FindItem(int Type, int Id);
 	int NumItems() const;
 
+	const char *FullName() const;
+	const char *BaseName() const;
+	const char *Path() const;
 	SHA256_DIGEST Sha256() const;
 	unsigned Crc() const;
-	int MapSize() const;
+	int Size() const;
 };
 
 // write access
@@ -125,7 +129,7 @@ public:
 	}
 	~CDataFileWriter();
 
-	bool Open(class IStorage *pStorage, const char *pFilename, int StorageType = IStorage::TYPE_SAVE);
+	[[nodiscard]] bool Open(class IStorage *pStorage, const char *pFilename, int StorageType = IStorage::TYPE_SAVE);
 	int AddItem(int Type, int Id, size_t Size, const void *pData, const CUuid *pUuid = nullptr);
 	int AddData(size_t Size, const void *pData, ECompressionLevel CompressionLevel = COMPRESSION_DEFAULT);
 	int AddDataSwapped(size_t Size, const void *pData);

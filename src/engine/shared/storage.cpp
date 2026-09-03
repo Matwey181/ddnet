@@ -1,9 +1,13 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
+#include <base/dbg.h>
+#include <base/fs.h>
 #include <base/hash_ctxt.h>
+#include <base/io.h>
 #include <base/log.h>
 #include <base/math.h>
-#include <base/system.h>
+#include <base/process.h>
+#include <base/str.h>
 
 #include <engine/client/updater.h>
 #include <engine/shared/linereader.h>
@@ -68,38 +72,49 @@ public:
 		bool Success = true;
 		if(InitializationType == EInitializationType::CLIENT)
 		{
-			Success &= CreateFolder("screenshots", TYPE_SAVE);
-			Success &= CreateFolder("screenshots/auto", TYPE_SAVE);
-			Success &= CreateFolder("screenshots/auto/stats", TYPE_SAVE);
-			Success &= CreateFolder("maps", TYPE_SAVE);
-			Success &= CreateFolder("maps/auto", TYPE_SAVE);
-			Success &= CreateFolder("mapres", TYPE_SAVE);
-			Success &= CreateFolder("downloadedmaps", TYPE_SAVE);
-			Success &= CreateFolder("skins", TYPE_SAVE);
-			Success &= CreateFolder("skins7", TYPE_SAVE);
-			Success &= CreateFolder("downloadedskins", TYPE_SAVE);
-			Success &= CreateFolder("themes", TYPE_SAVE);
-			Success &= CreateFolder("communityicons", TYPE_SAVE);
-			Success &= CreateFolder("assets", TYPE_SAVE);
-			Success &= CreateFolder("assets/emoticons", TYPE_SAVE);
-			Success &= CreateFolder("assets/entities", TYPE_SAVE);
-			Success &= CreateFolder("assets/game", TYPE_SAVE);
-			Success &= CreateFolder("assets/particles", TYPE_SAVE);
-			Success &= CreateFolder("assets/hud", TYPE_SAVE);
-			Success &= CreateFolder("assets/extras", TYPE_SAVE);
+			static constexpr const char *CLIENT_DIRS[] = {
+				"assets",
+				"assets/emoticons",
+				"assets/entities",
+				"assets/extras",
+				"assets/game",
+				"assets/hud",
+				"assets/particles",
+				"audio",
+				"communityicons",
+				"downloadedmaps",
+				"downloadedskins",
+				"mapres",
+				"maps",
+				"maps/auto",
+				"screenshots",
+				"screenshots/auto",
+				"screenshots/auto/stats",
+				"skins",
+				"skins7",
+				"themes",
 #if defined(CONF_VIDEORECORDER)
-			Success &= CreateFolder("videos", TYPE_SAVE);
+				"videos"
 #endif
+			};
+
+			for(const char *pDir : CLIENT_DIRS)
+				Success &= CreateFolder(pDir, TYPE_SAVE);
 		}
-		Success &= CreateFolder("dumps", TYPE_SAVE);
-		Success &= CreateFolder("demos", TYPE_SAVE);
-		Success &= CreateFolder("demos/auto", TYPE_SAVE);
-		Success &= CreateFolder("demos/auto/race", TYPE_SAVE);
-		Success &= CreateFolder("demos/auto/server", TYPE_SAVE);
-		Success &= CreateFolder("demos/replays", TYPE_SAVE);
-		Success &= CreateFolder("editor", TYPE_SAVE);
-		Success &= CreateFolder("ghosts", TYPE_SAVE);
-		Success &= CreateFolder("teehistorian", TYPE_SAVE);
+
+		static constexpr const char *COMMON_DIRS[] = {
+			"dumps",
+			"demos",
+			"demos/auto",
+			"demos/auto/race",
+			"demos/auto/server",
+			"demos/replays",
+			"editor",
+			"ghosts",
+			"teehistorian"};
+
+		for(const char *pDir : COMMON_DIRS)
+			Success &= CreateFolder(pDir, TYPE_SAVE);
 
 		if(!Success)
 		{
@@ -351,6 +366,12 @@ public:
 		return;
 #endif
 
+		if(fs_executable_path(m_aBinarydir, sizeof(m_aBinarydir)) == 0)
+		{
+			fs_parent_dir(m_aBinarydir);
+			return;
+		}
+
 		// check for usable path in argv[0]
 		{
 			unsigned int Pos = ~0U;
@@ -367,14 +388,12 @@ public:
 				{
 					return;
 				}
-#if defined(CONF_PLATFORM_MACOS)
-				str_append(m_aBinarydir, "/../../../DDNet-Server.app/Contents/MacOS");
-				str_format(aBuf, sizeof(aBuf), "%s/" PLAT_SERVER_EXEC, m_aBinarydir);
+				// Also look for client binary. (see https://github.com/ddnet/ddnet/issues/11418)
+				str_format(aBuf, sizeof(aBuf), "%s/" PLAT_CLIENT_EXEC, m_aBinarydir);
 				if(fs_is_file(aBuf))
 				{
 					return;
 				}
-#endif
 			}
 		}
 
@@ -422,7 +441,7 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
+			dbg_assert_failed("Type invalid");
 		}
 	}
 
@@ -461,11 +480,11 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
+			dbg_assert_failed("Type invalid");
 		}
 	}
 
-	const char *GetPath(int Type, const char *pDir, char *pBuffer, unsigned BufferSize)
+	const char *GetPath(int Type, const char *pDir, char *pBuffer, unsigned BufferSize) const
 	{
 		if(Type == TYPE_ABSOLUTE)
 		{
@@ -478,7 +497,7 @@ public:
 		return pBuffer;
 	}
 
-	void TranslateType(int &Type, const char *pPath)
+	void TranslateType(int &Type, const char *pPath) const
 	{
 		if(Type == TYPE_SAVE_OR_ABSOLUTE)
 			Type = fs_is_relative_path(pPath) ? TYPE_SAVE : TYPE_ABSOLUTE;
@@ -507,7 +526,7 @@ public:
 
 		if(str_startswith(pFilename, "mapres/../skins/"))
 		{
-			pFilename = pFilename + 10; // just start from skins/
+			pFilename = pFilename + str_length("mapres/../");
 		}
 		if(pFilename[0] == '/' || pFilename[0] == '\\' || str_find(pFilename, "../") != nullptr || str_find(pFilename, "..\\") != nullptr
 #ifdef CONF_FAMILY_WINDOWS
@@ -538,13 +557,12 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
-			return nullptr;
+			dbg_assert_failed("Type invalid");
 		}
 	}
 
 	template<typename F>
-	bool GenericExists(const char *pFilename, int Type, F &&CheckFunction)
+	bool GenericExists(const char *pFilename, int Type, F &&CheckFunction) const
 	{
 		TranslateType(Type, pFilename);
 
@@ -566,8 +584,7 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
-			return false;
+			dbg_assert_failed("Type invalid");
 		}
 	}
 
@@ -717,7 +734,7 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
+			dbg_assert_failed("Type invalid");
 		}
 
 		return pBuffer[0] != 0;
@@ -780,7 +797,7 @@ public:
 		}
 		else
 		{
-			dbg_assert(false, "Type invalid");
+			dbg_assert_failed("Type invalid");
 		}
 
 		return pEntries->size();
@@ -918,7 +935,7 @@ void IStorage::StripPathAndExtension(const char *pFilename, char *pBuffer, int B
 
 const char *IStorage::FormatTmpPath(char *aBuf, unsigned BufSize, const char *pPath)
 {
-	str_format(aBuf, BufSize, "%s.%d.tmp", pPath, pid());
+	str_format(aBuf, BufSize, "%s.%d.tmp", pPath, process_id());
 	return aBuf;
 }
 

@@ -22,9 +22,6 @@ Abort
 Add
 == Dodaj
 
-Add Friend
-== Dodaj znajomego
-
 Address
 == Adres
 
@@ -436,8 +433,6 @@ Yes
 You must restart the game for all settings to take effect.
 == Uruchom ponownie grę, aby użyć nowych ustawień.
 
-#####
-
 Demo
 == Demo
 
@@ -515,9 +510,6 @@ Name plates size
 
 Show others
 == Pokazuj innych
-
-Show quads
-== Pokazuj quady
 
 Show other players' hook collision lines
 == Pokazuj linie kolizyjne innych graczy
@@ -832,7 +824,7 @@ Refresh Rate
 == Częstotliwość odświeżania
 
 Video name:
-== Nazwa wideo
+== Nazwa wideo:
 
 Restart
 == Restart
@@ -1159,9 +1151,6 @@ https://ddnet.org/discord
 Tutorial
 == Samouczek
 
-Can't find a Tutorial server
-== Nie można znaleźć serwera samouczkowego
-
 Super
 == Super
 
@@ -1377,9 +1366,6 @@ Are you sure that you want to remove the player '%s' from your friends list?
 Are you sure that you want to remove the clan '%s' from your friends list?
 == Jesteś pewny, że chcesz usunąć klan '%s' z listy znajomych?
 
-Add Clan
-== Dodaj klan
-
 Server filter
 == Filtr serwera
 
@@ -1399,12 +1385,12 @@ Go back the specified duration
 == Cofnij o określony czas
 
 [Demo player duration]
-%d min.
-== %d min.
+%s min.
+== %s min.
 
 [Demo player duration]
-%d sec.
-== %d sek.
+%s sec.
+== %s sek.
 
 Change the skip duration
 == Zmień długość pominięcia
@@ -1505,9 +1491,6 @@ Deactivate all
 Menu opened. Press Esc key again to close menu.
 == Menu otwarte. Naciśnij przycisk Esc, aby zamknąć menu.
 
-Save power by lowering refresh rate (higher input latency)
-== Oszczędzaj energię, obniżając częstotliwość odświeżania (większe opóźnienie)
-
 Open the settings file
 == Otwórz plik z ustawieniami
 
@@ -1547,10 +1530,10 @@ Absolute
 == Absolutny
 
 Ingame controller sens.
-== Czułość kontrolera w grze
+== Czułość kontrolera w grze.
 
 UI controller sens.
-== Czułość kontrolera w menu
+== Czułość kontrolera w menu.
 
 Controller jitter tolerance
 == Tolerancja drgania kontrolera
@@ -1568,10 +1551,10 @@ Mouse
 == Mysz
 
 Ingame mouse sens.
-== Czułość myszy w grze
+== Czułość myszy w grze.
 
 UI mouse sens.
-== Czułość myszy w menu
+== Czułość myszy w menu.
 
 Cancel
 == Anuluj
@@ -1657,20 +1640,8 @@ Always show other players' hook collision lines
 Hook collision line opacity
 == Przezroczystość linii kolizji haka
 
-Colors of the hook collision line, in case of a possible collision with:
-== Kolor linii kolizji haka, w przypadku kolizji z:
-
 Your movements are not taken into account when calculating the line colors
 == Twoje ruchy nie są brane pod uwagę podczas obliczania kolorów linii
-
-Nothing hookable
-== Niczym możliwym do złapania
-
-Something hookable
-== Czymś możliwym do złapania
-
-A Tee
-== Graczem
 
 Show finish messages
 == Pokazuj wiadomości o ukończeniu
@@ -1747,7 +1718,7 @@ An error during command recording occurred. Try to update your GPU drivers.
 
 [Graphics error]
 A render command failed. Try to update your GPU drivers.
-== Nie powiodła się komenda renderowania. Spróbuj zaktualizować sterowniki karty graficznej
+== Nie powiodła się komenda renderowania. Spróbuj zaktualizować sterowniki karty graficznej.
 
 [Graphics error]
 Submitting the render commands failed. Try to update your GPU drivers.
@@ -1909,9 +1880,6 @@ https://wiki.ddnet.org/wiki/Mapping
 Some fonts could not be loaded. Check the local console for details.
 == Nie można załadować niektórych czcionek. Sprawdź konsolę, aby uzyskać szczegóły.
 
-Loading background map
-== Ładowanie tła mapy
-
 [Spectating Camera Mode Icon]
 AUTO
 == AUTO
@@ -1976,7 +1944,7 @@ Disabled
 
 [Direct touch input]
 Active action
-== Aktywne działanie
+== Aktywna akcja
 
 [Direct touch input]
 Aim
@@ -2147,7 +2115,7 @@ Name plates offset
 Show friend icon in name plates
 == Pokazuj ikonkę znajomym
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == Pokazuj ID graczy w osobnej linii
 
 Client IDs size
@@ -2183,7 +2151,7 @@ Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom
 == Brak VRAM'u. Spróbuj ustawić 'cl_skins_loaded_max' na mniejszą wartość, lub usuń własne zasoby (skiny, entities, itd.), szczególnie te z wysoką rozdzielczością.
 
 This name cannot be used for files and folders
-== Ta nazwa nie może zostać użyta do plików i folderów.
+== Ta nazwa nie może zostać użyta do plików i folderów
 
 This skin name cannot be used.
 == Ta nazwa skina nie może zostać użyta.
@@ -2195,7 +2163,7 @@ Skin could not be found.
 == Skin nie został znaleziony.
 
 No skins match your filter criteria
-== Nie znaleziono skina spełniającego twoje kryteria.
+== Nie znaleziono skina spełniającego twoje kryteria
 
 Preview player's name plate
 == Podgląd plakietki gracza
@@ -2205,3 +2173,481 @@ Dragger Outline Color
 
 Dragger Inner Color
 == Kolor zewnętrzny draggera
+
+Press Ctrl+Shift+G to disable debug graphs.
+== Naciśnij Ctrl+Shift+G, aby wyłączyć grafy debugowania.
+
+[Spectating]
+Following %d: %s
+== Obserwowanie %d: %s
+
+Server could not be started
+== Nie udało się uruchomić serwera
+
+Loading map
+== Ładowanie mapy
+
+Error checking player name
+== Błąd sprawdzania nicku
+
+Could not check for existing player with your name. Check your internet connection.
+== Nie udało się sprawdzić, czy istnieje gracz posiadający twój nick. Sprawdź połączenie z internetem.
+
+Could not get server list from master server
+== Nie udało się pobrać listy serwerów z serwera głównego
+
+[Demo playback]
+Live
+== Na żywo
+
+[Demo playback]
+Go to Live
+== Powrót do na żywo
+
+Save all changes before turning off the editor?
+== Czy zapisać wszystkie zmiany przed wyłączeniem edytora?
+
+Layout
+== Rozmieszczenie
+
+Visibility
+== Widoczność
+
+Behavior
+== Zachowanie
+
+Delete button
+== Usuń przycisk
+
+Are you sure that you want to delete this button?
+== Czy na pewno chcesz usunąć ten przycisk?
+
+Duplicate
+== Duplikuj
+
+Please save your changes before duplicating a button.
+== Zapisz swoje zmiany przed zduplikowaniem przycisku.
+
+No space for button
+== Brak miejsca dla przycisku
+
+There is not enough space available to place another button.
+== Za mało miejsca, by dodać kolejny przycisk.
+
+Deselect
+== Odznacz wybrany przycisk
+
+You'll lose unsaved changes after deselecting.
+== Po odznaczeniu utracisz niezapisane zmiany.
+
+Width
+== Szerokość
+
+Height
+== Wysokość
+
+Shape
+== Kształt
+
+[Touch button shape]
+Rectangle
+== Prostokąt
+
+[Touch button shape]
+Circle
+== Koło
+
+[Touch button label type]
+Plain
+== Zwykła
+
+[Touch button label type]
+Localized
+== Zlokalizowana
+
+[Touch button label type]
+Icon
+== Ikona
+
+Behavior type
+== Typ zachowania
+
+[Touch button behavior]
+Bind
+== Bind
+
+[Touch button behavior]
+Bind Toggle
+== Bind przełączający
+
+[Touch button behavior]
+Predefined
+== Domyślny
+
+Command
+== Komenda
+
+Label
+== Etykieta
+
+Label type
+== Typ etykiety
+
+Add command
+== Dodaj komendę
+
+Delete command
+== Usuń komendę
+
+[Touch button visibility preview]
+Included
+== Zawieraj
+
+[Touch button visibility preview]
+Excluded
+== Wykluczaj
+
+[Touch button visibility preview]
+Ignore
+== Ignoruj
+
+New button
+== Nowy przycisk
+
+Select button by touch
+== Dotknij, aby wybrać przycisk
+
+No buttons match your filter criteria
+== Żaden przycisk nie pasuje do kryteriów filtra
+
+File
+== Plik
+
+Buttons
+== Przyciski
+
+Active color
+== Kolor, gdy aktywny
+
+Inactive color
+== Kolor, gdy nieaktywny
+
+Preview button visibility while the editor is active.
+== Podgląd przycisku, gdy edytor jest włączony.
+
+Show all buttons
+== Pokaż wszystkie przyciski
+
+Save all changes before switching selected button?
+== Czy zapisać wszystkie zmiany przed zmianą aktywnego przycisku?
+
+Discard
+== Odrzuć
+
+There is not enough space available for the button. Check its visibilities and size.
+== Za mało miejsca na przycisk. Sprawdź jego widoczność i rozmiar.
+
+Selected button not visible
+== Aktywny przycisk nie jest widoczny
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== Wybrany przycisk nie jest widoczny. Czy chcesz go odznaczyć, czy zmienić jego widoczność?
+
+Edit
+== Edytuj
+
+Width and height are required to be within the range from %d to %d.
+== Szerokość i wysokość muszą być w zakresie od %d do %d.
+
+Button position is outside of the screen.
+== Pozycja przycisku jest poza ekranem.
+
+The selected button is overlapping with other buttons.
+== Aktywny przycisk nakłada się na inne przyciski.
+
+Wrong button settings
+== Błędne ustawienia przycisku
+
+[Touch button visibilities]
+Ingame
+== Podczas gry
+
+[Touch button visibilities]
+Zoom Allowed
+== Zoom dozwolony
+
+[Touch button visibilities]
+Vote Active
+== Podczas głosowania
+
+[Touch button visibilities]
+Dummy Allowed
+== Kukła dozwolona
+
+[Touch button visibilities]
+Dummy Connected
+== Kukła połączona
+
+[Touch button visibilities]
+Rcon Authed
+== Autoryzowany rcon
+
+[Touch button visibilities]
+Demo Player
+== Odtwarzacz demo
+
+[Touch button visibilities]
+Extra Menu
+== Dodatkowe menu
+
+[Predefined touch button behaviors]
+Ingame Menu
+== Menu gry
+
+[Predefined touch button behaviors]
+Extra Menu
+== Dodatkowe menu
+
+[Predefined touch button behaviors]
+Emoticon
+== Emotikona
+
+[Predefined touch button behaviors]
+Spectate
+== Obserwowanie
+
+[Predefined touch button behaviors]
+Swap Action
+== Zamień akcje
+
+[Predefined touch button behaviors]
+Use Action
+== Użyj akcji
+
+[Predefined touch button behaviors]
+Joystick Action
+== Joystick: Akcja
+
+[Predefined touch button behaviors]
+Joystick Aim
+== Joystick: Celowanie
+
+[Predefined touch button behaviors]
+Joystick Fire
+== Joystick: Strzał
+
+[Predefined touch button behaviors]
+Joystick Hook
+== Joystick: Hak
+
+Chat background color
+== Kolor tła czatu
+
+Team save in progress. You'll be able to load with '/load %s'
+== Trwa zapisywanie zespołu. Będziesz mógł załadować go za pomocą polecenia '/load %s'
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== Trwa zapisywanie zespołu. Będziesz mógł załadować go za pomocą polecenia '/load %s', a w przypadku niepowodzenia za pomocą polecenia '/load %s'
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== Drużyna została zapisana przez %s. Połączenie z bazą danych nie powiodło się, zamiast tego użyty został wygenerowany kod zapisu aby uniknąć kolizji. Użyj polecenia '/load %s' aby kontynuować
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== Drużyna została zapisana przez %s. Połączenie z bazą danych nie powiodło się, zamiast tego użyty został wygenerowany kod zapisu aby uniknąć kolizji. Użyj polecenia '/load %s' na %s aby kontynuować
+
+Save failed!
+== Zapis zakończony niepowodzeniem!
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== Naciśnij Esc lub Tab aby odrzucić…
+
+Server alert
+== Alert serwerowy
+
+Moderator alert
+== Alert moderatorski
+
+You will be disconnected from the server.
+== Zostaniesz rozłączony z serwera.
+
+Are you sure that you want to disconnect and play this demo?
+== Czy na pewno chcesz rozłączyć się z serwerem i odtworzyć demo?
+
+Censor profanity
+== Cenzurowanie wulgaryzmów
+
+Show background quads
+== Pokaż quady tła
+
+Scoreboard cursor
+== Kursor tabeli wyników
+
+Download
+== Pobierz
+
+Add friend
+== Dodaj znajomego
+
+Unmute
+== Odcisz
+
+Mute
+== Wycisz
+
+Unmute emoticons
+== Odcisz emotikony
+
+Mute emoticons
+== Wycisz emotikony
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== Masz niezapisany zmiany w edytorze sterowania, które możesz chcieć zapisać.
+
+Start and connect to local server
+== Uruchom i połącz się z serwerem lokalnym
+
+Add clan
+== Dodaj klan
+
+Info
+== Informacje
+
+Button browser
+== Przegląd przycisków
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== Możesz bezpośrednio wybrać przyciski w poniższej liście, lub przytrzymać przycisk dotykowy na ekranie, aby go zaznaczyć. Możesz również przemieścić i skalować przyciski poprzez dotyk.
+
+Opens the emoticon selector (this does not work with binds).
+== Otwiera koło emotikon (nie działa z bindami).
+
+Opens the spectator menu (this does not work with binds).
+== Otwiera menu obserwatora (nie działa z bindami).
+
+Zoom is allowed on this server.
+== Zoom jest dozwolony na tym serwerze.
+
+A vote is currently active.
+== Aktualnie trwa głosowanie.
+
+Dummy is allowed on this server.
+== Kukła jest dozwolona na tym serwerze.
+
+Dummy is currently connected.
+== Kukła jest już połączona.
+
+Player is currently authed in rcon.
+== Gracz jest zalogowany do rcon.
+
+Demo player is currently active.
+== Odtwarzacz demo jest włączony.
+
+Joining Tutorial server
+== Dołączanie do samouczka
+
+There are no Tutorial servers available
+== Aktualnie nie ma dostępnych serwerów z samouczkiem
+
+Retrying…
+== Ponawiam…
+
+Error joining Tutorial server
+== Wystąpił błąd podczas dołączania do samouczka
+
+Could not find a Tutorial server. Check your internet connection.
+== Nie znaleziono serwera. Sprawdź swoje połączenie internetowe.
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== Grasz na serwerze lokalnym, ponieważ żaden serwer z samouczkiem nie został znaleziony. \n\nTwój najlepszy czas zapisze się tylko lokalnie.
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== Nie udało się znaleźć serwera z samouczkiem.\nUruchamianie serwera lokalnego…
+
+Waiting for local server to stop…
+== Oczekiwanie na zatrzymanie się serwera lokanlego…
+
+Waiting for local server to start…
+== Oczekiwanie na włączenie się serwera lokalnego…
+
+Error loading communities
+== Błąd ładowania społeczności
+
+Click to remove this community from your favorites.
+== Kliknij, aby usunąć tę społeczność z twoich ulubionych.
+
+Click to add this community to your favorites.
+== Kliknij, aby dodać tę społeczność do twoich ulubionych.
+
+Preview visibilities
+== 
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 
+
+Open DDNet Wiki
+== Otwórz wikipedie Ddnet
+
+Buttons with this behavior execute console commands like regular key binds.
+== 
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 
+
+Buttons with this behavior execute some predefined actions.
+== 
+
+Opens the ingame menu immediately when released.
+== 
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 
+
+Uses the active action with the current aiming position.
+== 
+
+Virtual joystick which uses the active action.
+== 
+
+Virtual joystick which only aims without using an action.
+== 
+
+Virtual joystick which always uses fire.
+== 
+
+Virtual joystick which always uses hook.
+== 
+
+Player is ingame, i.e. not spectating.
+== 
+
+The extra menu with the given number is activated.
+== 
+
+Update Rate
+== Częstotliwość aktualizowania
+
+Save power by lowering update rate (higher input latency)
+== Oszczędzaj energię, obniżajac częstotliwość aktualizowania (większe opóźnienie)
+
+Colors of the hook collision line:
+== Kolory linii kolizji:
+
+[Hook collision line color]
+When nothing is hookable
+== Kiedy nie możesz się niczego złapać
+
+[Hook collision line color]
+When something is hookable
+== Kiedy możesz się czegoś złapać
+
+[Hook collision line color]
+When a Tee is hookable
+== Kiedy możesz złapać Tee
+
+[Hook collision line color]
+Hook collision line tip
+== Końcówka linii

@@ -1,13 +1,16 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "pickup.h"
+
 #include "character.h"
+
+#include <generated/protocol.h>
+
 #include <game/client/pickup_data.h>
 #include <game/collision.h>
-#include <game/generated/protocol.h>
 #include <game/mapitems.h>
 
-static constexpr int gs_PickupPhysSize = 14;
+static constexpr int PICKUP_PHYSICS_RADIUS = 14;
 
 void CPickup::Tick()
 {
@@ -24,14 +27,15 @@ void CPickup::Tick()
 				continue;
 			if(m_Layer == LAYER_SWITCH && m_Number > 0 && m_Number < (int)Switchers().size() && !Switchers()[m_Number].m_aStatus[pChr->Team()])
 				continue;
-			bool sound = false;
+			bool CreateSound = false;
 			// player picked us up, is someone was hooking us, let them go
 			switch(m_Type)
 			{
 			case POWERUP_HEALTH:
 				if(!GameWorld()->m_WorldConfig.m_PredictDDRace)
 					continue;
-				pChr->Freeze();
+				if(pChr->Freeze())
+					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_HEALTH, pChr->GetCid());
 				break;
 
 			case POWERUP_ARMOR:
@@ -45,14 +49,17 @@ void CPickup::Tick()
 					{
 						pChr->SetWeaponGot(j, false);
 						pChr->SetWeaponAmmo(j, 0);
-						sound = true;
+						CreateSound = true;
 					}
 				}
 				pChr->SetNinjaActivationDir(vec2(0, 0));
 				pChr->SetNinjaActivationTick(-500);
 				pChr->SetNinjaCurrentMoveTime(0);
-				if(sound)
+				if(CreateSound)
+				{
 					pChr->SetLastWeapon(WEAPON_GUN);
+					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_ARMOR, pChr->GetCid());
+				}
 				if(pChr->GetActiveWeapon() >= WEAPON_SHOTGUN)
 					pChr->SetActiveWeapon(WEAPON_HAMMER);
 				break;
@@ -67,6 +74,7 @@ void CPickup::Tick()
 					pChr->SetWeaponGot(WEAPON_SHOTGUN, false);
 					pChr->SetWeaponAmmo(WEAPON_SHOTGUN, 0);
 					pChr->SetLastWeapon(WEAPON_GUN);
+					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_ARMOR, pChr->GetCid());
 				}
 				if(pChr->GetActiveWeapon() == WEAPON_SHOTGUN)
 					pChr->SetActiveWeapon(WEAPON_HAMMER);
@@ -82,6 +90,7 @@ void CPickup::Tick()
 					pChr->SetWeaponGot(WEAPON_GRENADE, false);
 					pChr->SetWeaponAmmo(WEAPON_GRENADE, 0);
 					pChr->SetLastWeapon(WEAPON_GUN);
+					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_ARMOR, pChr->GetCid());
 				}
 				if(pChr->GetActiveWeapon() == WEAPON_GRENADE)
 					pChr->SetActiveWeapon(WEAPON_HAMMER);
@@ -107,6 +116,7 @@ void CPickup::Tick()
 					pChr->SetWeaponGot(WEAPON_LASER, false);
 					pChr->SetWeaponAmmo(WEAPON_LASER, 0);
 					pChr->SetLastWeapon(WEAPON_GUN);
+					GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_ARMOR, pChr->GetCid());
 				}
 				if(pChr->GetActiveWeapon() == WEAPON_LASER)
 					pChr->SetActiveWeapon(WEAPON_HAMMER);
@@ -114,7 +124,19 @@ void CPickup::Tick()
 
 			case POWERUP_WEAPON:
 				if(m_Subtype >= 0 && m_Subtype < NUM_WEAPONS && (!pChr->GetWeaponGot(m_Subtype) || pChr->GetWeaponAmmo(m_Subtype) != -1))
+				{
 					pChr->GiveWeapon(m_Subtype);
+
+					if(GameWorld()->m_WorldConfig.m_IsDDRace && GameWorld()->m_WorldConfig.m_PredictDDRace)
+					{
+						if(m_Subtype == WEAPON_GRENADE)
+							GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_GRENADE, pChr->GetCid());
+						else if(m_Subtype == WEAPON_SHOTGUN)
+							GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_SHOTGUN, pChr->GetCid());
+						else if(m_Subtype == WEAPON_LASER)
+							GameWorld()->CreatePredictedSound(m_Pos, SOUND_PICKUP_SHOTGUN, pChr->GetCid());
+					}
+				}
 				break;
 
 			case POWERUP_NINJA:
@@ -144,7 +166,7 @@ void CPickup::Move()
 }
 
 CPickup::CPickup(CGameWorld *pGameWorld, int Id, const CPickupData *pPickup) :
-	CEntity(pGameWorld, CGameWorld::ENTTYPE_PICKUP, vec2(0, 0), gs_PickupPhysSize)
+	CEntity(pGameWorld, CGameWorld::ENTTYPE_PICKUP, vec2(0, 0), PICKUP_PHYSICS_RADIUS)
 {
 	m_Pos = pPickup->m_Pos;
 	m_Type = pPickup->m_Type;
@@ -154,6 +176,7 @@ CPickup::CPickup(CGameWorld *pGameWorld, int Id, const CPickupData *pPickup) :
 	m_Id = Id;
 	m_Number = pPickup->m_SwitchNumber;
 	m_Layer = m_Number > 0 ? LAYER_SWITCH : LAYER_GAME;
+	m_Flags = pPickup->m_Flags;
 }
 
 void CPickup::FillInfo(CNetObj_Pickup *pPickup)

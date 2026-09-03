@@ -1,4 +1,6 @@
+#include <base/net.h>
 #include <base/system.h>
+
 #include <engine/client.h>
 #include <engine/discord.h>
 
@@ -97,7 +99,7 @@ public:
 		m_UpdateActivity = true;
 	}
 
-	void SetGameInfo(const CServerInfo &ServerInfo, const char *pMapName, bool Registered) override
+	void SetGameInfo(const CServerInfo &ServerInfo, bool Registered) override
 	{
 		mem_zero(&m_Activity, sizeof(DiscordActivity));
 
@@ -108,7 +110,7 @@ public:
 		m_Activity.instance = true;
 
 		str_copy(m_Activity.details, ServerInfo.m_aName, sizeof(m_Activity.details));
-		str_copy(m_Activity.state, pMapName, sizeof(m_Activity.state));
+		str_copy(m_Activity.state, ServerInfo.m_aMap, sizeof(m_Activity.state));
 		m_Activity.party.size.current_size = ServerInfo.m_NumClients;
 		m_Activity.party.size.max_size = ServerInfo.m_MaxClients;
 		// private makes it so the game isn't public to join, but there's 'Ask to Join' button instead
@@ -126,7 +128,7 @@ public:
 		m_UpdateActivity = true;
 	}
 
-	void UpdateServerInfo(const CServerInfo &ServerInfo, const char *pMapName) override
+	void UpdateServerInfo(const CServerInfo &ServerInfo) override
 	{
 		if(!m_Activity.instance)
 			return;
@@ -134,7 +136,7 @@ public:
 		UpdateServerIp(ServerInfo);
 
 		str_copy(m_Activity.details, ServerInfo.m_aName, sizeof(m_Activity.details));
-		str_copy(m_Activity.state, pMapName, sizeof(m_Activity.state));
+		str_copy(m_Activity.state, ServerInfo.m_aMap, sizeof(m_Activity.state));
 		m_Activity.party.size.max_size = ServerInfo.m_MaxClients;
 		m_UpdateActivity = true;
 	}
@@ -156,7 +158,7 @@ public:
 		if(!m_Activity.instance)
 			return;
 
-		// secret is only shared when player is joining the game, or when he's invited for private games
+		// secret is only shared when player is joining the game, or when they are invited for private games
 		if(str_length(ServerInfo.m_aAddress) < (int)sizeof(m_Activity.secrets.join))
 		{
 			str_copy(m_Activity.secrets.join, ServerInfo.m_aAddress, sizeof(m_Activity.secrets.join));
@@ -186,7 +188,7 @@ public:
 	}
 };
 
-IDiscord *CreateDiscordImpl()
+static IDiscord *CreateDiscordImpl()
 {
 	FDiscordCreate pfnDiscordCreate = GetDiscordCreate();
 	if(!pfnDiscordCreate)
@@ -202,7 +204,7 @@ IDiscord *CreateDiscordImpl()
 	return pDiscord;
 }
 #else
-IDiscord *CreateDiscordImpl()
+static IDiscord *CreateDiscordImpl()
 {
 	return nullptr;
 }
@@ -212,8 +214,8 @@ class CDiscordStub : public IDiscord
 {
 	void Update() override {}
 	void ClearGameInfo() override {}
-	void SetGameInfo(const CServerInfo &ServerInfo, const char *pMapName, bool Registered) override {}
-	void UpdateServerInfo(const CServerInfo &ServerInfo, const char *pMapName) override {}
+	void SetGameInfo(const CServerInfo &ServerInfo, bool Registered) override {}
+	void UpdateServerInfo(const CServerInfo &ServerInfo) override {}
 	void UpdatePlayerCount(int Count) override {}
 };
 

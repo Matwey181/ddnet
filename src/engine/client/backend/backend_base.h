@@ -1,9 +1,8 @@
 #ifndef ENGINE_CLIENT_BACKEND_BACKEND_BASE_H
 #define ENGINE_CLIENT_BACKEND_BACKEND_BASE_H
 
-#include <engine/graphics.h>
-
 #include <engine/client/graphics_threaded.h>
+#include <engine/graphics.h>
 
 #include <SDL_video.h>
 
@@ -13,7 +12,7 @@
 #include <string>
 #include <vector>
 
-struct SBackendCapabilites;
+struct SBackendCapabilities;
 
 enum EDebugGfxModes
 {
@@ -144,7 +143,7 @@ public:
 
 		TGLBackendReadPresentedImageData *m_pReadPresentedImageDataFunc;
 
-		SBackendCapabilites *m_pCapabilities;
+		SBackendCapabilities *m_pCapabilities;
 		int *m_pInitError;
 
 		const char **m_pErrStringPtr;

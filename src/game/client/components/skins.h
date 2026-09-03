@@ -25,11 +25,6 @@ class CSkins : public CComponent
 {
 private:
 	/**
-	 * Maximum length of normalized skin names. Normalization may increase the length.
-	 */
-	static constexpr size_t NORMALIZED_SKIN_NAME_LENGTH = 2 * MAX_SKIN_LENGTH;
-
-	/**
 	 * The data of a skin that can be loaded in a separate thread.
 	 */
 	class CSkinLoadData
@@ -48,7 +43,7 @@ private:
 	{
 	public:
 		CAbstractSkinLoadJob(CSkins *pSkins, const char *pName);
-		virtual ~CAbstractSkinLoadJob();
+		~CAbstractSkinLoadJob() override;
 
 		CSkinLoadData m_Data;
 		bool m_NotFound = false;
@@ -86,7 +81,7 @@ public:
 			 */
 			UNLOADED,
 			/**
-			 * Skin is unloaded and should be loaded when a slot is free. Skin will enter @link LOADING @endlink
+			 * Skin is unloaded and should be loaded when a slot is free. Skin will enter @link EState::LOADING @endlink
 			 * state when maximum number of loaded skins is not exceeded.
 			 */
 			PENDING,
@@ -116,7 +111,6 @@ public:
 		CSkinContainer &operator=(CSkinContainer &&Other) = default;
 
 		const char *Name() const { return m_aName; }
-		const char *NormalizedName() const { return m_aNormalizedName; }
 		EType Type() const { return m_Type; }
 		int StorageType() const { return m_StorageType; }
 		bool IsVanilla() const { return m_Vanilla; }
@@ -133,7 +127,6 @@ public:
 	private:
 		CSkins *m_pSkins;
 		char m_aName[MAX_SKIN_LENGTH];
-		char m_aNormalizedName[NORMALIZED_SKIN_NAME_LENGTH];
 		EType m_Type;
 		int m_StorageType;
 		bool m_Vanilla;
@@ -241,12 +234,13 @@ public:
 	void OnShutdown() override;
 	void OnUpdate() override;
 
+	void RefreshEventSkins();
 	void Refresh(TSkinLoadedCallback &&SkinLoadedCallback);
 	CSkinLoadingStats LoadingStats() const;
 	CSkinList &SkinList();
 
 	const CSkinContainer *FindContainerOrNullptr(const char *pName);
-	const CSkin *FindOrNullptr(const char *pName, bool IgnorePrefix = false);
+	const CSkin *FindOrNullptr(const char *pName);
 	const CSkin *Find(const char *pName);
 
 	void AddFavorite(const char *pName);
@@ -255,10 +249,18 @@ public:
 
 	void RandomizeSkin(int Dummy);
 
-	static bool IsVanillaSkin(const char *pName);
+	const char *SkinPrefix() const;
+
 	static bool IsSpecialSkin(const char *pName);
 
 private:
+	static bool IsVanillaSkin(const char *pName);
+
+	/**
+	 * Names of all vanilla and special skins.
+	 *
+	 * The names have to be in lower case for efficient comparison.
+	 */
 	constexpr static const char *VANILLA_SKINS[] = {"bluekitty", "bluestripe", "brownbear",
 		"cammo", "cammostripes", "coala", "default", "limekitty",
 		"pinky", "redbopp", "redstripe", "saddo", "toptri",
@@ -308,7 +310,7 @@ private:
 	bool LoadSkinData(const char *pName, CSkinLoadData &Data) const;
 	void LoadSkinFinish(CSkinContainer *pSkinContainer, const CSkinLoadData &Data);
 	void LoadSkinDirect(const char *pName);
-	const CSkin *FindImpl(const char *pName);
+	const CSkinContainer *FindContainerImpl(const char *pName);
 	static int SkinScan(const char *pName, int IsDir, int StorageType, void *pUser);
 
 	void UpdateUnloadSkins(CSkinLoadingStats &Stats);

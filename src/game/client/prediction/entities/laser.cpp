@@ -1,13 +1,16 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "laser.h"
+
 #include "character.h"
-#include <game/client/laser_data.h>
-#include <game/collision.h>
-#include <game/generated/protocol.h>
-#include <game/mapitems.h>
 
 #include <engine/shared/config.h>
+
+#include <generated/protocol.h>
+
+#include <game/client/laser_data.h>
+#include <game/collision.h>
+#include <game/mapitems.h>
 
 CLaser::CLaser(CGameWorld *pGameWorld, vec2 Pos, vec2 Direction, float StartEnergy, int Owner, int Type) :
 	CEntity(pGameWorld, CGameWorld::ENTTYPE_LASER)
@@ -47,11 +50,7 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 	m_Energy = -1;
 	if(m_Type == WEAPON_SHOTGUN)
 	{
-		float Strength;
-		if(!m_TuneZone)
-			Strength = Tuning()->m_ShotgunStrength;
-		else
-			Strength = TuningList()[m_TuneZone].m_ShotgunStrength;
+		float Strength = TuningList()[m_TuneZone].m_ShotgunStrength;
 
 		const vec2 &HitPos = pHit->Core()->m_Pos;
 		if(!g_Config.m_SvOldLaser)
@@ -84,7 +83,7 @@ bool CLaser::HitCharacter(vec2 From, vec2 To)
 	}
 	else if(m_Type == WEAPON_LASER)
 	{
-		pHit->UnFreeze();
+		pHit->Unfreeze();
 	}
 	return true;
 }
@@ -149,6 +148,8 @@ void CLaser::DoBounce()
 
 			if(m_Bounces > BounceNum)
 				m_Energy = -1;
+
+			GameWorld()->CreatePredictedSound(m_Pos, SOUND_LASER_BOUNCE, m_Id);
 		}
 	}
 	else

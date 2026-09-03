@@ -1,5 +1,6 @@
 #include <base/hash.h>
 #include <base/logger.h>
+#include <base/os.h>
 #include <base/system.h>
 
 #include <engine/shared/datafile.h>
@@ -9,7 +10,7 @@
 
 #include <zlib.h>
 
-void CreateEmptyMap(IStorage *pStorage)
+static void CreateEmptyMap(IStorage *pStorage)
 {
 	const char *pMapName = "maps/dummy3.map";
 

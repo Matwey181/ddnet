@@ -1,9 +1,13 @@
 #include "connection.h"
 
-#include <sqlite3.h>
-
+#include <base/dbg.h>
 #include <base/math.h>
+#include <base/mem.h>
+#include <base/str.h>
+
 #include <engine/console.h>
+
+#include <sqlite3.h>
 
 #include <atomic>
 
@@ -113,7 +117,7 @@ bool CSqliteConnection::Connect(char *pError, int ErrorSize)
 {
 	if(m_InUse.exchange(true))
 	{
-		dbg_assert(false, "Tried connecting while the connection is in use");
+		dbg_assert_failed("Tried connecting while the connection is in use");
 	}
 	if(!ConnectImpl(pError, ErrorSize))
 	{
@@ -249,16 +253,16 @@ void CSqliteConnection::BindNull(int Idx)
 	m_Done = false;
 }
 
-// Keep support for SQLite < 3.14 on older Linux distributions. MinGW does not
-// support __attribute__((weak)): https://sourceware.org/bugzilla/show_bug.cgi?id=9687
-#if defined(__GNUC__) && !defined(__MINGW32__)
-extern char *sqlite3_expanded_sql(sqlite3_stmt *pStmt) __attribute__((weak)); // NOLINT(readability-redundant-declaration)
+// Keep support for SQLite < 3.14 on older Linux distributions
+// MinGW does not support weak attribute: https://sourceware.org/bugzilla/show_bug.cgi?id=9687
+#if !defined(__MINGW32__)
+[[gnu::weak]] extern char *sqlite3_expanded_sql(sqlite3_stmt *pStmt); // NOLINT(readability-redundant-declaration)
 #endif
 
 void CSqliteConnection::Print()
 {
 	if(m_pStmt != nullptr
-#if defined(__GNUC__) && !defined(__MINGW32__)
+#if !defined(__MINGW32__)
 		&& sqlite3_expanded_sql != nullptr
 #endif
 	)

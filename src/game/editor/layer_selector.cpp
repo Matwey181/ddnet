@@ -1,8 +1,8 @@
-#include <engine/shared/config.h>
+#include "layer_selector.h"
 
 #include "editor.h"
 
-#include "layer_selector.h"
+#include <engine/shared/config.h>
 
 void CLayerSelector::OnInit(CEditor *pEditor)
 {
@@ -27,8 +27,8 @@ bool CLayerSelector::SelectByTile()
 	bool IsFound = false;
 	for(const auto &HoverTile : Editor()->HoverTiles())
 	{
-		if(!Editor()->m_Map.m_vpGroups[HoverTile.m_Group]->m_Visible ||
-			!Editor()->m_Map.m_vpGroups[HoverTile.m_Group]->m_vpLayers[HoverTile.m_Layer]->m_Visible)
+		if(!Map()->m_vpGroups[HoverTile.m_Group]->m_Visible ||
+			!Map()->m_vpGroups[HoverTile.m_Group]->m_vpLayers[HoverTile.m_Layer]->m_Visible)
 			continue;
 
 		if(MatchedGroup == -1)
@@ -49,7 +49,7 @@ bool CLayerSelector::SelectByTile()
 	{
 		if(!IsFound)
 			m_SelectionOffset = 1;
-		Editor()->SelectLayer(MatchedLayer, MatchedGroup);
+		Map()->SelectLayer(MatchedLayer, MatchedGroup);
 		return true;
 	}
 	return false;

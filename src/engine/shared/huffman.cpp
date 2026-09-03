@@ -1,8 +1,10 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "huffman.h"
-#include <algorithm>
+
 #include <base/system.h>
+
+#include <algorithm>
 
 const unsigned CHuffman::ms_aFreqTable[HUFFMAN_MAX_SYMBOLS] = {
 	1 << 30, 4545, 2657, 431, 1950, 919, 444, 482, 2244, 617, 838, 542, 715, 1814, 304, 240, 754, 212, 647, 186,
@@ -25,17 +27,17 @@ struct CHuffmanConstructNode
 	int m_Frequency;
 };
 
-bool CompareNodesByFrequencyDesc(const CHuffmanConstructNode *pNode1, const CHuffmanConstructNode *pNode2)
+static bool CompareNodesByFrequencyDesc(const CHuffmanConstructNode *pNode1, const CHuffmanConstructNode *pNode2)
 {
 	return pNode2->m_Frequency < pNode1->m_Frequency;
 }
 
 void CHuffman::Setbits_r(CNode *pNode, int Bits, unsigned Depth)
 {
-	if(pNode->m_aLeafs[1] != 0xffff)
-		Setbits_r(&m_aNodes[pNode->m_aLeafs[1]], Bits | (1 << Depth), Depth + 1);
-	if(pNode->m_aLeafs[0] != 0xffff)
-		Setbits_r(&m_aNodes[pNode->m_aLeafs[0]], Bits, Depth + 1);
+	if(pNode->m_aLeaves[1] != 0xffff)
+		Setbits_r(&m_aNodes[pNode->m_aLeaves[1]], Bits | (1 << Depth), Depth + 1);
+	if(pNode->m_aLeaves[0] != 0xffff)
+		Setbits_r(&m_aNodes[pNode->m_aLeaves[0]], Bits, Depth + 1);
 
 	if(pNode->m_NumBits)
 	{
@@ -55,8 +57,8 @@ void CHuffman::ConstructTree(const unsigned *pFrequencies)
 	{
 		m_aNodes[i].m_NumBits = 0xFFFFFFFF;
 		m_aNodes[i].m_Symbol = i;
-		m_aNodes[i].m_aLeafs[0] = 0xffff;
-		m_aNodes[i].m_aLeafs[1] = 0xffff;
+		m_aNodes[i].m_aLeaves[0] = 0xffff;
+		m_aNodes[i].m_aLeaves[1] = 0xffff;
 
 		if(i == HUFFMAN_EOF_SYMBOL)
 			aNodesLeftStorage[i].m_Frequency = 1;
@@ -74,8 +76,8 @@ void CHuffman::ConstructTree(const unsigned *pFrequencies)
 		std::stable_sort(apNodesLeft, apNodesLeft + NumNodesLeft, CompareNodesByFrequencyDesc);
 
 		m_aNodes[m_NumNodes].m_NumBits = 0;
-		m_aNodes[m_NumNodes].m_aLeafs[0] = apNodesLeft[NumNodesLeft - 1]->m_NodeId;
-		m_aNodes[m_NumNodes].m_aLeafs[1] = apNodesLeft[NumNodesLeft - 2]->m_NodeId;
+		m_aNodes[m_NumNodes].m_aLeaves[0] = apNodesLeft[NumNodesLeft - 1]->m_NodeId;
+		m_aNodes[m_NumNodes].m_aLeaves[1] = apNodesLeft[NumNodesLeft - 2]->m_NodeId;
 		apNodesLeft[NumNodesLeft - 2]->m_NodeId = m_NumNodes;
 		apNodesLeft[NumNodesLeft - 2]->m_Frequency = apNodesLeft[NumNodesLeft - 1]->m_Frequency + apNodesLeft[NumNodesLeft - 2]->m_Frequency;
 
@@ -109,7 +111,7 @@ void CHuffman::Init(const unsigned *pFrequencies)
 		CNode *pNode = m_pStartNode;
 		for(k = 0; k < HUFFMAN_LUTBITS; k++)
 		{
-			pNode = &m_aNodes[pNode->m_aLeafs[Bits & 1]];
+			pNode = &m_aNodes[pNode->m_aLeaves[Bits & 1]];
 			Bits >>= 1;
 
 			if(!pNode)
@@ -252,7 +254,7 @@ int CHuffman::Decompress(const void *pInput, int InputSize, void *pOutput, int O
 			while(true)
 			{
 				// traverse tree
-				pNode = &m_aNodes[pNode->m_aLeafs[Bits & 1]];
+				pNode = &m_aNodes[pNode->m_aLeaves[Bits & 1]];
 
 				// remove bit
 				Bitcount--;

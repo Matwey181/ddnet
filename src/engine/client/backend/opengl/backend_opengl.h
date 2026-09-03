@@ -1,5 +1,5 @@
 // This file can be included several times.
-#if(!defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_BACKEND_OPENGL_H)) || \
+#if (!defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_BACKEND_OPENGL_H)) || \
 	(defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_BACKEND_OPENGL_H_AS_ES))
 
 #if !defined(BACKEND_AS_OPENGL_ES) && !defined(ENGINE_CLIENT_BACKEND_OPENGL_BACKEND_OPENGL_H)
@@ -10,11 +10,10 @@
 #define ENGINE_CLIENT_BACKEND_OPENGL_BACKEND_OPENGL_H_AS_ES
 #endif
 
-#include <base/system.h>
-
-#include <engine/client/graphics_defines.h>
+#include <base/dbg.h>
 
 #include <engine/client/backend/backend_base.h>
+#include <engine/client/graphics_defines.h>
 
 class CGLSLTWProgram;
 class CGLSLPrimitiveProgram;
@@ -31,7 +30,7 @@ protected:
 	struct CTexture
 	{
 		CTexture() :
-			m_Tex(0), m_Tex2DArray(0), m_Sampler(0), m_Sampler2DArray(0), m_LastWrapMode(CCommandBuffer::WRAP_REPEAT), m_MemSize(0), m_Width(0), m_Height(0), m_RescaleCount(0), m_ResizeWidth(0), m_ResizeHeight(0)
+			m_Tex(0), m_Tex2DArray(0), m_Sampler(0), m_Sampler2DArray(0), m_LastWrapMode(EWrapMode::REPEAT), m_MemSize(0), m_Width(0), m_Height(0), m_RescaleCount(0), m_ResizeWidth(0), m_ResizeHeight(0)
 		{
 		}
 
@@ -39,7 +38,7 @@ protected:
 		TWGLuint m_Tex2DArray; // or 3D texture as fallback
 		TWGLuint m_Sampler;
 		TWGLuint m_Sampler2DArray; // or 3D texture as fallback
-		int m_LastWrapMode;
+		EWrapMode m_LastWrapMode;
 
 		int m_MemSize;
 
@@ -65,7 +64,7 @@ protected:
 	bool m_HasNPOTTextures;
 
 	bool m_HasShaders;
-	int m_LastBlendMode; // avoid all possible opengl state changes
+	EBlendMode m_LastBlendMode; // avoid all possible opengl state changes
 	bool m_LastClipEnable;
 
 	int m_OpenGLTextureLodBIAS;
@@ -96,34 +95,33 @@ protected:
 	virtual void Cmd_TextTextures_Create(const CCommandBuffer::SCommand_TextTextures_Create *pCommand);
 	virtual void Cmd_Clear(const CCommandBuffer::SCommand_Clear *pCommand);
 	virtual void Cmd_Render(const CCommandBuffer::SCommand_Render *pCommand);
-	virtual void Cmd_RenderTex3D(const CCommandBuffer::SCommand_RenderTex3D *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderTex3D"); }
+	virtual void Cmd_RenderTex3D(const CCommandBuffer::SCommand_RenderTex3D *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderTex3D"); }
 	virtual void Cmd_ReadPixel(const CCommandBuffer::SCommand_TrySwapAndReadPixel *pCommand);
 	virtual void Cmd_Screenshot(const CCommandBuffer::SCommand_TrySwapAndScreenshot *pCommand);
 
 	virtual void Cmd_Update_Viewport(const CCommandBuffer::SCommand_Update_Viewport *pCommand);
 
-	virtual void Cmd_CreateBufferObject(const CCommandBuffer::SCommand_CreateBufferObject *pCommand) { dbg_assert(false, "Call of unsupported Cmd_CreateBufferObject"); }
-	virtual void Cmd_RecreateBufferObject(const CCommandBuffer::SCommand_RecreateBufferObject *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RecreateBufferObject"); }
-	virtual void Cmd_UpdateBufferObject(const CCommandBuffer::SCommand_UpdateBufferObject *pCommand) { dbg_assert(false, "Call of unsupported Cmd_UpdateBufferObject"); }
-	virtual void Cmd_CopyBufferObject(const CCommandBuffer::SCommand_CopyBufferObject *pCommand) { dbg_assert(false, "Call of unsupported Cmd_CopyBufferObject"); }
-	virtual void Cmd_DeleteBufferObject(const CCommandBuffer::SCommand_DeleteBufferObject *pCommand) { dbg_assert(false, "Call of unsupported Cmd_DeleteBufferObject"); }
+	virtual void Cmd_CreateBufferObject(const CCommandBuffer::SCommand_CreateBufferObject *pCommand) { dbg_assert_failed("Call of unsupported Cmd_CreateBufferObject"); }
+	virtual void Cmd_RecreateBufferObject(const CCommandBuffer::SCommand_RecreateBufferObject *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RecreateBufferObject"); }
+	virtual void Cmd_UpdateBufferObject(const CCommandBuffer::SCommand_UpdateBufferObject *pCommand) { dbg_assert_failed("Call of unsupported Cmd_UpdateBufferObject"); }
+	virtual void Cmd_CopyBufferObject(const CCommandBuffer::SCommand_CopyBufferObject *pCommand) { dbg_assert_failed("Call of unsupported Cmd_CopyBufferObject"); }
+	virtual void Cmd_DeleteBufferObject(const CCommandBuffer::SCommand_DeleteBufferObject *pCommand) { dbg_assert_failed("Call of unsupported Cmd_DeleteBufferObject"); }
 
-	virtual void Cmd_CreateBufferContainer(const CCommandBuffer::SCommand_CreateBufferContainer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_CreateBufferContainer"); }
-	virtual void Cmd_UpdateBufferContainer(const CCommandBuffer::SCommand_UpdateBufferContainer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_UpdateBufferContainer"); }
-	virtual void Cmd_DeleteBufferContainer(const CCommandBuffer::SCommand_DeleteBufferContainer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_DeleteBufferContainer"); }
-	virtual void Cmd_IndicesRequiredNumNotify(const CCommandBuffer::SCommand_IndicesRequiredNumNotify *pCommand) { dbg_assert(false, "Call of unsupported Cmd_IndicesRequiredNumNotify"); }
+	virtual void Cmd_CreateBufferContainer(const CCommandBuffer::SCommand_CreateBufferContainer *pCommand) { dbg_assert_failed("Call of unsupported Cmd_CreateBufferContainer"); }
+	virtual void Cmd_UpdateBufferContainer(const CCommandBuffer::SCommand_UpdateBufferContainer *pCommand) { dbg_assert_failed("Call of unsupported Cmd_UpdateBufferContainer"); }
+	virtual void Cmd_DeleteBufferContainer(const CCommandBuffer::SCommand_DeleteBufferContainer *pCommand) { dbg_assert_failed("Call of unsupported Cmd_DeleteBufferContainer"); }
+	virtual void Cmd_IndicesRequiredNumNotify(const CCommandBuffer::SCommand_IndicesRequiredNumNotify *pCommand) { dbg_assert_failed("Call of unsupported Cmd_IndicesRequiredNumNotify"); }
 
-	virtual void Cmd_RenderTileLayer(const CCommandBuffer::SCommand_RenderTileLayer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderTileLayer"); }
-	virtual void Cmd_RenderBorderTile(const CCommandBuffer::SCommand_RenderBorderTile *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderBorderTile"); }
-	virtual void Cmd_RenderQuadLayer(const CCommandBuffer::SCommand_RenderQuadLayer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderQuadLayer"); }
-	virtual void Cmd_RenderText(const CCommandBuffer::SCommand_RenderText *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderText"); }
-	virtual void Cmd_RenderQuadContainer(const CCommandBuffer::SCommand_RenderQuadContainer *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderQuadContainer"); }
-	virtual void Cmd_RenderQuadContainerEx(const CCommandBuffer::SCommand_RenderQuadContainerEx *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderQuadContainerEx"); }
-	virtual void Cmd_RenderQuadContainerAsSpriteMultiple(const CCommandBuffer::SCommand_RenderQuadContainerAsSpriteMultiple *pCommand) { dbg_assert(false, "Call of unsupported Cmd_RenderQuadContainerAsSpriteMultiple"); }
+	virtual void Cmd_RenderTileLayer(const CCommandBuffer::SCommand_RenderTileLayer *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderTileLayer"); }
+	virtual void Cmd_RenderBorderTile(const CCommandBuffer::SCommand_RenderBorderTile *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderBorderTile"); }
+	virtual void Cmd_RenderQuadLayer(const CCommandBuffer::SCommand_RenderQuadLayer *pCommand, bool Grouped) { dbg_assert_failed("Call of unsupported Cmd_RenderQuadLayer"); }
+	virtual void Cmd_RenderText(const CCommandBuffer::SCommand_RenderText *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderText"); }
+	virtual void Cmd_RenderQuadContainer(const CCommandBuffer::SCommand_RenderQuadContainer *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderQuadContainer"); }
+	virtual void Cmd_RenderQuadContainerEx(const CCommandBuffer::SCommand_RenderQuadContainerEx *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderQuadContainerEx"); }
+	virtual void Cmd_RenderQuadContainerAsSpriteMultiple(const CCommandBuffer::SCommand_RenderQuadContainerAsSpriteMultiple *pCommand) { dbg_assert_failed("Call of unsupported Cmd_RenderQuadContainerAsSpriteMultiple"); }
 
 public:
 	CCommandProcessorFragment_OpenGL();
-	virtual ~CCommandProcessorFragment_OpenGL() = default;
 
 	ERunCommandReturnTypes RunCommand(const CCommandBuffer::SCommand *pBaseCommand) override;
 };

@@ -4,6 +4,7 @@
 #define GAME_COLLISION_H
 
 #include <base/vmath.h>
+
 #include <engine/shared/protocol.h>
 
 #include <map>
@@ -51,6 +52,7 @@ public:
 	void MovePoint(vec2 *pInoutPos, vec2 *pInoutVel, float Elasticity, int *pBounces) const;
 	void MoveBox(vec2 *pInoutPos, vec2 *pInoutVel, vec2 Size, vec2 Elasticity, bool *pGrounded = nullptr) const;
 	bool TestBox(vec2 Pos, vec2 Size) const;
+	bool IsOnGround(vec2 Pos, float Size) const;
 
 	// DDRace
 	void SetCollisionAt(float x, float y, int Index);
@@ -125,7 +127,7 @@ public:
 	 * as one consecutive list.
 	 *
 	 * @param Number is the teleporter number (one less than what is shown in game)
-	 * @param Offset picks the n'th occurence of that teleporter in the map
+	 * @param Offset picks the n'th occurrence of that teleporter in the map
 	 *
 	 * @return The coordinates of the teleporter in the map
 	 *         or (-1, -1) if not found
@@ -134,7 +136,7 @@ public:
 
 	/**
 	 * @param Number is the teleporter number (one less than what is shown in game)
-	 * @return The amount of occurences of that teleporter across all types (in, out, checkpoint)
+	 * @return The amount of occurrences of that teleporter across all types (in, out, checkpoint)
 	 */
 	size_t TeleAllSize(int Number);
 

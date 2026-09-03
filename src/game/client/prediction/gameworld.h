@@ -37,6 +37,7 @@ public:
 
 	CGameWorld();
 	~CGameWorld();
+	void Init(CCollision *pCollision, CTuningParams *pTuningList, const CMapBugs *pMapBugs);
 
 	CEntity *FindFirst(int Type);
 	CEntity *FindLast(int Type);
@@ -53,20 +54,19 @@ public:
 	std::vector<CCharacter *> IntersectedCharacters(vec2 Pos0, vec2 Pos1, float Radius, const CEntity *pNotThis = nullptr);
 
 	int m_GameTick;
-	CCollision *m_pCollision;
 
 	// getter for server variables
-	int GameTick() { return m_GameTick; }
-	int GameTickSpeed() { return SERVER_TICK_SPEED; }
+	int GameTick() const { return m_GameTick; }
+	int GameTickSpeed() const { return SERVER_TICK_SPEED; }
+	const CCollision *Collision() const { return m_pCollision; }
 	CCollision *Collision() { return m_pCollision; }
 	CTeamsCore *Teams() { return &m_Teams; }
 	std::vector<SSwitchers> &Switchers() { return m_Core.m_vSwitchers; }
-	CTuningParams *Tuning();
 	CEntity *GetEntity(int Id, int EntityType);
 	CCharacter *GetCharacterById(int Id) { return (Id >= 0 && Id < MAX_CLIENTS) ? m_apCharacters[Id] : nullptr; }
 
 	// from gamecontext
-	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int ActivatedTeam, CClientMask Mask);
+	void CreateExplosion(vec2 Pos, int Owner, int Weapon, bool NoDamage, int ActivatedTeam, CClientMask Mask, int Id = -1);
 
 	// for client side prediction
 	struct
@@ -83,6 +83,7 @@ public:
 		bool m_UseTuneZones;
 		bool m_BugDDRaceInput;
 		bool m_NoWeakHookAndBounce;
+		bool m_PredictEvents;
 	} m_WorldConfig;
 
 	bool m_IsValidCopy;
@@ -101,12 +102,42 @@ public:
 	CEntity *FindMatch(int ObjId, int ObjType, const void *pObjData);
 	void Clear();
 
-	CTuningParams *m_pTuningList;
+	const CTuningParams *TuningList() const { return m_pTuningList; }
 	CTuningParams *TuningList() { return m_pTuningList; }
+	const CTuningParams *GlobalTuning() const { return &TuningList()[0]; }
+	CTuningParams *GlobalTuning() { return &TuningList()[0]; }
+	const CTuningParams *GetTuning(int i) const { return &TuningList()[i]; }
 	CTuningParams *GetTuning(int i) { return &TuningList()[i]; }
 
-	const CMapBugs *m_pMapBugs;
 	bool EmulateBug(int Bug) const;
+
+	class CPredictedEvent
+	{
+	public:
+		int m_EventId;
+		vec2 m_Pos; // NetEvent's Pos are integers
+		int m_Id; // identifier to prevent adding the same event multiple times
+		int m_Tick;
+
+		int m_ExtraInfo;
+		bool m_Handled = false;
+
+		CPredictedEvent(int EventId, vec2 Pos, int Id, int Tick, int ExtraInfo = -1) :
+			m_EventId(EventId), m_Pos(vec2((int)Pos.x, (int)Pos.y)), m_Id(Id), m_Tick(Tick), m_ExtraInfo(ExtraInfo)
+		{
+		}
+	};
+
+	std::vector<CPredictedEvent> m_PredictedEvents;
+
+	void CreatePredictedEvent(const CPredictedEvent &NewEvent);
+	bool CheckPredictedEventHandled(const CPredictedEvent &CheckEvent);
+	void PlayPredictedEvents(int Tick);
+
+	void CreatePredictedSound(vec2 Pos, int SoundId, int Id = -1);
+	void CreatePredictedExplosionEvent(vec2 Pos, int Id = -1);
+	void CreatePredictedHammerHitEvent(vec2 Pos, int Id = -1);
+	void CreatePredictedDamageIndEvent(vec2 Pos, float Angle, int Amount, int Id = -1);
 
 private:
 	void RemoveEntities();
@@ -115,6 +146,10 @@ private:
 	CEntity *m_apFirstEntityTypes[NUM_ENTTYPES];
 
 	CCharacter *m_apCharacters[MAX_CLIENTS];
+
+	CCollision *m_pCollision;
+	CTuningParams *m_pTuningList;
+	const CMapBugs *m_pMapBugs;
 };
 
 class CCharOrder

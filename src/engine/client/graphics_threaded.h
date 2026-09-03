@@ -1,7 +1,8 @@
 #ifndef ENGINE_CLIENT_GRAPHICS_THREADED_H
 #define ENGINE_CLIENT_GRAPHICS_THREADED_H
 
-#include <base/system.h>
+#include <base/dbg.h>
+#include <base/sphore.h>
 
 #include <engine/graphics.h>
 #include <engine/shared/config.h>
@@ -14,6 +15,34 @@
 
 constexpr int CMD_BUFFER_DATA_BUFFER_SIZE = 1024 * 1024 * 2;
 constexpr int CMD_BUFFER_CMD_BUFFER_SIZE = 1024 * 256;
+
+namespace TextureFlag
+{
+	inline constexpr uint32_t NO_MIPMAPS = 1 << 0;
+	inline constexpr uint32_t TO_3D_TEXTURE = 1 << 1;
+	inline constexpr uint32_t TO_2D_ARRAY_TEXTURE = 1 << 2;
+	inline constexpr uint32_t NO_2D_TEXTURE = 1 << 3;
+};
+
+enum class EPrimitiveType
+{
+	LINES,
+	QUADS,
+	TRIANGLES,
+};
+
+enum class EBlendMode
+{
+	NONE,
+	ALPHA,
+	ADDITIVE,
+};
+
+enum class EWrapMode
+{
+	REPEAT,
+	CLAMP,
+};
 
 class CCommandBuffer
 {
@@ -76,22 +105,20 @@ public:
 		MAX_VERTICES = 32 * 1024,
 	};
 
-	enum ECommandBufferCMD
+	enum
 	{
 		// command groups
 		CMDGROUP_CORE = 0, // commands that everyone has to implement
 		CMDGROUP_PLATFORM_GL = 10000, // commands specific to a platform
 		CMDGROUP_PLATFORM_SDL = 20000,
 
-		//
 		CMD_FIRST = CMDGROUP_CORE,
-		CMD_NOP = CMD_FIRST,
+	};
 
-		//
-		CMD_RUNBUFFER,
-
+	enum ECommandBufferCMD
+	{
 		// synchronization
-		CMD_SIGNAL,
+		CMD_SIGNAL = CMD_FIRST,
 
 		// texture commands
 		CMD_TEXTURE_CREATE,
@@ -121,6 +148,7 @@ public:
 		CMD_RENDER_TILE_LAYER, // render a tilelayer
 		CMD_RENDER_BORDER_TILE, // render one tile multiple times
 		CMD_RENDER_QUAD_LAYER, // render a quad layer
+		CMD_RENDER_QUAD_LAYER_GROUPED, // render a quad layer in groups meaning they all share the same envelope and offset (which can be none)
 		CMD_RENDER_TEXT, // render text
 		CMD_RENDER_QUAD_CONTAINER, // render a quad buffer container
 		CMD_RENDER_QUAD_CONTAINER_EX, // render a quad buffer container with extended parameters
@@ -143,39 +171,6 @@ public:
 		CMD_COUNT,
 	};
 
-	enum
-	{
-		TEXFORMAT_INVALID = 0,
-		TEXFORMAT_RGBA,
-
-		TEXFLAG_NOMIPMAPS = 1,
-		TEXFLAG_TO_3D_TEXTURE = (1 << 3),
-		TEXFLAG_TO_2D_ARRAY_TEXTURE = (1 << 4),
-		TEXFLAG_NO_2D_TEXTURE = (1 << 5),
-	};
-
-	enum
-	{
-		//
-		PRIMTYPE_INVALID = 0,
-		PRIMTYPE_LINES,
-		PRIMTYPE_QUADS,
-		PRIMTYPE_TRIANGLES,
-	};
-
-	enum
-	{
-		BLEND_NONE = 0,
-		BLEND_ALPHA,
-		BLEND_ADDITIVE,
-	};
-
-	enum
-	{
-		WRAP_REPEAT = 0,
-		WRAP_CLAMP,
-	};
-
 	typedef vec2 SPoint;
 	typedef vec2 STexCoord;
 	typedef GL_SColorf SColorf;
@@ -192,13 +187,11 @@ public:
 		unsigned m_Cmd;
 		SCommand *m_pNext;
 	};
-	SCommand *m_pCmdBufferHead;
-	SCommand *m_pCmdBufferTail;
 
 	struct SState
 	{
-		int m_BlendMode;
-		int m_WrapMode;
+		EBlendMode m_BlendMode;
+		EWrapMode m_WrapMode;
 		int m_Texture;
 		SPoint m_ScreenTL;
 		SPoint m_ScreenBR;
@@ -226,19 +219,12 @@ public:
 		CSemaphore *m_pSemaphore;
 	};
 
-	struct SCommand_RunBuffer : public SCommand
-	{
-		SCommand_RunBuffer() :
-			SCommand(CMD_RUNBUFFER) {}
-		CCommandBuffer *m_pOtherBuffer;
-	};
-
 	struct SCommand_Render : public SCommand
 	{
 		SCommand_Render() :
 			SCommand(CMD_RENDER) {}
 		SState m_State;
-		unsigned m_PrimType;
+		EPrimitiveType m_PrimType;
 		unsigned m_PrimCount;
 		SVertex *m_pVertices; // you should use the command buffer data to allocate vertices for this command
 	};
@@ -248,7 +234,7 @@ public:
 		SCommand_RenderTex3D() :
 			SCommand(CMD_RENDER_TEX3D) {}
 		SState m_State;
-		unsigned m_PrimType;
+		EPrimitiveType m_PrimType;
 		unsigned m_PrimCount;
 		SVertexTex3DStream *m_pVertices; // you should use the command buffer data to allocate vertices for this command
 	};
@@ -391,8 +377,8 @@ public:
 
 	struct SCommand_RenderQuadLayer : public SCommand
 	{
-		SCommand_RenderQuadLayer() :
-			SCommand(CMD_RENDER_QUAD_LAYER) {}
+		SCommand_RenderQuadLayer(bool Grouped) :
+			SCommand(Grouped ? CMD_RENDER_QUAD_LAYER_GROUPED : CMD_RENDER_QUAD_LAYER) {}
 		SState m_State;
 
 		int m_BufferContainerIndex;
@@ -635,10 +621,8 @@ public:
 		return true;
 	}
 
-	SCommand *Head()
-	{
-		return m_pCmdBufferHead;
-	}
+	const SCommand *Head() const { return m_pCmdBufferHead; }
+	SCommand *Head() { return m_pCmdBufferHead; }
 
 	void Reset()
 	{
@@ -654,14 +638,18 @@ public:
 	{
 		m_RenderCallCount += RenderCallCountToAdd;
 	}
+
+private:
+	SCommand *m_pCmdBufferHead;
+	SCommand *m_pCmdBufferTail;
 };
 
 enum EGraphicsBackendErrorCodes
 {
-	GRAPHICS_BACKEND_ERROR_CODE_UNKNOWN = -1,
 	GRAPHICS_BACKEND_ERROR_CODE_NONE = 0,
 	GRAPHICS_BACKEND_ERROR_CODE_GL_CONTEXT_FAILED,
 	GRAPHICS_BACKEND_ERROR_CODE_GL_VERSION_FAILED,
+	GRAPHICS_BACKEND_ERROR_CODE_GLEW_INIT_FAILED,
 	GRAPHICS_BACKEND_ERROR_CODE_SDL_INIT_FAILED,
 	GRAPHICS_BACKEND_ERROR_CODE_SDL_SCREEN_REQUEST_FAILED,
 	GRAPHICS_BACKEND_ERROR_CODE_SDL_SCREEN_INFO_REQUEST_FAILED,
@@ -702,9 +690,8 @@ public:
 	virtual const char *GetScreenName(int Screen) const = 0;
 
 	virtual void Minimize() = 0;
-	virtual void Maximize() = 0;
 	virtual void SetWindowParams(int FullscreenMode, bool IsBorderless) = 0;
-	virtual bool SetWindowScreen(int Index) = 0;
+	virtual bool SetWindowScreen(int Index, bool MoveToCenter) = 0;
 	virtual bool UpdateDisplayMode(int Index) = 0;
 	virtual int GetWindowScreen() = 0;
 	virtual int WindowActive() = 0;
@@ -743,21 +730,23 @@ public:
 	// be aware that this function should only be called from the graphics thread, and even then you should really know what you are doing
 	virtual TGLBackendReadPresentedImageData &GetReadPresentedImageDataFuncUnsafe() = 0;
 
+	virtual const char *GetFatalError() const = 0;
 	virtual bool GetWarning(std::vector<std::string> &WarningStrings) = 0;
 
-	// returns true if the error msg was shown
-	virtual bool ShowMessageBox(unsigned Type, const char *pTitle, const char *pMsg) = 0;
+	/**
+	 * @see IGraphics::ShowMessageBox
+	 */
+	virtual std::optional<int> ShowMessageBox(const IGraphics::CMessageBox &MessageBox) = 0;
 };
 
 class CGraphics_Threaded : public IEngineGraphics
 {
-	enum
+	enum class EDrawing
 	{
-		NUM_CMDBUFFERS = 2,
-
-		DRAWING_QUADS = 1,
-		DRAWING_LINES = 2,
-		DRAWING_TRIANGLES = 3
+		NONE,
+		QUADS,
+		LINES,
+		TRIANGLES,
 	};
 
 	CCommandBuffer::SState m_State;
@@ -770,13 +759,12 @@ class CGraphics_Threaded : public IEngineGraphics
 	bool m_GLHasTextureArraysSupport;
 	bool m_GLUseTrianglesAsQuad;
 
-	CCommandBuffer *m_apCommandBuffers[NUM_CMDBUFFERS];
+	CCommandBuffer *m_apCommandBuffers[2];
 	CCommandBuffer *m_pCommandBuffer;
 	unsigned m_CurrentCommandBuffer;
 
 	//
 	class IStorage *m_pStorage;
-	class IConsole *m_pConsole;
 	class IEngine *m_pEngine;
 
 	int m_CurIndex;
@@ -791,7 +779,7 @@ class CGraphics_Threaded : public IEngineGraphics
 	bool m_RenderEnable;
 
 	float m_Rotation;
-	int m_Drawing;
+	EDrawing m_Drawing;
 	bool m_DoScreenshot;
 	char m_aScreenshotName[IO_MAX_PATH_LENGTH];
 
@@ -863,7 +851,7 @@ class CGraphics_Threaded : public IEngineGraphics
 	void AddVertices(int Count, CCommandBuffer::SVertexTex3DStream *pVertices);
 
 	template<typename TName>
-	void Rotate(const CCommandBuffer::SPoint &rCenter, TName *pPoints, int NumPoints)
+	void Rotate(const CCommandBuffer::SPoint &Center, TName *pPoints, int NumPoints)
 	{
 		float c = std::cos(m_Rotation);
 		float s = std::sin(m_Rotation);
@@ -873,16 +861,16 @@ class CGraphics_Threaded : public IEngineGraphics
 		TName *pVertices = pPoints;
 		for(i = 0; i < NumPoints; i++)
 		{
-			x = pVertices[i].m_Pos.x - rCenter.x;
-			y = pVertices[i].m_Pos.y - rCenter.y;
-			pVertices[i].m_Pos.x = x * c - y * s + rCenter.x;
-			pVertices[i].m_Pos.y = x * s + y * c + rCenter.y;
+			x = pVertices[i].m_Pos.x - Center.x;
+			y = pVertices[i].m_Pos.y - Center.y;
+			pVertices[i].m_Pos.x = x * c - y * s + Center.x;
+			pVertices[i].m_Pos.y = x * s + y * c + Center.y;
 		}
 	}
 
 	template<typename TName>
 	void AddCmd(
-		TName &Cmd, std::function<bool()> FailFunc = [] { return true; })
+		TName &Cmd, const std::function<bool()> &FailFunc = [] { return true; })
 	{
 		if(m_pCommandBuffer->AddCommandUnsafe(Cmd))
 			return;
@@ -929,11 +917,15 @@ public:
 	const TTwGraphicsGpuList &GetGpus() const override;
 
 	void MapScreen(float TopLeftX, float TopLeftY, float BottomRightX, float BottomRightY) override;
-	void GetScreen(float *pTopLeftX, float *pTopLeftY, float *pBottomRightX, float *pBottomRightY) override;
+	void GetScreen(float *pTopLeftX, float *pTopLeftY, float *pBottomRightX, float *pBottomRightY) const override;
 
 	void LinesBegin() override;
 	void LinesEnd() override;
-	void LinesDraw(const CLineItem *pArray, int Num) override;
+	void LinesDraw(const CLineItem *pArray, size_t Num) override;
+
+	void LinesBatchBegin(CLineItemBatch *pBatch) override;
+	void LinesBatchEnd(CLineItemBatch *pBatch) override;
+	void LinesBatchDraw(CLineItemBatch *pBatch, const CLineItem *pArray, size_t Num) override;
 
 	IGraphics::CTextureHandle FindFreeTextureIndex();
 	void FreeTextureIndex(CTextureHandle *pIndex);
@@ -1001,7 +993,7 @@ public:
 	{
 		CCommandBuffer::SPoint Center;
 
-		dbg_assert(m_Drawing == DRAWING_QUADS, "called Graphics()->QuadsDrawTL without begin");
+		dbg_assert(m_Drawing == EDrawing::QUADS, "called Graphics()->QuadsDrawTL without begin");
 
 		if(g_Config.m_GfxQuadAsTriangle && !m_GLUseTrianglesAsQuad)
 		{
@@ -1114,8 +1106,31 @@ public:
 	void RenderQuadContainerAsSprite(int ContainerIndex, int QuadOffset, float X, float Y, float ScaleX = 1.f, float ScaleY = 1.f) override;
 	void RenderQuadContainerAsSpriteMultiple(int ContainerIndex, int QuadOffset, int DrawCount, SRenderSpriteInfo *pRenderInfo) override;
 
+	// sprites
+private:
+	vec2 m_SpriteScale = vec2(-1.0f, -1.0f);
+
+protected:
+	void SelectSprite(const CDataSprite *pSprite, int Flags);
+
+public:
+	void SelectSprite(int Id, int Flags = 0) override;
+	void SelectSprite7(int Id, int Flags = 0) override;
+
+	void GetSpriteScale(const CDataSprite *pSprite, float &ScaleX, float &ScaleY) const override;
+	void GetSpriteScale(int Id, float &ScaleX, float &ScaleY) const override;
+	void GetSpriteScaleImpl(int Width, int Height, float &ScaleX, float &ScaleY) const override;
+
+	void DrawSprite(float x, float y, float Size) override;
+	void DrawSprite(float x, float y, float ScaledWidth, float ScaledHeight) override;
+
+	int QuadContainerAddSprite(int QuadContainerIndex, float x, float y, float Size) override;
+	int QuadContainerAddSprite(int QuadContainerIndex, float Size) override;
+	int QuadContainerAddSprite(int QuadContainerIndex, float Width, float Height) override;
+	int QuadContainerAddSprite(int QuadContainerIndex, float X, float Y, float Width, float Height) override;
+
 	template<typename TName>
-	void FlushVerticesImpl(bool KeepVertices, int &PrimType, size_t &PrimCount, size_t &NumVerts, TName &Command, size_t VertSize)
+	void FlushVerticesImpl(bool KeepVertices, EPrimitiveType &PrimType, size_t &PrimCount, size_t &NumVerts, TName &Command, size_t VertSize)
 	{
 		Command.m_pVertices = nullptr;
 		if(m_NumVertices == 0)
@@ -1126,27 +1141,27 @@ public:
 		if(!KeepVertices)
 			m_NumVertices = 0;
 
-		if(m_Drawing == DRAWING_QUADS)
+		if(m_Drawing == EDrawing::QUADS)
 		{
 			if(g_Config.m_GfxQuadAsTriangle && !m_GLUseTrianglesAsQuad)
 			{
-				PrimType = CCommandBuffer::PRIMTYPE_TRIANGLES;
+				PrimType = EPrimitiveType::TRIANGLES;
 				PrimCount = NumVerts / 3;
 			}
 			else
 			{
-				PrimType = CCommandBuffer::PRIMTYPE_QUADS;
+				PrimType = EPrimitiveType::QUADS;
 				PrimCount = NumVerts / 4;
 			}
 		}
-		else if(m_Drawing == DRAWING_LINES)
+		else if(m_Drawing == EDrawing::LINES)
 		{
-			PrimType = CCommandBuffer::PRIMTYPE_LINES;
+			PrimType = EPrimitiveType::LINES;
 			PrimCount = NumVerts / 2;
 		}
-		else if(m_Drawing == DRAWING_TRIANGLES)
+		else if(m_Drawing == EDrawing::TRIANGLES)
 		{
-			PrimType = CCommandBuffer::PRIMTYPE_TRIANGLES;
+			PrimType = EPrimitiveType::TRIANGLES;
 			PrimCount = NumVerts / 3;
 		}
 		else
@@ -1170,8 +1185,8 @@ public:
 	void FlushVerticesTex3D() override;
 
 	void RenderTileLayer(int BufferContainerIndex, const ColorRGBA &Color, char **pOffsets, unsigned int *pIndicedVertexDrawNum, size_t NumIndicesOffset) override;
-	virtual void RenderBorderTiles(int BufferContainerIndex, const ColorRGBA &Color, char *pIndexBufferOffset, const vec2 &Offset, const vec2 &Scale, uint32_t DrawNum) override;
-	void RenderQuadLayer(int BufferContainerIndex, SQuadRenderInfo *pQuadInfo, size_t QuadNum, int QuadOffset) override;
+	void RenderBorderTiles(int BufferContainerIndex, const ColorRGBA &Color, char *pIndexBufferOffset, const vec2 &Offset, const vec2 &Scale, uint32_t DrawNum) override;
+	void RenderQuadLayer(int BufferContainerIndex, SQuadRenderInfo *pQuadInfo, size_t QuadNum, int QuadOffset, bool Grouped = false) override;
 	void RenderText(int BufferContainerIndex, int TextQuadNum, int TextureSize, int TextureTextIndex, int TextureTextOutlineIndex, const ColorRGBA &TextColor, const ColorRGBA &TextOutlineColor) override;
 
 	// modern GL functions
@@ -1191,11 +1206,10 @@ public:
 	const char *GetScreenName(int Screen) const override;
 
 	void Minimize() override;
-	void Maximize() override;
 	void WarnPngliteIncompatibleImages(bool Warn) override;
 	void SetWindowParams(int FullscreenMode, bool IsBorderless) override;
-	bool SetWindowScreen(int Index) override;
-	bool SwitchWindowScreen(int Index) override;
+	bool SetWindowScreen(int Index, bool MoveToCenter) override;
+	bool SwitchWindowScreen(int Index, bool MoveToCenter) override;
 	void Move(int x, int y) override;
 	bool Resize(int w, int h, int RefreshRate) override;
 	void ResizeToScreen() override;
@@ -1240,7 +1254,8 @@ public:
 	void AddWarning(const SWarning &Warning);
 	std::optional<SWarning> CurrentWarning() override;
 
-	bool ShowMessageBox(unsigned Type, const char *pTitle, const char *pMsg) override;
+	std::optional<int> ShowMessageBox(const CMessageBox &MessageBox) override;
+
 	bool IsBackendInitialized() override;
 
 	bool GetDriverVersion(EGraphicsDriverAgeType DriverAgeType, int &Major, int &Minor, int &Patch, const char *&pName, EBackendType BackendType) override { return m_pBackend->GetDriverVersion(DriverAgeType, Major, Minor, Patch, pName, BackendType); }
@@ -1255,6 +1270,7 @@ public:
 	const char *GetVendorString() override;
 	const char *GetVersionString() override;
 	const char *GetRendererString() override;
+	const char *GetFatalError() const override;
 
 	TGLBackendReadPresentedImageData &GetReadPresentedImageDataFuncUnsafe() override;
 };

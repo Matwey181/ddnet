@@ -22,9 +22,6 @@ Abort
 Add
 == 添加
 
-Add Friend
-== 添加好友
-
 Address
 == 地址
 
@@ -607,9 +604,6 @@ Overlay entities
 Show others
 == 显示其他玩家
 
-Show quads
-== 显示背景
-
 Default zoom
 == 默认缩放
 
@@ -647,7 +641,7 @@ Check now
 == 检查更新
 
 Loading DDNet Client
-== 加载 DDNet 客户端中…
+== 正在加载 DDNet 客户端
 
 Browser
 == 浏览
@@ -667,13 +661,11 @@ Fat skins (DDFat)
 Ratio
 == K/D
 
-##### Ratio的算法是击杀除以死亡次数 #####
-
 AntiPing
 == 延迟补偿（AntiPing）
 
 Countries
-== 国家
+== 位置
 
 Reconnect in %d sec
 == %d 秒后重新连接
@@ -726,12 +718,8 @@ Suicides
 Net
 == 净击杀
 
-##### Net的算法是杀人+1被杀-1 #####
-
 FPM
 == 击杀/分
-
-##### 得分速度就是效率FPM #####
 
 Spree
 == 连杀
@@ -899,13 +887,13 @@ Please enter your nickname below.
 == 请在下方输入你的昵称。
 
 Server best:
-== 服务器最佳
+== 服务器最佳:
 
 Learn
 == 教程 Wiki
 
 Personal best:
-== 个人最佳
+== 个人最佳：
 
 Render demo
 == 渲染回放
@@ -914,7 +902,7 @@ Replace video
 == 替换视频
 
 Video name:
-== 视频名称
+== 视频名称：
 
 Connect Dummy
 == 连接分身
@@ -1148,9 +1136,6 @@ auto
 Tutorial
 == 教学
 
-Can't find a Tutorial server
-== 无法找到教学服务器
-
 Choose default eyes when joining a server
 == 进入服务器时的默认表情
 
@@ -1179,25 +1164,25 @@ Team %d
 == 队伍 %d
 
 Position:
-== 坐标
+== 坐标：
 
 Speed:
-== 速度
+== 速度：
 
 Angle:
-== 角度
+== 角度：
 
 Trying to determine UDP connectivity…
 == 正在尝试检测 UDP 连接…
 
 UDP seems to be filtered.
-== UDP 疑似被过滤
+== UDP 疑似被过滤。
 
 UDP and TCP IP addresses seem to be different. Try disabling VPN, proxy or network accelerators.
 == UDP 与 TCP 的 IP 地址并不相同。请尝试屏蔽 VPN 、代理网络以及网络加速器。
 
 No answer from server yet.
-== 服务器无响应
+== 服务器无响应。
 
 Download community skins
 == 下载社区皮肤
@@ -1217,10 +1202,10 @@ Ingame controller mode
 == 游戏内控制器瞄准模式
 
 Ingame controller sens.
-== 摇杆灵敏度（游戏）
+== 游戏摇杆灵敏度
 
 UI controller sens.
-== 摇杆灵敏度（界面）
+== 界面摇杆灵敏度
 
 Controller jitter tolerance
 == 摇杆死区
@@ -1235,10 +1220,10 @@ Mouse
 == 鼠标
 
 Ingame mouse sens.
-== 鼠标灵敏度（游戏）
+== 游戏鼠标灵敏度
 
 UI mouse sens.
-== 鼠标灵敏度（界面）
+== 界面鼠标灵敏度
 
 Controller
 == 控制器
@@ -1280,7 +1265,7 @@ Loading map file from storage
 == 正在从硬盘中加载地图文件
 
 Why are you slowmo replaying to read this?
-== 所以你为什么要慢速回放来看这个
+== 你为什么要慢放来读这段话？
 
 Initializing components
 == 正在初始化游戏引擎
@@ -1345,20 +1330,8 @@ Hook collision line
 Hook collision line opacity
 == 辅助线不透明度
 
-Colors of the hook collision line, in case of a possible collision with:
-== 辅助线颜色（当瞄准以下实体物时）：
-
 Your movements are not taken into account when calculating the line colors
 == 移动所造成的瞄准偏移将不计入考量
-
-Nothing hookable
-== 未瞄准任何实体物
-
-Something hookable
-== 可钩索的方块
-
-A Tee
-== 其他玩家
 
 Loading assets
 == 正在加载资源
@@ -1418,7 +1391,7 @@ Freeze Laser Inner Color
 == 冻结激光实心颜色
 
 Menu opened. Press Esc key again to close menu.
-== 菜单已打开，再次点击 Esc 以关闭
+== 菜单已打开，再次点击 Esc 以关闭。
 
 Set all to Rifle
 == 统一为激光枪颜色
@@ -1469,7 +1442,7 @@ An error during command recording occurred. Try to update your GPU drivers.
 
 [Graphics error]
 A render command failed. Try to update your GPU drivers.
-== 渲染指令错误。请尝试更新显卡驱动程序
+== 渲染指令错误。请尝试更新显卡驱动程序。
 
 [Graphics error]
 Submitting the render commands failed. Try to update your GPU drivers.
@@ -1489,9 +1462,6 @@ Could not initialize the given graphics backend, reverting to the default backen
 
 Open the directory that contains the demo files
 == 打开存有回放文件的文件夹路径
-
-Save power by lowering refresh rate (higher input latency)
-== 省电模式（限制帧率上限以降低功耗但也将提高输入延迟）
 
 Open the settings file
 == 打开设置文件
@@ -1538,13 +1508,10 @@ Click to select server. Double click to join your friend.
 == 单击以选择此服务器。双击加入好友所在服务器。
 
 Click to remove this player from your friends list.
-== 单击从你的好友列表移除此玩家
+== 单击以从你的好友列表移除此玩家。
 
 Click to remove this clan from your friends list.
-== 单击从你的好友列表移除此战队
-
-Add Clan
-== 添加战队
+== 单击以从你的好友列表移除此战队。
 
 A demo with this name already exists
 == 已经存在同名回放
@@ -1577,10 +1544,10 @@ Graphics card
 == 显卡
 
 Quitting. Please wait…
-== 正在退出，请稍等
+== 正在退出，请稍等…
 
 Restarting. Please wait…
-== 正在重启，请稍等
+== 正在重启，请稍等…
 
 Multi-View
 == 多人同框视角
@@ -1610,7 +1577,7 @@ Delete folder
 == 删除文件夹
 
 Unable to delete the folder '%s'. Make sure it's empty first.
-== 无法删除 "%s" ，请确保你已清空该文件夹
+== 无法删除 "%s" ，请确保你已清空该文件夹。
 
 Moved ingame
 == 游戏内移动
@@ -1640,12 +1607,12 @@ Go back the specified duration
 == 快退指定时长
 
 [Demo player duration]
-%d min.
-== %d 分
+%s min.
+== %s 分
 
 [Demo player duration]
-%d sec.
-== %d 秒
+%s sec.
+== %s 秒
 
 Change the skip duration
 == 变更指定时长
@@ -1663,7 +1630,7 @@ Created
 == 创建日期
 
 Netversion
-== Netversion
+== 网络协议版本
 
 [Demo details]
 map not included
@@ -1727,7 +1694,7 @@ Are you sure that you want to restart?
 == 确定要重新开始？
 
 There's an unsaved map in the editor, you might want to save it.
-== 编辑器中有尚未保存的地图，你或需要保存
+== 编辑器中有尚未保存的地图，你或需要保存。
 
 Continue anyway?
 == 仍要退出？
@@ -1923,10 +1890,10 @@ Online friends (%d)
 == 在线好友 (%d人)
 
 Add friends by entering their name below or by clicking their name in the player list.
-== 在下方输入好友名称或点击玩家列表中的好友名称即可添加好友
+== 在下方输入好友名称或点击玩家列表中的好友名称即可添加好友。
 
 Add clanmates by entering their clan below and leaving the name blank.
-== 在下方输入战队并留空名称即可添加战队
+== 在下方输入战队并留空名称即可添加战队。
 
 Edit touch controls
 == 编辑触控设置
@@ -2021,10 +1988,7 @@ Active: Hook
 == 当前：钩索
 
 "%s" is not compatible with pnglite and cannot be loaded by old DDNet versions:
-== "%s" 与 pnglite 不兼容，无法被旧版本 DDNet 加载
-
-Loading background map
-== 加载背景地图
+== "%s" 与 pnglite 不兼容，无法被旧版本 DDNet 加载：
 
 [Spectating Camera Mode Icon]
 AUTO
@@ -2039,7 +2003,7 @@ https://wiki.ddnet.org/wiki/Touch_controls
 Show client IDs in name plates
 == 显示客户端 ID
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == 客户端 ID 换行显示
 
 Client IDs size
@@ -2136,7 +2100,7 @@ Renders your frame rate in the top right
 
 [Translation credits: Add your own name here when you update translations]
 English translation by the DDNet Team
-== 简体中文翻译由以下人员贡献：MK124, CarolVlCznYu, MC_TYH, Yangfl, Eki, Night_L, TsFreddie, Dan_cao, Momo, cheeser0613, By, Bamcane, Pioooooo, 豆腐渣, XCWQW1
+== 简体中文翻译由以下人员贡献：MK124, CarolVlCznYu, MC_TYH, Yangfl, Eki, Night_L, TsFreddie, Dan_cao, Momo, cheeser0613, By, Bamcane, Pioooooo, 豆腐渣, XCWQW1, Zerol Acqua, 洛初
 
 Show spectator cursor
 == 显示旁观者光标
@@ -2209,3 +2173,481 @@ Dragger Outline Color
 
 Dragger Inner Color
 == 光索实心颜色
+
+[Spectating]
+Following %d: %s
+== 正在旁观 %d: %s
+
+Loading map
+== 加载地图
+
+Error checking player name
+== 检查玩家名称时出错
+
+Could not check for existing player with your name. Check your internet connection.
+== 无法验证是否已存在相同名称的玩家。请检查你的网络连接。
+
+Press Ctrl+Shift+G to disable debug graphs.
+== 按下 Ctrl+Shift+G 以关闭调试图表。
+
+Server could not be started
+== 无法启动服务器
+
+Could not get server list from master server
+== 无法从主服务器获取服务器列表
+
+[Demo playback]
+Live
+== 实时
+
+[Demo playback]
+Go to Live
+== 跳转到实时
+
+Save all changes before turning off the editor?
+== 是否在关闭编辑器前保存更改？
+
+Layout
+== 布局
+
+Visibility
+== 可见度
+
+Behavior
+== 行为
+
+Delete button
+== 删除按键
+
+Are you sure that you want to delete this button?
+== 你确定要删除这个按键吗？
+
+Duplicate
+== 复制
+
+Please save your changes before duplicating a button.
+== 请在复制按键之前先保存更改。
+
+No space for button
+== 空间不足
+
+There is not enough space available to place another button.
+== 屏幕上剩余空间不足以增加一个新按键。
+
+Deselect
+== 取消选择
+
+You'll lose unsaved changes after deselecting.
+== 你的更改在取消选择后不会被保存。
+
+Width
+== 宽
+
+Height
+== 高
+
+Shape
+== 形状
+
+[Touch button shape]
+Rectangle
+== 矩形
+
+[Touch button shape]
+Circle
+== 圆形
+
+[Touch button label type]
+Plain
+== 普通
+
+[Touch button label type]
+Localized
+== 自动翻译
+
+[Touch button label type]
+Icon
+== 图标化
+
+Behavior type
+== 行为类型
+
+[Touch button behavior]
+Bind
+== 绑定
+
+[Touch button behavior]
+Bind Toggle
+== 绑定切换
+
+[Touch button behavior]
+Predefined
+== 预设
+
+Command
+== 命令
+
+Label
+== 标签
+
+Label type
+== 标签种类
+
+Add command
+== 添加命令
+
+Delete command
+== 删除命令
+
+[Touch button visibility preview]
+Included
+== 包含
+
+[Touch button visibility preview]
+Excluded
+== 排除
+
+[Touch button visibility preview]
+Ignore
+== 忽略
+
+New button
+== 新按键
+
+Select button by touch
+== 在屏幕上选择按键
+
+No buttons match your filter criteria
+== 没有按键符合你的筛选条件
+
+File
+== 文件
+
+Buttons
+== 按键
+
+Active color
+== 按键激活时颜色
+
+Inactive color
+== 按键未激活时颜色
+
+Preview button visibility while the editor is active.
+== 按键编辑器打开时用于预览按键的可见度。
+
+Show all buttons
+== 显示所有按键
+
+Save all changes before switching selected button?
+== 切换当前选择的按键前保存对当前按键的更改？
+
+Discard
+== 舍弃更改
+
+There is not enough space available for the button. Check its visibilities and size.
+== 屏幕上空闲位置不足。建议检查它的可见度和大小。
+
+Selected button not visible
+== 选中的按键不可见
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 选中的按键在当前可见度下不可见。你想取消选择该按键还是更改它的可见度？
+
+Edit
+== 更改
+
+Width and height are required to be within the range from %d to %d.
+== 按键的宽和高需要在%d到%d内。
+
+Button position is outside of the screen.
+== 按键的位置在屏幕之外。
+
+The selected button is overlapping with other buttons.
+== 选中的按键和其它按键重合。
+
+Wrong button settings
+== 错误的按键设置
+
+[Touch button visibilities]
+Ingame
+== 在游戏内时
+
+[Touch button visibilities]
+Zoom Allowed
+== 允许缩放时
+
+[Touch button visibilities]
+Vote Active
+== 当前有投票
+
+[Touch button visibilities]
+Dummy Allowed
+== 允许分身时
+
+[Touch button visibilities]
+Dummy Connected
+== 分身已连接
+
+[Touch button visibilities]
+Rcon Authed
+== 登入管理员
+
+[Touch button visibilities]
+Demo Player
+== 播放回放时
+
+[Touch button visibilities]
+Extra Menu
+== 额外菜单
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 游戏内菜单
+
+[Predefined touch button behaviors]
+Extra Menu
+== 额外菜单开关
+
+[Predefined touch button behaviors]
+Emoticon
+== 表情选择器
+
+[Predefined touch button behaviors]
+Spectate
+== 旁观者菜单
+
+[Predefined touch button behaviors]
+Swap Action
+== 切换行为
+
+[Predefined touch button behaviors]
+Use Action
+== 使用行为
+
+[Predefined touch button behaviors]
+Joystick Action
+== 摇杆：使用行为
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 摇杆：瞄准
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 摇杆：开火
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 摇杆：出钩
+
+Chat background color
+== 聊天背景色
+
+Censor profanity
+== 屏蔽不文明用语
+
+Download
+== 下载
+
+Team save in progress. You'll be able to load with '/load %s'
+== 队伍正在存档中。完成后可使用 "/load %s" 继续
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 队伍正在存档中。成功后可使用 "/load %s"，失败时可使用 "/load %s" 继续
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== 队伍已由 %s 成功存档。数据库连接失败，为避免冲突，改用生成的存档代码。使用 "/load %s" 以继续
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== 队伍已由 %1$s 成功存档。数据库连接失败，为避免冲突，改用生成的存档代码。在 %3$s 上使用 "/load %2$s" 以继续
+
+Save failed!
+== 存档失败！
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== 按 Esc 或 Tab 关闭…
+
+Server alert
+== 服务器警告
+
+Moderator alert
+== 管理员警告
+
+You will be disconnected from the server.
+== 你即将从服务器断开连接。
+
+Are you sure that you want to disconnect and play this demo?
+== 确定要断开连接并播放此回放吗？
+
+Show background quads
+== 显示背景贴图
+
+Scoreboard cursor
+== 显示计分板光标
+
+Add friend
+== 添加好友
+
+Unmute
+== 取消屏蔽
+
+Mute
+== 屏蔽
+
+Unmute emoticons
+== 取消屏蔽表情
+
+Mute emoticons
+== 屏蔽表情
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== 触控设置的更改尚未保存，你或需要保存。
+
+Start and connect to local server
+== 运行并连接到本地服务器
+
+Add clan
+== 添加战队
+
+Info
+== 信息
+
+Button browser
+== 按键浏览器
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 你可以直接在下方列表中选择按键，也可以长按屏幕来选择按键。你还可以直接移动按键位置或者调整按键大小。
+
+Preview visibilities
+== 预览可见度
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 你可以在此管理你的触控设置。更改只有在保存后才能在重启客户端后生效。你可以将设置导出到剪切板来和他人分享触控设置。\n\n你可以在DDNet Wiki找到更多关于触控的详细信息。
+
+Open DDNet Wiki
+== 打开 DDNet Wiki
+
+Buttons with this behavior execute console commands like regular key binds.
+== 具有此行为的按键会像键盘按键绑定一样执行控制台命令。
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 具有此行为的按键会循环执行多个指定命令中的一个。
+
+Buttons with this behavior execute some predefined actions.
+== 具有此行为的按键会执行部分预设动作。
+
+Opens the ingame menu immediately when released.
+== 松开时立刻打开游戏内菜单。
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 额外菜单按钮，用于切换所有具有“额外菜单”可见度的按钮的可见度。长按时也会打开游戏菜单。
+
+Opens the emoticon selector (this does not work with binds).
+== 打开表情选择器（不适用于按键绑定）。
+
+Opens the spectator menu (this does not work with binds).
+== 打开旁观菜单（不适用于按键绑定）。
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 切换触控输入和虚拟摇杆的当前动作（开火和钩索）。
+
+Uses the active action with the current aiming position.
+== 对瞄准位置执行当前动作。
+
+Virtual joystick which uses the active action.
+== 执行当前动作的虚拟摇杆。
+
+Virtual joystick which only aims without using an action.
+== 仅用于瞄准而不执行动作的虚拟摇杆。
+
+Virtual joystick which always uses fire.
+== 始终用于开火的虚拟摇杆。
+
+Virtual joystick which always uses hook.
+== 始终用于钩索的虚拟摇杆。
+
+Player is ingame, i.e. not spectating.
+== 玩家在游戏内（非旁观状态）。
+
+Zoom is allowed on this server.
+== 此服务器允许使用缩放。
+
+A vote is currently active.
+== 已有投票正在进行。
+
+Dummy is allowed on this server.
+== 此服务器允许使用分身。
+
+Dummy is currently connected.
+== 分身已连接。
+
+Player is currently authed in rcon.
+== 玩家已登入管理员。
+
+Demo player is currently active.
+== 回放播放器正在运行。
+
+The extra menu with the given number is activated.
+== 指定编号的额外菜单已激活。
+
+Joining Tutorial server
+== 正在加入教程服务器
+
+There are no Tutorial servers available
+== 没有可用的教程服务器
+
+Retrying…
+== 正在重试…
+
+Error joining Tutorial server
+== 加入教程服务器失败
+
+Could not find a Tutorial server. Check your internet connection.
+== 未找到教程服务器。请检查你的网络连接。
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 由于未找到在线教程服务器，你正在本地服务器游玩。\n\n你的记录只会被保存在本地。
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 未找到在线教程服务器。\n正在启动并加入本地服务器…
+
+Waiting for local server to stop…
+== 等待本地服务器关闭…
+
+Waiting for local server to start…
+== 等待本地服务器启动…
+
+Error loading communities
+== 加载社区失败
+
+Click to remove this community from your favorites.
+== 点击取消收藏社区。
+
+Click to add this community to your favorites.
+== 点击收藏社区。
+
+Update Rate
+== 客户端刷新率
+
+Save power by lowering update rate (higher input latency)
+== 降低刷新率以节约功耗（增加输入延迟）
+
+Colors of the hook collision line:
+== 钩索辅助线颜色：
+
+[Hook collision line color]
+When nothing is hookable
+== 没有可勾对象时
+
+[Hook collision line color]
+When something is hookable
+== 瞄准可勾方块时
+
+[Hook collision line color]
+When a Tee is hookable
+== 瞄准其他Tee时
+
+[Hook collision line color]
+Hook collision line tip
+== 钩索辅助线头

@@ -1,14 +1,18 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
+#include "motd.h"
+
+#include <base/time.h>
+
 #include <engine/graphics.h>
 #include <engine/keys.h>
 #include <engine/shared/config.h>
 #include <engine/textrender.h>
 
-#include <game/client/gameclient.h>
-#include <game/generated/protocol.h>
+#include <generated/protocol.h>
 
-#include "motd.h"
+#include <game/client/components/important_alert.h>
+#include <game/client/gameclient.h>
 
 CMotd::CMotd()
 {
@@ -49,12 +53,19 @@ void CMotd::OnRender()
 	if(!IsActive())
 		return;
 
+	if(GameClient()->m_ImportantAlert.IsActive())
+	{
+		Clear();
+		return;
+	}
+
+	const int MaxLines = 24;
 	const float FontSize = 32.0f; // also the size of the margin and rect rounding
 	const float ScreenHeight = 40.0f * FontSize; // multiple of the font size to get perfect alignment
 	const float ScreenWidth = ScreenHeight * Graphics()->ScreenAspect();
 	Graphics()->MapScreen(0.0f, 0.0f, ScreenWidth, ScreenHeight);
 
-	const float RectHeight = 26.0f * FontSize;
+	const float RectHeight = (MaxLines + 2) * FontSize;
 	const float RectWidth = 630.0f + 2.0f * FontSize;
 	const float RectX = ScreenWidth / 2.0f - RectWidth / 2.0f;
 	const float RectY = 160.0f;
@@ -72,15 +83,15 @@ void CMotd::OnRender()
 		Graphics()->RenderQuadContainer(m_RectQuadContainer, -1);
 	}
 
-	const float TextWidth = RectWidth - 2.0f * FontSize;
-	const float TextX = RectX + FontSize;
-	const float TextY = RectY + FontSize;
-
 	if(!m_TextContainerIndex.Valid())
 	{
 		CTextCursor Cursor;
-		TextRender()->SetCursor(&Cursor, TextX, TextY, FontSize, TEXTFLAG_RENDER);
-		Cursor.m_LineWidth = TextWidth;
+		Cursor.SetPosition(vec2(RectX + FontSize, RectY + FontSize));
+		// TODO: Set TEXTFLAG_ELLIPSIS_AT_END when https://github.com/ddnet/ddnet/issues/11419 is fixed
+		// Cursor.m_Flags |= TEXTFLAG_ELLIPSIS_AT_END;
+		Cursor.m_FontSize = FontSize;
+		Cursor.m_LineWidth = RectWidth - 2.0f * FontSize;
+		Cursor.m_MaxLines = MaxLines;
 		TextRender()->CreateTextContainer(m_TextContainerIndex, &Cursor, ServerMotd());
 	}
 
@@ -116,14 +127,14 @@ void CMotd::OnMessage(int MsgType, void *pRawMsg)
 			if(g_Config.m_ClPrintMotd && m_aServerMotd[k] == '\n')
 			{
 				m_aServerMotd[k] = '\0';
-				m_pClient->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "motd", pLast, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageHighlightColor)));
+				GameClient()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "motd", pLast, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageHighlightColor)));
 				m_aServerMotd[k] = '\n';
 				pLast = m_aServerMotd + k + 1;
 			}
 		}
 		m_aServerMotd[sizeof(m_aServerMotd) - 1] = '\0';
 		if(g_Config.m_ClPrintMotd && *pLast != '\0')
-			m_pClient->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "motd", pLast, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageHighlightColor)));
+			GameClient()->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "motd", pLast, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClMessageHighlightColor)));
 
 		m_ServerMotdUpdateTime = time();
 		if(m_aServerMotd[0] && g_Config.m_ClMotdTime)

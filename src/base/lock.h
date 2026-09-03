@@ -1,3 +1,5 @@
+// Taken from https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
+
 #ifndef BASE_LOCK_H
 #define BASE_LOCK_H
 
@@ -72,7 +74,7 @@
 	THREAD_ANNOTATION_ATTRIBUTE__(no_thread_safety_analysis)
 
 /**
- * @defgroup Locks
+ * @defgroup Locks Locks
  * @see Threads
  */
 
@@ -110,7 +112,7 @@ private:
  * RAII-style wrapper for owning a `CLock`.
  *
  * @ingroup Locks
- * 
+ *
  * @remark This wrapper is only necessary because the clang thread-safety attributes
  * are not available for `std::lock_guard` except when explicitly using libc++.
  */
@@ -127,6 +129,8 @@ public:
 	{
 		m_Lock.unlock();
 	}
+
+	CLockScope(const CLockScope &) = delete;
 
 private:
 	CLock &m_Lock;

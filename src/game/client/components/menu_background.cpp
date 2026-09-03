@@ -1,6 +1,6 @@
-#include <base/system.h>
+#include "menu_background.h"
 
-#include <algorithm>
+#include <base/system.h>
 
 #include <engine/graphics.h>
 #include <engine/map.h>
@@ -10,13 +10,11 @@
 #include <game/client/components/mapimages.h>
 #include <game/client/components/maplayers.h>
 #include <game/client/gameclient.h>
-
 #include <game/layers.h>
 #include <game/localization.h>
 #include <game/mapitems.h>
 
-#include "menu_background.h"
-
+#include <algorithm>
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -52,7 +50,7 @@ std::array<vec2, CMenuBackground::NUM_POS> GenerateMenuBackgroundPositions()
 }
 
 CMenuBackground::CMenuBackground() :
-	CBackground(CMapLayers::TYPE_FULL_DESIGN, false)
+	CBackground(ERenderType::RENDERTYPE_FULL_DESIGN, false)
 {
 	m_RotationCenter = vec2(0.0f, 0.0f);
 	m_AnimationStartPos = vec2(0.0f, 0.0f);
@@ -69,24 +67,23 @@ CMenuBackground::CMenuBackground() :
 	m_Loading = false;
 }
 
-CBackgroundEngineMap *CMenuBackground::CreateBGMap()
+void CMenuBackground::OnInterfacesInit(CGameClient *pClient)
 {
-	return new CMenuMap;
+	CComponentInterfaces::OnInterfacesInit(pClient);
+	m_pImages->OnInterfacesInit(pClient);
+	m_Camera.OnInterfacesInit(pClient);
 }
 
 void CMenuBackground::OnInit()
 {
-	m_pBackgroundMap = CreateBGMap();
-	m_pMap = m_pBackgroundMap;
+	m_pBackgroundMap = CreateMap();
+	m_pMap = m_pBackgroundMap.get();
 
 	m_IsInit = true;
 
-	m_pImages->m_pClient = GameClient();
-	Kernel()->RegisterInterface<CMenuMap>((CMenuMap *)m_pBackgroundMap);
 	if(g_Config.m_ClMenuMap[0] != '\0')
 		LoadMenuBackground();
 
-	m_Camera.m_pClient = GameClient();
 	m_Camera.m_ZoomSet = false;
 	m_Camera.m_ZoomSmoothingTarget = 0;
 }
@@ -170,11 +167,11 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 	if(!m_IsInit)
 		return;
 
-	if(m_Loaded && m_pMap == m_pBackgroundMap)
+	if(m_Loaded && m_pMap == m_pBackgroundMap.get())
 		m_pMap->Unload();
 
 	m_Loaded = false;
-	m_pMap = m_pBackgroundMap;
+	m_pMap = m_pBackgroundMap.get();
 	m_pLayers = m_pBackgroundLayers;
 	m_pImages = m_pBackgroundImages;
 
@@ -189,26 +186,29 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 		const char *pMenuMap = g_Config.m_ClMenuMap;
 		if(str_comp(pMenuMap, "auto") == 0)
 		{
-			switch(time_season())
+			const ETimeSeason Season = time_season();
+			switch(Season)
 			{
-			case SEASON_SPRING:
-			case SEASON_EASTER:
+			case ETimeSeason::SPRING:
+			case ETimeSeason::EASTER:
 				pMenuMap = "heavens";
 				break;
-			case SEASON_SUMMER:
+			case ETimeSeason::SUMMER:
 				pMenuMap = "jungle";
 				break;
-			case SEASON_AUTUMN:
-			case SEASON_HALLOWEEN:
+			case ETimeSeason::AUTUMN:
+			case ETimeSeason::HALLOWEEN:
 				pMenuMap = "autumn";
 				break;
-			case SEASON_WINTER:
-			case SEASON_XMAS:
+			case ETimeSeason::WINTER:
+			case ETimeSeason::XMAS:
 				pMenuMap = "winter";
 				break;
-			case SEASON_NEWYEAR:
+			case ETimeSeason::NEWYEAR:
 				pMenuMap = "newyear";
 				break;
+			default:
+				dbg_assert_failed("Invalid season: %d", (int)Season);
 			}
 		}
 		else if(str_comp(pMenuMap, "rand") == 0)
@@ -231,7 +231,7 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 		if(!m_Loaded && ((HasDayHint && IsDaytime) || (HasNightHint && !IsDaytime)))
 		{
 			str_format(aBuf, sizeof(aBuf), "themes/%s_%s.map", pMenuMap, IsDaytime ? "day" : "night");
-			if(m_pMap->Load(aBuf))
+			if(m_pMap->Load(pMenuMap, Storage(), aBuf, IStorage::TYPE_ALL))
 			{
 				m_Loaded = true;
 			}
@@ -240,7 +240,7 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 		if(!m_Loaded)
 		{
 			str_format(aBuf, sizeof(aBuf), "themes/%s.map", pMenuMap);
-			if(m_pMap->Load(aBuf))
+			if(m_pMap->Load(pMenuMap, Storage(), aBuf, IStorage::TYPE_ALL))
 			{
 				m_Loaded = true;
 			}
@@ -249,7 +249,7 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 		if(!m_Loaded && ((HasDayHint && !IsDaytime) || (HasNightHint && IsDaytime)))
 		{
 			str_format(aBuf, sizeof(aBuf), "themes/%s_%s.map", pMenuMap, IsDaytime ? "night" : "day");
-			if(m_pMap->Load(aBuf))
+			if(m_pMap->Load(pMenuMap, Storage(), aBuf, IStorage::TYPE_ALL))
 			{
 				m_Loaded = true;
 			}
@@ -280,7 +280,7 @@ void CMenuBackground::LoadMenuBackground(bool HasDayHint, bool HasNightHint)
 							unsigned char Index = ((CTile *)pTiles)[y * pTLayer->m_Width + x].m_Index;
 							if(Index >= TILE_TIME_CHECKPOINT_FIRST && Index <= TILE_TIME_CHECKPOINT_LAST)
 							{
-								int ArrayIndex = clamp<int>((Index - TILE_TIME_CHECKPOINT_FIRST), 0, NUM_POS);
+								int ArrayIndex = std::clamp<int>((Index - TILE_TIME_CHECKPOINT_FIRST), 0, NUM_POS);
 								m_aPositions[ArrayIndex] = vec2(x * 32.0f + 16.0f, y * 32.0f + 16.0f);
 							}
 
@@ -307,16 +307,13 @@ bool CMenuBackground::Render()
 	if(!m_Loaded)
 		return false;
 
-	if(Client()->State() == IClient::STATE_ONLINE || Client()->State() == IClient::STATE_DEMOPLAYBACK)
-		return false;
-
 	m_Camera.m_Zoom = 0.7f;
 
 	float DistToCenter = distance(m_Camera.m_Center, m_RotationCenter);
 	if(!m_ChangedPosition && absolute(DistToCenter - (float)g_Config.m_ClRotationRadius) <= 0.5f)
 	{
 		// do little rotation
-		float RotPerTick = 360.0f / (float)g_Config.m_ClRotationSpeed * clamp(Client()->RenderFrameTime(), 0.0f, 0.1f);
+		float RotPerTick = 360.0f / (float)g_Config.m_ClRotationSpeed * std::clamp(Client()->RenderFrameTime(), 0.0f, 0.1f);
 		m_CurrentDirection = rotate(m_CurrentDirection, RotPerTick);
 		m_Camera.m_Center = m_RotationCenter + m_CurrentDirection * (float)g_Config.m_ClRotationRadius;
 	}
@@ -336,7 +333,7 @@ bool CMenuBackground::Render()
 			m_CurrentDirection = vec2(1.0f, 0.0f);
 
 		// move time
-		m_MoveTime += clamp(Client()->RenderFrameTime(), 0.0f, 0.1f) * g_Config.m_ClCameraSpeed / 10.0f;
+		m_MoveTime += std::clamp(Client()->RenderFrameTime(), 0.0f, 0.1f) * g_Config.m_ClCameraSpeed / 10.0f;
 		float XVal = 1 - m_MoveTime;
 		XVal = std::pow(XVal, 7.0f);
 
@@ -360,11 +357,6 @@ bool CMenuBackground::Render()
 CCamera *CMenuBackground::GetCurCamera()
 {
 	return &m_Camera;
-}
-
-const char *CMenuBackground::LoadingTitle() const
-{
-	return Localize("Loading background map");
 }
 
 void CMenuBackground::ChangePosition(int PositionNumber)

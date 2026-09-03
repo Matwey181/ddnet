@@ -2,18 +2,18 @@
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #ifndef ENGINE_CLIENT_H
 #define ENGINE_CLIENT_H
-#include "kernel.h"
-
 #include "graphics.h"
+#include "kernel.h"
 #include "message.h"
+
 #include <base/hash.h>
 
 #include <engine/client/enums.h>
 #include <engine/friends.h>
 #include <engine/shared/translation_context.h>
 
-#include <game/generated/protocol.h>
-#include <game/generated/protocol7.h>
+#include <generated/protocol.h>
+#include <generated/protocol7.h>
 
 #include <functional>
 #include <optional>
@@ -21,6 +21,7 @@
 #define CONNECTLINK_DOUBLE_SLASH "ddnet://"
 #define CONNECTLINK_NO_SLASH "ddnet:"
 
+class IMap;
 struct SWarning;
 
 enum
@@ -60,9 +61,9 @@ public:
 	};
 
 	/**
-	* More precise state for @see STATE_LOADING
-	* Sets what is actually happening in the client right now
-	*/
+	 * More precise state for @see STATE_LOADING
+	 * Sets what is actually happening in the client right now
+	 */
 	enum ELoadingStateDetail
 	{
 		LOADING_STATE_DETAIL_INITIAL,
@@ -137,28 +138,53 @@ public:
 	};
 
 	//
-	inline EClientState State() const { return m_State; }
-	inline ELoadingStateDetail LoadingStateDetail() const { return m_LoadingStateDetail; }
-	inline int64_t StateStartTime() const { return m_StateStartTime; }
+	EClientState State() const { return m_State; }
+	ELoadingStateDetail LoadingStateDetail() const { return m_LoadingStateDetail; }
+	int64_t StateStartTime() const { return m_StateStartTime; }
 	void SetLoadingStateDetail(ELoadingStateDetail LoadingStateDetail) { m_LoadingStateDetail = LoadingStateDetail; }
 
 	void SetLoadingCallback(TLoadingCallback &&Func) { m_LoadingCallback = std::move(Func); }
 
-	// tick time access
-	inline int PrevGameTick(int Conn) const { return m_aPrevGameTick[Conn]; }
-	inline int GameTick(int Conn) const { return m_aCurGameTick[Conn]; }
-	inline int PredGameTick(int Conn) const { return m_aPredTick[Conn]; }
-	inline float IntraGameTick(int Conn) const { return m_aGameIntraTick[Conn]; }
-	inline float PredIntraGameTick(int Conn) const { return m_aPredIntraTick[Conn]; }
-	inline float IntraGameTickSincePrev(int Conn) const { return m_aGameIntraTickSincePrev[Conn]; }
-	inline float GameTickTime(int Conn) const { return m_aGameTickTime[Conn]; }
-	inline int GameTickSpeed() const { return SERVER_TICK_SPEED; }
+	// Game time.
+	//
+	// There are 50 ticks per second, by default we only send snapshot on
+	// every second tick.
 
-	// other time access
-	inline float RenderFrameTime() const { return m_RenderFrameTime; }
-	inline float LocalTime() const { return m_LocalTime; }
-	inline float GlobalTime() const { return m_GlobalTime; }
-	inline float FrameTimeAverage() const { return m_FrameTimeAverage; }
+	// Tick of the second to most recently received snapshot (usually 2
+	// less than `GameTick`).
+	int PrevGameTick(int Conn) const { return m_aPrevGameTick[Conn]; }
+	// Tick of most recently received snapshot.
+	int GameTick(int Conn) const { return m_aCurGameTick[Conn]; }
+	// The tick we should predict to. Comes from a magic black box called
+	// "smooth time".
+	int PredGameTick(int Conn) const { return m_aPredTick[Conn]; }
+	// Linear interpolation parameter between `PrevGameTick` (0) and
+	// `GameTick` (1). Can be outside the interval [0, 1].
+	float IntraGameTick(int Conn) const { return m_aGameIntraTick[Conn]; }
+	// Linear interpolation parameter between `PredGameTick - 1` (0) and
+	// `PredGameTick` (1). Can be outside the interval [0, 1].
+	float PredIntraGameTick(int Conn) const { return m_aPredIntraTick[Conn]; }
+	// (Fractional) ticks since `PrevGameTick`.
+	float IntraGameTickSincePrev(int Conn) const { return m_aGameIntraTickSincePrev[Conn]; }
+	// Time in seconds since the second to most recently received snapshot.
+	float GameTickTime(int Conn) const { return m_aGameTickTime[Conn]; }
+	// 50
+	int GameTickSpeed() const { return SERVER_TICK_SPEED; }
+
+	// Other time.
+
+	// Time in seconds since a map was joined, or `GlobalTime` if that
+	// hasn't happened yet.
+	float LocalTime() const { return m_LocalTime; }
+	// Time in seconds since the client was opened.
+	float GlobalTime() const { return m_GlobalTime; }
+
+	// Render statistics.
+
+	// Duration in seconds of the previous render cycle.
+	float RenderFrameTime() const { return m_RenderFrameTime; }
+	// Exponentially weighted average of frame times.
+	float FrameTimeAverage() const { return m_FrameTimeAverage; }
 
 	// actions
 	virtual void Connect(const char *pAddress, const char *pPassword = nullptr) = 0;
@@ -178,7 +204,7 @@ public:
 #if defined(CONF_VIDEORECORDER)
 	virtual const char *DemoPlayer_Render(const char *pFilename, int StorageType, const char *pVideoName, int SpeedIndex, bool StartPaused = false) = 0;
 #endif
-	virtual void DemoRecorder_Start(const char *pFilename, bool WithTimestamp, int Recorder, bool Verbose = false) = 0;
+	virtual void DemoRecorder_Start(const char *pFilename, bool WithTimestamp, int Recorder) = 0;
 	virtual void DemoRecorder_HandleAutoStart() = 0;
 	virtual void DemoRecorder_UpdateReplayRecorder() = 0;
 	virtual class IDemoRecorder *DemoRecorder(int Recorder) = 0;
@@ -272,12 +298,7 @@ public:
 
 	virtual IGraphics::CTextureHandle GetDebugFont() const = 0; // TODO: remove this function
 
-	//DDRace
-
-	virtual const char *GetCurrentMap() const = 0;
-	virtual const char *GetCurrentMapPath() const = 0;
-	virtual SHA256_DIGEST GetCurrentMapSha256() const = 0;
-	virtual unsigned GetCurrentMapCrc() const = 0;
+	// DDRace
 
 	const char *News() const { return m_aNews; }
 	int Points() const { return m_Points; }
@@ -342,14 +363,8 @@ public:
 	virtual void ShellUnregister() = 0;
 #endif
 
-	enum EMessageBoxType
-	{
-		MESSAGE_BOX_TYPE_ERROR,
-		MESSAGE_BOX_TYPE_WARNING,
-		MESSAGE_BOX_TYPE_INFO,
-	};
-	virtual void ShowMessageBox(const char *pTitle, const char *pMessage, EMessageBoxType Type = MESSAGE_BOX_TYPE_ERROR) = 0;
-	virtual void GetGpuInfoString(char (&aGpuInfo)[256]) = 0;
+	virtual std::optional<int> ShowMessageBox(const IGraphics::CMessageBox &MessageBox) = 0;
+	virtual void GetGpuInfoString(char (&aGpuInfo)[512]) = 0;
 };
 
 class IGameClient : public IInterface
@@ -393,6 +408,8 @@ public:
 	virtual bool CanDisplayWarning() const = 0;
 	virtual void RenderShutdownMessage() = 0;
 
+	virtual IMap *Map() = 0;
+	virtual const IMap *Map() const = 0;
 	virtual CNetObjHandler *GetNetObjHandler() = 0;
 	virtual protocol7::CNetObjHandler *GetNetObjHandler7() = 0;
 
@@ -401,11 +418,12 @@ public:
 	virtual void ApplySkin7InfoFromSnapObj(const protocol7::CNetObj_De_ClientInfo *pObj, int ClientId) = 0;
 	virtual int OnDemoRecSnap7(class CSnapshot *pFrom, class CSnapshot *pTo, int Conn) = 0;
 	virtual int TranslateSnap(class CSnapshot *pSnapDstSix, class CSnapshot *pSnapSrcSeven, int Conn, bool Dummy) = 0;
+	virtual void ProcessDemoSnapshot(class CSnapshot *pSnap) = 0;
 
 	virtual void InitializeLanguage() = 0;
-};
 
-void SnapshotRemoveExtraProjectileInfo(class CSnapshot *pSnap);
+	virtual void ForceUpdateConsoleRemoteCompletionSuggestions() = 0;
+};
 
 extern IGameClient *CreateGameClient();
 #endif

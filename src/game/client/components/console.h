@@ -82,6 +82,11 @@ class CGameConsole : public CComponent
 		const char *m_pCommandHelp;
 		const char *m_pCommandParams;
 
+		bool m_CompletionDirty;
+		bool m_QueueResetAnimation;
+		std::vector<const char *> m_vpCommandSuggestions;
+		std::vector<const char *> m_vpArgumentSuggestions;
+
 		bool m_Searching = false;
 		struct SSearchMatch
 		{
@@ -116,13 +121,13 @@ class CGameConsole : public CComponent
 
 		const char *GetString() const { return m_Input.GetString(); }
 		/**
-		 * Gets the command at the current cursor including surrounding spaces.
+		 * Gets the command at the current cursor including trailing spaces.
 		 * Commands are split by semicolons.
 		 *
 		 * So if the current console input is for example "hello; world ;foo"
 		 *                                                        ^
 		 *                   and the cursor is here  -------------/
-		 * The result would be " world "
+		 * The result would be "world "
 		 *
 		 * @param pInput the console input line
 		 * @param aCmd the command the cursor is at
@@ -132,6 +137,9 @@ class CGameConsole : public CComponent
 		static void PossibleArgumentsCompleteCallback(int Index, const char *pStr, void *pUser);
 
 		void UpdateEntryTextAttributes(CBacklogEntry *pEntry) const;
+
+		bool IsInputHidden() const;
+		void UpdateCompletionSuggestions();
 
 	private:
 		void SetSearching(bool Searching);
@@ -158,8 +166,8 @@ class CGameConsole : public CComponent
 	bool m_WantsSelectionCopy = false;
 	CUi::CTouchState m_TouchState;
 
-	static inline constexpr ColorRGBA ms_SearchHighlightColor = ColorRGBA(1.0f, 0.0f, 0.0f, 1.0f);
-	static inline constexpr ColorRGBA ms_SearchSelectedColor = ColorRGBA(1.0f, 1.0f, 0.0f, 1.0f);
+	static constexpr ColorRGBA ms_SearchHighlightColor = ColorRGBA(1.0f, 0.0f, 0.0f, 1.0f);
+	static constexpr ColorRGBA ms_SearchSelectedColor = ColorRGBA(1.0f, 1.0f, 0.0f, 1.0f);
 
 	int PossibleMaps(const char *pStr, IConsole::FPossibleCallback pfnCallback = IConsole::EmptyPossibleCommandCallback, void *pUser = nullptr);
 
@@ -185,22 +193,24 @@ public:
 	};
 
 	CGameConsole();
-	~CGameConsole();
-	virtual int Sizeof() const override { return sizeof(*this); }
+	~CGameConsole() override;
+	int Sizeof() const override { return sizeof(*this); }
 
 	void PrintLine(int Type, const char *pLine);
 	void RequireUsername(bool UsernameReq);
 
-	virtual void OnStateChange(int NewState, int OldState) override;
-	virtual void OnConsoleInit() override;
-	virtual void OnInit() override;
-	virtual void OnReset() override;
-	virtual void OnRender() override;
-	virtual void OnMessage(int MsgType, void *pRawMsg) override;
-	virtual bool OnInput(const IInput::CEvent &Event) override;
+	void OnStateChange(int NewState, int OldState) override;
+	void OnConsoleInit() override;
+	void OnInit() override;
+	void OnReset() override;
+	void OnRender() override;
+	void OnMessage(int MsgType, void *pRawMsg) override;
+	bool OnInput(const IInput::CEvent &Event) override;
 	void Prompt(char (&aPrompt)[32]);
 
 	void Toggle(int Type);
 	bool IsActive() const { return m_ConsoleState != CONSOLE_CLOSED; }
+
+	void ForceUpdateRemoteCompletionSuggestions();
 };
 #endif

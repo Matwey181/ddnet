@@ -22,9 +22,6 @@ Abort
 Add
 == Adicionar
 
-Add Friend
-== Adicionar Amigo
-
 Address
 == Endereço
 
@@ -942,9 +939,6 @@ Restarting. Please wait…
 Loading skin files
 == A carregar os ficheiros de skin
 
-Loading background map
-== A carregar o mapa de fundo
-
 Searching
 == A pesquisar
 
@@ -1203,9 +1197,6 @@ Are you sure that you want to remove the player '%s' from your friends list?
 Are you sure that you want to remove the clan '%s' from your friends list?
 == Tens a certeza que queres remover o clã '%s' da tua lista de amigos?
 
-Add Clan
-== Adicionar Clã
-
 Server filter
 == Filtro de servidor
 
@@ -1225,12 +1216,12 @@ Go back the specified duration
 == Retroceder a duração especificada
 
 [Demo player duration]
-%d min.
-== %d min.
+%s min.
+== %s min.
 
 [Demo player duration]
-%d sec.
-== %d seg.
+%s sec.
+== %s seg.
 
 Change the skip duration
 == Mudar a duração de salto
@@ -1459,10 +1450,7 @@ Skip the main menu
 
 [Hertz]
 Hz
-== Hz 
-
-Save power by lowering refresh rate (higher input latency)
-== Poupa energia ao baixar a taxa de atualização (maior latência de entrada)
+== Hz
 
 Open the settings file
 == Abrir o ficheiro de definições
@@ -1757,20 +1745,8 @@ Width of others' hook collision line
 Hook collision line opacity
 == Opacidade da linha de colisão de gancho
 
-Colors of the hook collision line, in case of a possible collision with:
-== Cores da linha de colisão de gancho, em caso de:
-
 Your movements are not taken into account when calculating the line colors
 == Os teus movimentos não são levados em conta ao calcular as cores das linhas
-
-Nothing hookable
-== Nada para enganchar
-
-Something hookable
-== Algo para enganchar
-
-A Tee
-== Um Tee
 
 Preview 'Hook collisions' being pressed
 == Pré-visualização de 'Colisões de Gancho' a serem pressionadas
@@ -1847,9 +1823,6 @@ Adjust the opacity of entities belonging to other teams, such as tees and name p
 Show others (own team only)
 == Mostrar outros (apenas a tua equipa)
 
-Show quads
-== Mostrar quadriláteros
-
 Quads are used for background decoration
 == Os quadriláteros são usados para decoração de fundo
 
@@ -1909,9 +1882,6 @@ Open the directory to add custom assets
 
 Tutorial
 == Tutorial
-
-Can't find a Tutorial server
-== Não foi possível encontrar um servidor Tutorial
 
 Run server
 == Correr servidor
@@ -2041,7 +2011,25 @@ English translation by the DDNet Team
 Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom assets (skins, entities, etc.), especially those with high resolution.
 == 
 
+Press Ctrl+Shift+G to disable debug graphs.
+== 
+
 No demo with this filename exists
+== 
+
+Team save in progress. You'll be able to load with '/load %s'
+== 
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== 
+
+Save failed!
 == 
 
 Auto-sync player camera
@@ -2070,10 +2058,104 @@ Active
 Loading maps…
 == 
 
+[Spectating]
+Following %d: %s
+== 
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== 
+
+Server alert
+== 
+
+Moderator alert
+== 
+
+Server could not be started
+== 
+
+Loading map
+== 
+
+Joining Tutorial server
+== 
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== 
+
 This name cannot be used for files and folders
 == 
 
+You will be disconnected from the server.
+== 
+
+Could not get server list from master server
+== 
+
+There are no Tutorial servers available
+== 
+
+Retrying…
+== 
+
+Error joining Tutorial server
+== 
+
+Could not find a Tutorial server. Check your internet connection.
+== 
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 
+
+Waiting for local server to stop…
+== 
+
+Waiting for local server to start…
+== 
+
+Error checking player name
+== 
+
+Could not check for existing player with your name. Check your internet connection.
+== 
+
+Start and connect to local server
+== 
+
+Error loading communities
+== 
+
+Click to remove this community from your favorites.
+== 
+
+Click to add this community to your favorites.
+== 
+
+Add clan
+== 
+
+Add friend
+== 
+
+[Demo playback]
+Live
+== 
+
+[Demo playback]
+Go to Live
+== 
+
 Map size
+== 
+
+Are you sure that you want to disconnect and play this demo?
+== 
+
+Save all changes before turning off the editor?
 == 
 
 https://wiki.ddnet.org/wiki/Touch_controls
@@ -2109,6 +2191,326 @@ minimum
 maximum
 == 
 
+Layout
+== 
+
+Visibility
+== 
+
+Behavior
+== 
+
+Delete button
+== 
+
+Are you sure that you want to delete this button?
+== 
+
+Duplicate
+== 
+
+Please save your changes before duplicating a button.
+== 
+
+Deselect
+== 
+
+You'll lose unsaved changes after deselecting.
+== 
+
+Width
+== 
+
+Height
+== 
+
+Shape
+== 
+
+[Touch button shape]
+Rectangle
+== 
+
+[Touch button shape]
+Circle
+== 
+
+[Touch button label type]
+Plain
+== 
+
+[Touch button label type]
+Localized
+== 
+
+[Touch button label type]
+Icon
+== 
+
+Behavior type
+== 
+
+[Touch button behavior]
+Bind
+== 
+
+[Touch button behavior]
+Bind Toggle
+== 
+
+[Touch button behavior]
+Predefined
+== 
+
+Info
+== 
+
+Command
+== 
+
+Label
+== 
+
+Label type
+== 
+
+Add command
+== 
+
+Delete command
+== 
+
+[Touch button visibility preview]
+Included
+== 
+
+[Touch button visibility preview]
+Excluded
+== 
+
+[Touch button visibility preview]
+Ignore
+== 
+
+Button browser
+== 
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 
+
+New button
+== 
+
+Select button by touch
+== 
+
+No buttons match your filter criteria
+== 
+
+File
+== 
+
+Buttons
+== 
+
+Active color
+== 
+
+Inactive color
+== 
+
+Preview visibilities
+== 
+
+Preview button visibility while the editor is active.
+== 
+
+Show all buttons
+== 
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 
+
+Open DDNet Wiki
+== 
+
+Save all changes before switching selected button?
+== 
+
+Discard
+== 
+
+No space for button
+== 
+
+There is not enough space available for the button. Check its visibilities and size.
+== 
+
+Selected button not visible
+== 
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 
+
+Edit
+== 
+
+Width and height are required to be within the range from %d to %d.
+== 
+
+Button position is outside of the screen.
+== 
+
+The selected button is overlapping with other buttons.
+== 
+
+Wrong button settings
+== 
+
+There is not enough space available to place another button.
+== 
+
+[Touch button visibilities]
+Ingame
+== 
+
+[Touch button visibilities]
+Zoom Allowed
+== 
+
+[Touch button visibilities]
+Vote Active
+== 
+
+[Touch button visibilities]
+Dummy Allowed
+== 
+
+[Touch button visibilities]
+Dummy Connected
+== 
+
+[Touch button visibilities]
+Rcon Authed
+== 
+
+[Touch button visibilities]
+Demo Player
+== 
+
+[Touch button visibilities]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 
+
+[Predefined touch button behaviors]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Emoticon
+== 
+
+[Predefined touch button behaviors]
+Spectate
+== 
+
+[Predefined touch button behaviors]
+Swap Action
+== 
+
+[Predefined touch button behaviors]
+Use Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 
+
+Buttons with this behavior execute console commands like regular key binds.
+== 
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 
+
+Buttons with this behavior execute some predefined actions.
+== 
+
+Opens the ingame menu immediately when released.
+== 
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 
+
+Opens the emoticon selector (this does not work with binds).
+== 
+
+Opens the spectator menu (this does not work with binds).
+== 
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 
+
+Uses the active action with the current aiming position.
+== 
+
+Virtual joystick which uses the active action.
+== 
+
+Virtual joystick which only aims without using an action.
+== 
+
+Virtual joystick which always uses fire.
+== 
+
+Virtual joystick which always uses hook.
+== 
+
+Player is ingame, i.e. not spectating.
+== 
+
+Zoom is allowed on this server.
+== 
+
+A vote is currently active.
+== 
+
+Dummy is allowed on this server.
+== 
+
+Dummy is currently connected.
+== 
+
+Player is currently authed in rcon.
+== 
+
+Demo player is currently active.
+== 
+
+The extra menu with the given number is activated.
+== 
+
+Update Rate
+== 
+
+Save power by lowering update rate (higher input latency)
+== 
+
 Saves file
 == 
 
@@ -2139,6 +2541,12 @@ Show spectator cursor
 Show number of spectators
 == 
 
+Censor profanity
+== 
+
+Chat background color
+== 
+
 [Show name plates]
 None
 == 
@@ -2161,7 +2569,7 @@ Name plates offset
 Show friend icon in name plates
 == 
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == 
 
 Client IDs size
@@ -2192,13 +2600,53 @@ Preview player's name plate
 Preview dummy's name plate
 == 
 
+Colors of the hook collision line:
+== 
+
+[Hook collision line color]
+When nothing is hookable
+== 
+
+[Hook collision line color]
+When something is hookable
+== 
+
+[Hook collision line color]
+When a Tee is hookable
+== 
+
+[Hook collision line color]
+Hook collision line tip
+== 
+
 Dragger Outline Color
 == 
 
 Dragger Inner Color
 == 
 
+Show background quads
+== 
+
 AntiPing: prediction margin
+== 
+
+Scoreboard cursor
+== 
+
+Download
+== 
+
+Unmute
+== 
+
+Mute
+== 
+
+Unmute emoticons
+== 
+
+Mute emoticons
 == 
 
 https://wiki.ddnet.org/wiki/Mapping

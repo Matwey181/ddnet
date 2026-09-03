@@ -22,9 +22,6 @@ Abort
 Add
 == Ekle
 
-Add Friend
-== Arkadaş Ekle
-
 Address
 == Adres
 
@@ -167,7 +164,7 @@ Graphics
 == Grafik
 
 Grenade
-== El bombası
+== Bomba Atar
 
 Hammer
 == Çekiç
@@ -200,7 +197,7 @@ Language
 == Dil
 
 MOTD
-== MOTD
+== Sunucu mesajı
 
 Map
 == Harita
@@ -293,7 +290,7 @@ Remove
 == Çıkar
 
 Remove friend
-== Arkadaşı sil
+== Arkadaşı çıkar
 
 Rename demo
 == Demonun adını değiştir
@@ -377,7 +374,7 @@ Team chat
 == Takım sohbeti
 
 The audio device couldn't be initialised.
-== Ses donanımı başlatılamadı.
+== Ses aygıtı başlatılamadı.
 
 The server is running a non-standard tuning on a pure game type.
 == Bu sunucu standart olmayan bir ayarı saf bir oyun türünde kullanıyor.
@@ -596,7 +593,7 @@ Downloading %s:
 == İndiriliyor %s:
 
 Update failed! Check log…
-== Güncelleme sırasında hata oluştu!
+== Güncelleme başarısız oldu! Günlük dosyasını kontrol edin…
 
 DDNet Client updated!
 == DDNet İstemcisi güncellendi!
@@ -656,7 +653,7 @@ Show clan above name plates
 == Oyuncu isimlerinin üstünde klanı göster
 
 Clan plates size
-== Boyut
+== Klan etiket boyutu
 
 Refresh Rate
 == Yenileme Hızı
@@ -668,10 +665,10 @@ Automatically create statboard csv
 == Otomatik olarak skor tablosunu csv olarak oluştur
 
 Max CSVs
-== Maksimum CSVs
+== Maksimum CSV sayısı
 
 Vanilla skins only
-== Sadece vanilla skinleri
+== Sadece orijinal skinler
 
 Fat skins (DDFat)
 == Şişko skinler (DDFat)
@@ -837,9 +834,6 @@ Show text entities
 
 Show others (own team only)
 == Diğerlerini göster (sadece kendi takımını)
-
-Show quads
-== Dörtgen yapıları göster
 
 AntiPing
 == AntiPing
@@ -1156,9 +1150,6 @@ Are you sure that you want to remove the player '%s' from your friends list?
 Are you sure that you want to remove the clan '%s' from your friends list?
 == '%s' klanını arkadaş listenizden silmek istediğinize emin misiniz?
 
-Add Clan
-== Klan ekle
-
 Play the current demo
 == Demoyu oynat
 
@@ -1252,9 +1243,6 @@ Smooth Dynamic Camera
 Skip the main menu
 == Ana menüyü atla
 
-Save power by lowering refresh rate (higher input latency)
-== Tazeleme hızını düşürerek güç tasarrufu yap (daha yüksek girdi gecikmesi)
-
 Settings file
 == Ayarlar dosyası
 
@@ -1318,10 +1306,10 @@ Absolute
 == Mutlak
 
 Ingame controller sens.
-== Oyun içi kontrolcü hassasiyeti
+== Oyun içi kontrolcü hassasiyeti.
 
 UI controller sens.
-== Arayüz kontrolcü hassasiyeti 
+== Arayüz kontrolcü hassasiyeti.
 
 Controller jitter tolerance
 == Kontrolcü titreşim toleransı
@@ -1342,10 +1330,10 @@ Mouse
 == Fare
 
 Ingame mouse sens.
-== Oyun hassasiyeti
+== Oyun içi fare hassasiyeti.
 
 UI mouse sens.
-== Arayüz hassasiyeti
+== Arayüz fare hassasiyeti.
 
 Reset controls
 == Kontrolleri sıfırla
@@ -1372,7 +1360,7 @@ Desktop fullscreen
 == Masaüstü tam ekran
 
 Allows maps to render with more detail
-== Haritaların daha detaylı işlenmesine izin ver
+== Haritaların daha detaylı işlenmesini sağlar
 
 Renderer
 == İşleyici
@@ -1408,10 +1396,10 @@ Name Plate
 == İsim Etiketi
 
 Hook Collisions
-== Kanca kesişmeleri
+== Kanca Kesişmeleri
 
 Show health, shields and ammo
-== Can, kalkan ve cephaneyi göster 
+== Can, kalkan ve cephaneyi göster
 
 DDRace HUD
 == DDRace arayüzü
@@ -1420,7 +1408,7 @@ Show DDRace HUD
 == DDRace arayüzünü göster
 
 Show jumps indicator
-== Kaç zıplama kaldığını göster
+== Zıplama göstergesini aç
 
 Show dummy actions
 == Dummy aksiyonlarını göster
@@ -1452,20 +1440,8 @@ Hook collision line
 Hook collision line opacity
 == Kanca çizgisi opaklığı
 
-Colors of the hook collision line, in case of a possible collision with:
-== Olası bir kesişme durumunda kanca çizgisinin renkleri:
-
 Your movements are not taken into account when calculating the line colors
 == Çizgi renkleri hesaplanırken hareketleriniz dikkate alınmaz
-
-Nothing hookable
-== Kanca atılamaz
-
-Something hookable
-== Kanca atılabilir
-
-A Tee
-== Bir tee
 
 Normal Color
 == Normal rengi
@@ -1507,7 +1483,7 @@ Set all to Rifle
 == Hepsini tüfeğe göre ayarla
 
 When you cross the start line, show a ghost tee replicating the movements of your best time
-== Başlangıç çizgisini geçtiğinizde en iyi zamanınızın hareketlerini kopyalayan bir hayalet tee göster
+== Başlangıç çizgisini geçtiğinizde, en iyi sürenizin hareketlerini tekrarlayan bir hayalet tee göster
 
 Opacity
 == Opaklık
@@ -1519,7 +1495,7 @@ Quads are used for background decoration
 == Dörtgen yapılar arka plan dekorasyonu için kullanılır
 
 Tries to predict other entities to give a feel of low latency
-== Düşük gecikme hissi vermek için diğer yapıları tahmin etmeye çalışır
+== Düşük gecikme hissi vermek için diğer varlıkları tahmin etmeye çalışır
 
 Background
 == Arka plan
@@ -1563,9 +1539,6 @@ https://ddnet.org/discord
 Tutorial
 == Öğretici
 
-Can't find a Tutorial server
-== Öğretici sunucu bulunamıyor
-
 Website
 == Web sitesi
 
@@ -1576,7 +1549,7 @@ Stop server
 == Sunucuyu durdur
 
 Run server
-== Sunucu aç
+== Sunucuyu başlat
 
 Server executable not found, can't run server
 == Çalıştırılabilir sunucu bulunamadı, sunucu başlatılamıyor
@@ -1598,18 +1571,18 @@ Loading sound files
 == Ses dosyaları yükleniyor
 
 Moved ingame
-== Hareket edildi
+== Oyun içinde taşındın
 
 Go back the specified duration
 == Belirtilen süre kadar geri git
 
 [Demo player duration]
-%d min.
-== %d dk.
+%s min.
+== %s dk.
 
 [Demo player duration]
-%d sec.
-== %d sn.
+%s sec.
+== %s sn.
 
 Change the skip duration
 == Atlanacak süreyi değiştir
@@ -1621,7 +1594,7 @@ Render cut to video
 == Kesiti videoya dönüştür
 
 Error playing demo
-== Demo oynatırken hata oluştu
+== Demo oynatılırken hata oluştu
 
 Failed saving the replay!
 == Tekrar kaydedilemedi!
@@ -1645,7 +1618,7 @@ NOT CONNECTED
 == BAĞLI DEĞİL
 
 Match %d of %d
-== %d'den %d'yi eşleştir
+== %d/%d eşleşme
 
 No results
 == Sonuç yok
@@ -1684,10 +1657,10 @@ Are you sure that you want to restart?
 == Yeniden başlatmak istediğinizden eminmisiniz?
 
 There's an unsaved map in the editor, you might want to save it.
-== Editörde kaydedilmemiş bir harita var, kaydetmek isteyebilirsiniz
+== Editörde kaydedilmemiş bir harita var, kaydetmek isteyebilirsiniz.
 
 Continue anyway?
-== Yine de devam et
+== Yine de devam et?
 
 Videos directory
 == Video dizini
@@ -1765,7 +1738,7 @@ No login required
 == Giriş yapılmasına gerek yok
 
 Netversion
-==  Netversion
+== Netversion
 
 Player info change cooldown
 == Oyuncu bilgisini değiştirmek için bekleme süresi
@@ -1944,7 +1917,7 @@ Import from clipboard
 == Panodan içeri aktar
 
 Are you sure that you want to import the touch controls from the clipboard? This will overwrite your current touch controls.
-== Dokunmatik ayarlarını panodan içeri aktarmak istediğine emin misin? Bu şu anki kontrollerin üzerine yazılacak. 
+== Dokunmatik ayarlarını panodan içeri aktarmak istediğine emin misin? Bu şu anki kontrollerin üzerine yazılacak.
 
 Export to clipboard
 == Panodan dışarı aktar
@@ -1988,7 +1961,7 @@ Could not load touch controls from clipboard. See local console for details.
 == Dokunmatik ayarları panodan yüklenemedi. Detaylar için konsola bakın.
 
 Width of your own hook collision line
-== Kendi kancanın çarpışma çizgisi kalınlığı 
+== Kendi kanca çarpışma çizginizin kalınlığı
 
 Width of others' hook collision line
 == Başkalarının kancalarının çarpışma çizgisi kalınlığı
@@ -2007,9 +1980,6 @@ Active: Hook
 
 "%s" is not compatible with pnglite and cannot be loaded by old DDNet versions:
 == "%s" pnglite ile uyumlu değil ve eski DDnet versiyonları tarafından yüklenemiyor:
-
-Loading background map
-== Arkaplan haritası yükleniyor
 
 [Spectating Camera Mode Icon]
 AUTO
@@ -2096,7 +2066,7 @@ maximum
 == maksimum
 
 Saves file
-== Dosyayı kaydet 
+== Kayıt dosyası
 
 Open the saves file
 == Kayıt dosyasını aç
@@ -2164,7 +2134,7 @@ Name plates offset
 Show friend icon in name plates
 == Arkadaş ikonunu oyuncu isimlerinde göster
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == İstemci ID'lerini ayrı satırda göster
 
 Client IDs size
@@ -2203,3 +2173,481 @@ Dragger Inner Color
 
 AntiPing: prediction margin
 == AntiPing: tahmin marjı
+
+[Spectating]
+Following %d: %s
+== İzleniyor %d: %s
+
+Loading map
+== Harita yükleniyor
+
+Error checking player name
+== Oyuncu adı kontrol edilirken hata oluştu
+
+Could not check for existing player with your name. Check your internet connection.
+== Adınıza sahip mevcut oyuncu olup olmadığı kontrol edilemedi. İnternet bağlantınızı kontrol edin.
+
+Press Ctrl+Shift+G to disable debug graphs.
+== Hata ayıklama grafiğini devre dışı bırakmak için Ctrl+Shift+G tuşlarına basın.
+
+Server could not be started
+== Sunucu başlatılamadı
+
+Could not get server list from master server
+== Ana sunucudan sunucu listesi alınamadı
+
+[Demo playback]
+Live
+== Canlı
+
+[Demo playback]
+Go to Live
+== Canlıya Geç
+
+Save all changes before turning off the editor?
+== Editör kapatılmadan önce tüm değişiklikler kaydedilsin mi?
+
+Layout
+== Düzen
+
+Visibility
+== Görünürlük
+
+Behavior
+== Davranış
+
+Delete button
+== Buton sil
+
+Are you sure that you want to delete this button?
+== Bu butonu silmek istediğine emin misin?
+
+Duplicate
+== Çoğalt
+
+Please save your changes before duplicating a button.
+== Bir butonu çoğaltmadan önce lütfen değişiklikleri kaydedin.
+
+No space for button
+== Buton için yeterli alan yok
+
+There is not enough space available to place another button.
+== Başka bir buton yerleştirmek için yeterli alan yok.
+
+Deselect
+== Seçimi iptal et
+
+You'll lose unsaved changes after deselecting.
+== Seçimi iptal ettikten sonra kaydedilmemiş değişiklikler kaybolacak.
+
+Width
+== Genişlik
+
+Height
+== Yükseklik
+
+Shape
+== Şekil
+
+[Touch button shape]
+Rectangle
+== Dikdörtgen
+
+[Touch button shape]
+Circle
+== Daire
+
+[Touch button label type]
+Plain
+== Düz
+
+[Touch button label type]
+Localized
+== Sabit
+
+[Touch button label type]
+Icon
+== Simge
+
+Behavior type
+== Davranış biçimi
+
+[Touch button behavior]
+Bind
+== Atama
+
+[Touch button behavior]
+Bind Toggle
+== Aç/Kapa
+
+[Touch button behavior]
+Predefined
+== Ön tanımlı
+
+Command
+== Komut
+
+Label
+== Başlık
+
+Label type
+== Başlık türü
+
+Add command
+== Komut ekle
+
+Delete command
+== Komut sil
+
+[Touch button visibility preview]
+Included
+== Dahil
+
+[Touch button visibility preview]
+Excluded
+== Hariç
+
+[Touch button visibility preview]
+Ignore
+== Yok say
+
+New button
+== Yeni buton
+
+Select button by touch
+== Butonu dokunarak seç
+
+No buttons match your filter criteria
+== Filtre kriterlerine uyan buton yok
+
+File
+== Dosya
+
+Buttons
+== Butonlar
+
+Active color
+== Aktif renk
+
+Inactive color
+== İnaktif renk
+
+Preview button visibility while the editor is active.
+== Editör aktifken önizleme butonunu göster.
+
+Show all buttons
+== Tüm butonları göster
+
+Save all changes before switching selected button?
+== Seçili butonu değiştirmeden önce tüm değişiklikler kaydedilsin mi?
+
+Discard
+== İptal et
+
+There is not enough space available for the button. Check its visibilities and size.
+== Buton için yeterli alan yok. Görünürlüğünü ve büyüklüğünü kontrol edin.
+
+Selected button not visible
+== Seçili buton görünmez
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== Seçili buton görünmez. Seçimi iptal etmek ya da görünürlüğünü değiştirmek ister misin?
+
+Edit
+== Düzenle
+
+Width and height are required to be within the range from %d to %d.
+== Genişlik ve yükseklik, %d ile %d aralığında olmalıdır.
+
+Button position is outside of the screen.
+== Buton pozisyonu ekranın dışında.
+
+The selected button is overlapping with other buttons.
+== Seçili buton diğer butonlarla çakışıyor.
+
+Wrong button settings
+== Hatalı buton ayarları
+
+[Touch button visibilities]
+Ingame
+== Oyun içi
+
+[Touch button visibilities]
+Zoom Allowed
+== Yakınlaştırma İzinli
+
+[Touch button visibilities]
+Vote Active
+== Oylama Aktif
+
+[Touch button visibilities]
+Dummy Allowed
+== Dummy İzinli
+
+[Touch button visibilities]
+Dummy Connected
+== Dummy bağlandı
+
+[Touch button visibilities]
+Rcon Authed
+== Rcon doğrulandı
+
+[Touch button visibilities]
+Demo Player
+== Demo Oynatıcı
+
+[Touch button visibilities]
+Extra Menu
+== Ekstra Menü
+
+[Predefined touch button behaviors]
+Ingame Menu
+== Oyun İçi Menü
+
+[Predefined touch button behaviors]
+Extra Menu
+== Ekstra Menü
+
+[Predefined touch button behaviors]
+Emoticon
+== İfade
+
+[Predefined touch button behaviors]
+Spectate
+== İzle
+
+[Predefined touch button behaviors]
+Swap Action
+== Eylemi Değiştir
+
+[Predefined touch button behaviors]
+Use Action
+== Eylemi Kullan
+
+[Predefined touch button behaviors]
+Joystick Action
+== Joystick Eylemi
+
+[Predefined touch button behaviors]
+Joystick Aim
+== Joystick Aim
+
+[Predefined touch button behaviors]
+Joystick Fire
+== Joystick Ateş
+
+[Predefined touch button behaviors]
+Joystick Hook
+== Joystick Kanca
+
+Chat background color
+== Sohbet arka plan rengi
+
+Censor profanity
+== Küfür Sansürü
+
+Download
+== İndir
+
+Team save in progress. You'll be able to load with '/load %s'
+== Takım kaydediliyor. '/load %s' ile yükleyebilirsiniz
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== Takım kaydediliyor. Kayıt başarılı olursa '/load %s', başarısız olursa '/load %s' ile yükleyebilirsiniz
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== Takım %s tarafından başarıyla kaydedildi. Veritabanı bağlantısı başarısız, çakışmayı önlemek için otomatik kayıt kodu kullanılıyor. Devam etmek için '/load %s' kullanın
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== Takım %s tarafından başarıyla kaydedildi. Veritabanı bağlantısı başarısız, çakışmayı önlemek için otomatik kayıt kodu kullanılıyor. Devam etmek için '/load %s' komutunu %s sunucusunda kullanın
+
+Save failed!
+== Kayıt başarısız!
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== Kapatmak için Esc veya Tab basın…
+
+Server alert
+== Sunucu uyarısı
+
+Moderator alert
+== Moderatör uyarısı
+
+You will be disconnected from the server.
+== Sunucudan bağlantınız kesilecek.
+
+Are you sure that you want to disconnect and play this demo?
+== Bağlantıyı kesip bu demoyu oynatmak istediğinizden emin misiniz?
+
+Show background quads
+== Arka plan dörtgenlerini göster
+
+Scoreboard cursor
+== Skor tablosu imleci
+
+Add friend
+== Arkadaş ekle
+
+Unmute
+== Sessizi aç
+
+Mute
+== Sessize al
+
+Unmute emoticons
+== İfadeleri göster
+
+Mute emoticons
+== İfadeleri gizle
+
+There's an unsaved change in the touch controls editor, you might want to save it.
+== Dokunmatik ayarlarında kaydedilmemiş bir değişiklik var, kaydetmek isteyebilirsiniz.
+
+Start and connect to local server
+== Yerel sunucuyu başlat ve bağlan
+
+Add clan
+== Klan ekle
+
+Info
+== Bilgi
+
+Button browser
+== Buton tarayıcısı
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== Butonları aşağıdaki listeden direkt seçebilirsiniz, ya da ekrandaki butona uzun basıp seçebilirsiniz. Ayrıca dokunarak butonların yerini değiştirebilir ve yeniden boyutlandırabilirsiniz.
+
+Preview visibilities
+== Görünürlüğü önizle
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== Bu sayfada dokunmatik ayarlarını yönetebilirsiniz. Sadece kaydedilen değişiklikler istemciyi tekrar başlatınca geçerli olacak. Dokunmatik ayarlarınızı panoya kopyalayarak başkalarıyla paylaşabilirsiniz.\n\nDDNet Wiki'de dokunmatik kontrol ile ilgili daha detaylı bilgi edinebilirsiniz.
+
+Open DDNet Wiki
+== DDNet Wiki'yi aç
+
+Buttons with this behavior execute console commands like regular key binds.
+== Bu davranıştaki butonlar sıradan atamalar gibi konsol komutlarını çalıştırır.
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== Bu davranışa sahip butonlar iki veya daha fazla belirlenmiş komuttan birini sırayla çalıştırır.
+
+Buttons with this behavior execute some predefined actions.
+== Bu davranışa sahip butonlar önceden belirlenmiş bazı eylemleri çalıştırır.
+
+Opens the ingame menu immediately when released.
+== Serbest bırakıldığında hemen oyun içi menüyü açar.
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== "Ekstra Menü" görünürlüğüne sahip butonların görünürlüğünü değiştiren ekstra menü butonu. Ayrıca uzun basıldığında oyun içi menüyü açar.
+
+Opens the emoticon selector (this does not work with binds).
+== İfade seçiciyi açar (atamalarla çalışmaz).
+
+Opens the spectator menu (this does not work with binds).
+== İzleyici menüsünü açar (atamalarla çalışmaz).
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== Aktif eylemi (ateş ve kanca) doğrudan dokunma girişi ve sanal kumanda ile değiştirir.
+
+Uses the active action with the current aiming position.
+== Aktif eylemi geçerli hedef konumuyla kullanır.
+
+Virtual joystick which uses the active action.
+== Aktif eylemi kullanan sanal kumanda.
+
+Virtual joystick which only aims without using an action.
+== Herhangi bir eylem kullanmadan hedef alan sanal kumanda.
+
+Virtual joystick which always uses fire.
+== Sürekli ateş eylemini kullanan sanal kumanda.
+
+Virtual joystick which always uses hook.
+== Sürekli kanca eylemini kullanan sanal kumanda.
+
+Player is ingame, i.e. not spectating.
+== Oyuncu oyunda, yani izleyicide değil.
+
+Zoom is allowed on this server.
+== Bu sunucuda yakınlaştırma serbest.
+
+A vote is currently active.
+== Şu an zaten bir oylama var.
+
+Dummy is allowed on this server.
+== Bu sunucuda dummy kullanmak serbest.
+
+Dummy is currently connected.
+== Dummy şu anda bağlı.
+
+Player is currently authed in rcon.
+== Oyuncu şu anda rcon'da doğrulandı.
+
+Demo player is currently active.
+== Demo oynatıcı şu anda aktif.
+
+The extra menu with the given number is activated.
+== Belirtilen sayıda ekstra menü aktif edildi.
+
+Joining Tutorial server
+== Öğretici sunucuya bağlanılıyor
+
+There are no Tutorial servers available
+== Erişilebilir Öğretici sunucu yok
+
+Retrying…
+== Tekrar deneniyor…
+
+Error joining Tutorial server
+== Öğretici sunucuya katılırken hata
+
+Could not find a Tutorial server. Check your internet connection.
+== Öğretici sunucu bulunamadı. İnternet bağlantınızı kontrol edin.
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== Çevrimiçi Öğretici sunucu bulunamadığı için yerel sunucuda oynuyorsunuz.\n\nRekorunuz sadece yerel olarak kaydedilecek.
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== Çevrimiçi Öğretici sunucu bulunamadı.\nYerel sunucu başlatılıp bağlanılıyor…
+
+Waiting for local server to stop…
+== Yerel sunucunun kapanması bekleniyor…
+
+Waiting for local server to start…
+== Yerel sunucunun başlatılması bekleniyor…
+
+Error loading communities
+== Toplulukları yüklerken hata
+
+Click to remove this community from your favorites.
+== Bu topluluğu favorilerden çıkarmak için tıkla.
+
+Click to add this community to your favorites.
+== Bu topluluğu favorilere eklemek için tıkla.
+
+Update Rate
+== Yenileme Oranı
+
+Save power by lowering update rate (higher input latency)
+== Yenileme oranını düşürerek tasarruf et (daha fazla girdi gecikmesi)
+
+Colors of the hook collision line:
+== Kanca çizgisi renkleri:
+
+[Hook collision line color]
+When nothing is hookable
+== Hiçbir şey kancalanabilir olduğunda
+
+[Hook collision line color]
+When something is hookable
+== Kancalanabilir bir şey olduğunda
+
+[Hook collision line color]
+When a Tee is hookable
+== Bir Tee kancalanabilir olduğunda
+
+[Hook collision line color]
+Hook collision line tip
+== Kanca çizgisi ucu

@@ -22,9 +22,6 @@ Abort
 Add
 == Əlavə etmək
 
-Add Friend
-== Dost əlavə et
-
 Address
 == Ünvan
 
@@ -113,7 +110,7 @@ Dynamic Camera
 == Dinamik Kamera
 
 Emoticon
-== Emosiya 
+== Emosiya
 
 Error
 == Xəta
@@ -257,7 +254,7 @@ Ping
 == Ping
 
 Pistol
-== Tapança 
+== Tapança
 
 Play background music
 == Fon musiqisini çal
@@ -317,7 +314,7 @@ Server address:
 == Server ünvanı:
 
 Server info
-== Server haqqında 
+== Server haqqında
 
 Server not full
 == Sunucu dolu deyil
@@ -548,7 +545,7 @@ DDraceNetwork is a cooperative online game where the goal is for you and your gr
 == DDraceNetwork korperativ onlayn oyundur, bu xəritədə məqsəd siz və sizin qrupunuzun ən qısa zamanda finiş nöqtəsinə çatmağıdır. Yeni gələn oyunçular üçün asan xəritələrdə yəni  Novice(Təcrübəsiz) serverlərdə oynamağını tövsiyyə edirik. Hər hansı bir server seçmədən əvvəl, sizə yaxın bir server seçmək üçün ping-i nəzərdən keçirin.
 
 Use k key to kill (restart), q to pause and watch other players. See settings for other key binds.
-== İntihar etmək (yenidən başlamaq) üçün k düyməsi, oyunu dayandırıb digər oyunçuları izləmək üçün q düyməsini istifadə edə bilərsiniz. Digər düymələrə parametrlərdən baxa bilərsiniz. 
+== İntihar etmək (yenidən başlamaq) üçün k düyməsi, oyunu dayandırıb digər oyunçuları izləmək üçün q düyməsini istifadə edə bilərsiniz. Digər düymələrə parametrlərdən baxa bilərsiniz.
 
 It's recommended that you check the settings to adjust them to your liking before joining a server.
 == Serverlərə qoşulmadan əvvəl parametrləri nəzərdən keçirib özünüzə uyğun konfiqurasiya etməyinizi tövsiyyə edirik.
@@ -569,7 +566,7 @@ Search
 == Ara
 
 Exclude
-== Qəric 
+== Qəric
 
 Player country:
 == Oyunçu ölkəsi
@@ -605,7 +602,7 @@ Update now
 == yeniləmə
 
 Restart
-== Yenidən başlatmaq 
+== Yenidən başlatmaq
 
 Remove chat
 == Söhbəti silin
@@ -638,10 +635,10 @@ Connect Dummy
 == Dummy daxil ol
 
 Deactivate
-== Qeyri-aktiv etmək 
+== Qeyri-aktiv etmək
 
 Activate
-== Aktivləşdirmək 
+== Aktivləşdirmək
 
 Save
 == Saxla
@@ -764,7 +761,7 @@ Map sound volume
 == Xəritə səs səviyyəsi
 
 HUD
-== interfeys 
+== interfeys
 
 DDNet
 == DDNet
@@ -837,9 +834,6 @@ Show text entities
 
 Show others (own team only)
 == Başqalarını göstər (yalnız öz komanda)
-
-Show quads
-== Dördbucaqlı strukturları göstərin
 
 AntiPing
 == AntiPing
@@ -997,7 +991,7 @@ Sending initial client info
 == İlkin məlumatlar kliente göndərilir
 
 Warning
-== Xəbərdarlıq 
+== Xəbərdarlıq
 
 Quitting. Please wait…
 == Çıxılır. Zəhmət olmasa, gözləyin…
@@ -1066,7 +1060,7 @@ Unable to rename the folder
 == Qovluğun adı dəyişdirilə bilmədi
 
 File '%s' already exists, do you want to overwrite it?
-==  '%s' faylı hal-hazırda mövcuddur, əvəz edilsin??
+== '%s' faylı hal-hazırda mövcuddur, əvəz edilsin??
 
 (paused)
 == (fasilədə)
@@ -1156,9 +1150,6 @@ Are you sure that you want to remove the player '%s' from your friends list?
 Are you sure that you want to remove the clan '%s' from your friends list?
 == '%s' klanı dostlarınız siyahısından silmək istədiyinizə əminsiniz?
 
-Add Clan
-== Klan əlavə edin
-
 Play the current demo
 == Cari demoyu oynayın
 
@@ -1238,7 +1229,7 @@ Unable to delete the demo '%s'
 == '%s' demosu silinə bilmədi.
 
 Unable to delete the folder '%s'. Make sure it's empty first.
-==  '%s' qovluğu silinə bilmədi. Əvvəlcə boş olduğundan əmin olun.
+== '%s' qovluğu silinə bilmədi. Əvvəlcə boş olduğundan əmin olun.
 
 Loading ghost files
 == Ruh faylların yüklənməsi
@@ -1251,9 +1242,6 @@ Smooth Dynamic Camera
 
 Skip the main menu
 == Əsas menyudan keçin
-
-Save power by lowering refresh rate (higher input latency)
-== Yeniləmə sürətini azaltmaqla enerjiyə qənaət edin (daha yüksək giriş gecikməsi)
 
 Settings file
 == Parametrlər faylı
@@ -1289,13 +1277,13 @@ Create a random skin
 == Təsadüfi skin yaradın
 
 Skin Database
-== Skin verilənlər bazası 
+== Skin verilənlər bazası
 
 Skins directory
 == Skin qovluq
 
 Open the directory to add custom skins
-==  Xüsusi örtük(?) etmək üçün kataloqu açın.
+== Xüsusi örtük(?) etmək üçün kataloqu açın.
 
 Chat command
 == Söhbət əmri
@@ -1354,7 +1342,7 @@ Are you sure that you want to reset the controls to their defaults?
 == Kontrolleri varsayılan değerlerine döndürmek istediğine emin misin?
 
 Cancel
-== İmtina etmək 
+== İmtina etmək
 
 Dummy
 == Dummy
@@ -1384,10 +1372,10 @@ custom
 == xüsusi
 
 Graphics card
-== Video kart 
+== Video kart
 
 auto
-== avtomatik 
+== avtomatik
 
 Game sound volume
 == Oyun səs səviyyəsi
@@ -1405,7 +1393,7 @@ Assets
 == Mənbələr
 
 Name Plate
-==  İstifadəçi adı
+== İstifadəçi adı
 
 Hook Collisions
 == Qarmaq kəsişmələri
@@ -1417,7 +1405,7 @@ DDRace HUD
 == DDRace interfeysi
 
 Show DDRace HUD
-== DDRace interfeysi göstər 
+== DDRace interfeysi göstər
 
 Show jumps indicator
 == Neçə tullanma qaldığını göstər
@@ -1426,7 +1414,7 @@ Show dummy actions
 == Dummy hərəkətlərini göstər
 
 Show player position
-== Oyunçu pozisyalarını göstər 
+== Oyunçu pozisyalarını göstər
 
 Show player speed
 == Oyunçu sürətini göstər
@@ -1452,20 +1440,8 @@ Hook collision line
 Hook collision line opacity
 == Kanca çizgisi opaklığı
 
-Colors of the hook collision line, in case of a possible collision with:
-== OMümkün bir kəsişmə nəticəsində qarmaq izinin rəngləri:
-
 Your movements are not taken into account when calculating the line colors
 == Rəngləri hesablanarkən hərəkətləriniz diqqətə (qeydə) alınmaz
-
-Nothing hookable
-== Qarmaq atıla bilməz
-
-Something hookable
-== Qarmaq atıla bilər
-
-A Tee
-== Bir tee
 
 Normal Color
 == Normal rəngi
@@ -1519,7 +1495,7 @@ Quads are used for background decoration
 == Dördbucaq binalar arxa plan dekorasiyası üçün istifadə edilir
 
 Tries to predict other entities to give a feel of low latency
-== Kiçik gecikmə hissi vermək üçün digər binaları təxmin etməyə çalışdır 
+== Kiçik gecikmə hissi vermək üçün digər binaları təxmin etməyə çalışdır
 
 Background
 == Arxa fon
@@ -1563,9 +1539,6 @@ https://ddnet.org/discord
 Tutorial
 == Təlimat
 
-Can't find a Tutorial server
-== Təlimat server tapmaq mümkün deyil
-
 Website
 == Web-sayt
 
@@ -1604,12 +1577,12 @@ Go back the specified duration
 == Verilən zaman qədər geri qayıt
 
 [Demo player duration]
-%d min.
-== %d dəq.
+%s min.
+== %s dəq.
 
 [Demo player duration]
-%d sec.
-== %d san.
+%s sec.
+== %s san.
 
 Change the skip duration
 == Keçiləcək zamanı dəyişdir
@@ -1879,7 +1852,7 @@ Hz
 
 [skins]
 Body
-== Gövdə 
+== Gövdə
 
 [skins]
 Marking
@@ -2008,9 +1981,6 @@ Active: Hook
 "%s" is not compatible with pnglite and cannot be loaded by old DDNet versions:
 == "%s" pnglite ilə uyğun gəlmir və köhnə DDnet versiyaları tərəfindən yüklənə bilmir.
 
-Loading background map
-== Fon xəritəsi yüklənir
-
 [Spectating Camera Mode Icon]
 AUTO
 == AVTOMATİK
@@ -2118,13 +2088,445 @@ Show spectator cursor
 Out of VRAM. Try setting 'cl_skins_loaded_max' to a lower value or remove custom assets (skins, entities, etc.), especially those with high resolution.
 == 
 
+Press Ctrl+Shift+G to disable debug graphs.
+== 
+
 No demo with this filename exists
+== 
+
+Team save in progress. You'll be able to load with '/load %s'
+== 
+
+Team save in progress. You'll be able to load with '/load %s' if save is successful or with '/load %s' if it fails
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' to continue
+== 
+
+Team successfully saved by %s. The database connection failed, using generated save code instead to avoid collisions. Use '/load %s' on %s to continue
+== 
+
+Save failed!
+== 
+
+[Spectating]
+Following %d: %s
+== 
+
+[Important alert message]
+Press Esc or Tab to dismiss…
+== 
+
+Server alert
+== 
+
+Moderator alert
+== 
+
+Server could not be started
+== 
+
+Loading map
+== 
+
+Joining Tutorial server
+== 
+
+There's an unsaved change in the touch controls editor, you might want to save it.
 == 
 
 This name cannot be used for files and folders
 == 
 
+You will be disconnected from the server.
+== 
+
+Could not get server list from master server
+== 
+
+There are no Tutorial servers available
+== 
+
+Retrying…
+== 
+
+Error joining Tutorial server
+== 
+
+Could not find a Tutorial server. Check your internet connection.
+== 
+
+You're playing on a local server because no online Tutorial server could be found.\n\nYour record will only be saved locally.
+== 
+
+Could not find online Tutorial server.\nStarting and connecting to local server…
+== 
+
+Waiting for local server to stop…
+== 
+
+Waiting for local server to start…
+== 
+
+Error checking player name
+== 
+
+Could not check for existing player with your name. Check your internet connection.
+== 
+
+Start and connect to local server
+== 
+
+Error loading communities
+== 
+
+Click to remove this community from your favorites.
+== 
+
+Click to add this community to your favorites.
+== 
+
+Add clan
+== 
+
+Add friend
+== 
+
+[Demo playback]
+Live
+== 
+
+[Demo playback]
+Go to Live
+== 
+
 Map size
+== 
+
+Are you sure that you want to disconnect and play this demo?
+== 
+
+Save all changes before turning off the editor?
+== 
+
+Layout
+== 
+
+Visibility
+== 
+
+Behavior
+== 
+
+Delete button
+== 
+
+Are you sure that you want to delete this button?
+== 
+
+Duplicate
+== 
+
+Please save your changes before duplicating a button.
+== 
+
+Deselect
+== 
+
+You'll lose unsaved changes after deselecting.
+== 
+
+Width
+== 
+
+Height
+== 
+
+Shape
+== 
+
+[Touch button shape]
+Rectangle
+== 
+
+[Touch button shape]
+Circle
+== 
+
+[Touch button label type]
+Plain
+== 
+
+[Touch button label type]
+Localized
+== 
+
+[Touch button label type]
+Icon
+== 
+
+Behavior type
+== 
+
+[Touch button behavior]
+Bind
+== 
+
+[Touch button behavior]
+Bind Toggle
+== 
+
+[Touch button behavior]
+Predefined
+== 
+
+Info
+== 
+
+Command
+== 
+
+Label
+== 
+
+Label type
+== 
+
+Add command
+== 
+
+Delete command
+== 
+
+[Touch button visibility preview]
+Included
+== 
+
+[Touch button visibility preview]
+Excluded
+== 
+
+[Touch button visibility preview]
+Ignore
+== 
+
+Button browser
+== 
+
+You can select buttons directly in the list below, or long press on a touch button on the screen to select it. You can also move and resize buttons by touch.
+== 
+
+New button
+== 
+
+Select button by touch
+== 
+
+No buttons match your filter criteria
+== 
+
+File
+== 
+
+Buttons
+== 
+
+Active color
+== 
+
+Inactive color
+== 
+
+Preview visibilities
+== 
+
+Preview button visibility while the editor is active.
+== 
+
+Show all buttons
+== 
+
+You can manage your touch controls settings on this page. Only changes that are saved will be available after restarting the client. You can share your touch controls with others by exporting them to the clipboard.\n\nYou can find more detailed information about the touch controls on the DDNet Wiki.
+== 
+
+Open DDNet Wiki
+== 
+
+Save all changes before switching selected button?
+== 
+
+Discard
+== 
+
+No space for button
+== 
+
+There is not enough space available for the button. Check its visibilities and size.
+== 
+
+Selected button not visible
+== 
+
+The selected button is not visible. Do you want to deselect it or edit its visibility?
+== 
+
+Edit
+== 
+
+Width and height are required to be within the range from %d to %d.
+== 
+
+Button position is outside of the screen.
+== 
+
+The selected button is overlapping with other buttons.
+== 
+
+Wrong button settings
+== 
+
+There is not enough space available to place another button.
+== 
+
+[Touch button visibilities]
+Ingame
+== 
+
+[Touch button visibilities]
+Zoom Allowed
+== 
+
+[Touch button visibilities]
+Vote Active
+== 
+
+[Touch button visibilities]
+Dummy Allowed
+== 
+
+[Touch button visibilities]
+Dummy Connected
+== 
+
+[Touch button visibilities]
+Rcon Authed
+== 
+
+[Touch button visibilities]
+Demo Player
+== 
+
+[Touch button visibilities]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Ingame Menu
+== 
+
+[Predefined touch button behaviors]
+Extra Menu
+== 
+
+[Predefined touch button behaviors]
+Emoticon
+== 
+
+[Predefined touch button behaviors]
+Spectate
+== 
+
+[Predefined touch button behaviors]
+Swap Action
+== 
+
+[Predefined touch button behaviors]
+Use Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Action
+== 
+
+[Predefined touch button behaviors]
+Joystick Aim
+== 
+
+[Predefined touch button behaviors]
+Joystick Fire
+== 
+
+[Predefined touch button behaviors]
+Joystick Hook
+== 
+
+Buttons with this behavior execute console commands like regular key binds.
+== 
+
+Buttons with this behavior cycle between executing one of two or more specified commands.
+== 
+
+Buttons with this behavior execute some predefined actions.
+== 
+
+Opens the ingame menu immediately when released.
+== 
+
+The extra menu button which toggles visibility of buttons with "Extra Menu" visibilities. Also opens the ingame menu on long press.
+== 
+
+Opens the emoticon selector (this does not work with binds).
+== 
+
+Opens the spectator menu (this does not work with binds).
+== 
+
+Swaps the active action (fire and hook) for direct touch input and virtual joysticks.
+== 
+
+Uses the active action with the current aiming position.
+== 
+
+Virtual joystick which uses the active action.
+== 
+
+Virtual joystick which only aims without using an action.
+== 
+
+Virtual joystick which always uses fire.
+== 
+
+Virtual joystick which always uses hook.
+== 
+
+Player is ingame, i.e. not spectating.
+== 
+
+Zoom is allowed on this server.
+== 
+
+A vote is currently active.
+== 
+
+Dummy is allowed on this server.
+== 
+
+Dummy is currently connected.
+== 
+
+Player is currently authed in rcon.
+== 
+
+Demo player is currently active.
+== 
+
+The extra menu with the given number is activated.
+== 
+
+Update Rate
+== 
+
+Save power by lowering update rate (higher input latency)
 == 
 
 This skin name cannot be used.
@@ -2140,6 +2542,12 @@ No skins match your filter criteria
 == 
 
 Show number of spectators
+== 
+
+Censor profanity
+== 
+
+Chat background color
 == 
 
 [Show name plates]
@@ -2164,7 +2572,7 @@ Name plates offset
 Show friend icon in name plates
 == 
 
-Show client IDs on a seperate line
+Show client IDs on a separate line
 == 
 
 Client IDs size
@@ -2195,11 +2603,51 @@ Preview player's name plate
 Preview dummy's name plate
 == 
 
+Colors of the hook collision line:
+== 
+
+[Hook collision line color]
+When nothing is hookable
+== 
+
+[Hook collision line color]
+When something is hookable
+== 
+
+[Hook collision line color]
+When a Tee is hookable
+== 
+
+[Hook collision line color]
+Hook collision line tip
+== 
+
 Dragger Outline Color
 == 
 
 Dragger Inner Color
 == 
 
+Show background quads
+== 
+
 AntiPing: prediction margin
+== 
+
+Scoreboard cursor
+== 
+
+Download
+== 
+
+Unmute
+== 
+
+Mute
+== 
+
+Unmute emoticons
+== 
+
+Mute emoticons
 == 

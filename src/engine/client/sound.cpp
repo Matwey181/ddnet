@@ -1,15 +1,19 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#include <SDL.h>
+#include "sound.h"
 
+#include <base/bytes.h>
+#include <base/dbg.h>
+#include <base/log.h>
 #include <base/math.h>
-#include <base/system.h>
+#include <base/mem.h>
+#include <base/str.h>
 
 #include <engine/graphics.h>
 #include <engine/shared/config.h>
 #include <engine/storage.h>
 
-#include "sound.h"
+#include <SDL.h>
 
 #if defined(CONF_VIDEORECORDER)
 #include <engine/shared/video.h>
@@ -145,7 +149,9 @@ void CSound::Mix(short *pFinalOut, unsigned Frames)
 		if(Voice.m_Tick == Voice.m_pSample->m_NumFrames)
 		{
 			if(Voice.m_Flags & ISound::FLAG_LOOP)
-				Voice.m_Tick = 0;
+			{
+				Voice.m_Tick = Voice.m_pSample->m_LoopStart;
+			}
 			else
 			{
 				Voice.m_pSample = nullptr;
@@ -158,7 +164,7 @@ void CSound::Mix(short *pFinalOut, unsigned Frames)
 
 	// clamp accumulated values
 	for(unsigned i = 0; i < Frames * 2; i++)
-		pFinalOut[i] = clamp<int>(((m_pMixBuffer[i] * MasterVol) / 101) >> 8, std::numeric_limits<short>::min(), std::numeric_limits<short>::max());
+		pFinalOut[i] = std::clamp<int>(((m_pMixBuffer[i] * MasterVol) / 101) >> 8, std::numeric_limits<short>::min(), std::numeric_limits<short>::max());
 
 #if defined(CONF_ARCH_ENDIAN_BIG)
 	swap_endian(pFinalOut, sizeof(short), Frames * 2);
@@ -323,6 +329,10 @@ void CSound::RateConvert(CSample &Sample) const
 		}
 	}
 
+	// adjust looping position, note that this is not precise
+	const double Factor = (double)m_MixingRate / (double)Sample.m_Rate;
+	Sample.m_LoopStart = std::round(Sample.m_LoopStart * Factor);
+
 	// free old data and apply new
 	free(Sample.m_pData);
 	Sample.m_pData = pNewData;
@@ -330,7 +340,7 @@ void CSound::RateConvert(CSample &Sample) const
 	Sample.m_Rate = m_MixingRate;
 }
 
-bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) const
+bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize, const char *pContextName) const
 {
 	int OpusError = 0;
 	OggOpusFile *pOpusFile = op_open_memory((const unsigned char *)pData, DataSize, &OpusError);
@@ -340,7 +350,7 @@ bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) c
 		if(NumChannels > 2)
 		{
 			op_free(pOpusFile);
-			dbg_msg("sound/opus", "file is not mono or stereo.");
+			log_error("sound/opus", "File is not mono or stereo. Filename='%s'", pContextName);
 			return false;
 		}
 
@@ -348,7 +358,7 @@ bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) c
 		if(NumSamples < 0)
 		{
 			op_free(pOpusFile);
-			dbg_msg("sound/opus", "failed to get number of samples, error %d", NumSamples);
+			log_error("sound/opus", "Failed to get number of samples, error %d. Filename='%s'", NumSamples, pContextName);
 			return false;
 		}
 
@@ -362,7 +372,7 @@ bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) c
 			{
 				free(pSampleData);
 				op_free(pOpusFile);
-				dbg_msg("sound/opus", "op_read error %d at %d", Read, Pos);
+				log_error("sound/opus", "op_read error %d at %d. Filename='%s'", Read, Pos, pContextName);
 				return false;
 			}
 			else if(Read == 0) // EOF
@@ -370,19 +380,44 @@ bool CSound::DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) c
 			Pos += Read;
 		}
 
-		op_free(pOpusFile);
-
 		Sample.m_pData = pSampleData;
 		Sample.m_NumFrames = Pos;
 		Sample.m_Rate = 48000;
 		Sample.m_Channels = NumChannels;
-		Sample.m_LoopStart = -1;
-		Sample.m_LoopEnd = -1;
+		Sample.m_LoopStart = 0;
 		Sample.m_PausedAt = 0;
+
+		const OpusTags *pTags = op_tags(pOpusFile, -1);
+		if(pTags)
+		{
+			for(int i = 0; i < pTags->comments; ++i)
+			{
+				const char *pComment = pTags->user_comments[i];
+				if(!pComment)
+					continue;
+				if(!str_startswith(pComment, "LOOP_START="))
+					continue;
+				int LoopStart = -1;
+				if(!str_toint(pComment + str_length("LOOP_START="), &LoopStart))
+				{
+					log_error("sound/opus", "Invalid LOOP_START tag. Value='%s' Filename='%s'", pComment + str_length("LOOP_START="), pContextName);
+					break;
+				}
+				if(LoopStart < 0 || LoopStart >= Sample.m_NumFrames)
+				{
+					log_error("sound/opus", "Tag LOOP_START out of range. Value=%d Min=0 Max=%d Filename='%s'", LoopStart, Sample.m_NumFrames - 1, pContextName);
+					break;
+				}
+				Sample.m_LoopStart = LoopStart;
+				break;
+			}
+		}
+
+		op_free(pOpusFile);
 	}
 	else
 	{
-		dbg_msg("sound/opus", "failed to decode sample, error %d", OpusError);
+		log_error("sound/opus", "Failed to decode sample, error %d. Filename='%s'", OpusError, pContextName);
 		return false;
 	}
 
@@ -434,14 +469,18 @@ static int PushBackByte(void *pId, int Char)
 }
 #endif
 
-bool CSound::DecodeWV(CSample &Sample, const void *pData, unsigned DataSize) const
+bool CSound::DecodeWV(CSample &Sample, const void *pData, unsigned DataSize, const char *pContextName) const
 {
-	char aError[100];
+	// no need to load sound when we are running with no sound
+	if(!m_SoundEnabled)
+		return false;
 
 	dbg_assert(s_pWVBuffer == nullptr, "DecodeWV already in use");
 	s_pWVBuffer = pData;
 	s_WVBufferSize = DataSize;
 	s_WVBufferPosition = 0;
+
+	char aError[100];
 
 #if defined(CONF_WAVPACK_OPEN_FILE_INPUT_EX)
 	WavpackStreamReader Callback = {0};
@@ -463,14 +502,14 @@ bool CSound::DecodeWV(CSample &Sample, const void *pData, unsigned DataSize) con
 
 		if(NumChannels > 2)
 		{
-			dbg_msg("sound/wv", "file is not mono or stereo.");
+			log_error("sound/wv", "File is not mono or stereo. Filename='%s'", pContextName);
 			s_pWVBuffer = nullptr;
 			return false;
 		}
 
 		if(BitsPerSample != 16)
 		{
-			dbg_msg("sound/wv", "bps is %d, not 16", BitsPerSample);
+			log_error("sound/wv", "Bits per sample is %d, not 16. Filename='%s'", BitsPerSample, pContextName);
 			s_pWVBuffer = nullptr;
 			return false;
 		}
@@ -479,7 +518,7 @@ bool CSound::DecodeWV(CSample &Sample, const void *pData, unsigned DataSize) con
 		if(!WavpackUnpackSamples(pContext, pBuffer, NumSamples))
 		{
 			free(pBuffer);
-			dbg_msg("sound/wv", "WavpackUnpackSamples failed. NumSamples=%d, NumChannels=%d", NumSamples, NumChannels);
+			log_error("sound/wv", "WavpackUnpackSamples failed. NumSamples=%d NumChannels=%d Filename='%s'", NumSamples, NumChannels, pContextName);
 			s_pWVBuffer = nullptr;
 			return false;
 		}
@@ -499,15 +538,14 @@ bool CSound::DecodeWV(CSample &Sample, const void *pData, unsigned DataSize) con
 		Sample.m_NumFrames = NumSamples;
 		Sample.m_Rate = SampleRate;
 		Sample.m_Channels = NumChannels;
-		Sample.m_LoopStart = -1;
-		Sample.m_LoopEnd = -1;
+		Sample.m_LoopStart = 0;
 		Sample.m_PausedAt = 0;
 
 		s_pWVBuffer = nullptr;
 	}
 	else
 	{
-		dbg_msg("sound/wv", "failed to decode sample (%s)", aError);
+		log_error("sound/wv", "Failed to decode sample (%s). Filename='%s'", aError, pContextName);
 		s_pWVBuffer = nullptr;
 		return false;
 	}
@@ -524,7 +562,7 @@ int CSound::LoadOpus(const char *pFilename, int StorageType)
 	CSample *pSample = AllocSample();
 	if(!pSample)
 	{
-		dbg_msg("sound/opus", "failed to allocate sample ID. filename='%s'", pFilename);
+		log_error("sound/opus", "Failed to allocate sample ID. Filename='%s'", pFilename);
 		return -1;
 	}
 
@@ -533,11 +571,11 @@ int CSound::LoadOpus(const char *pFilename, int StorageType)
 	if(!m_pStorage->ReadFile(pFilename, StorageType, &pData, &DataSize))
 	{
 		UnloadSample(pSample->m_Index);
-		dbg_msg("sound/opus", "failed to open file. filename='%s'", pFilename);
+		log_error("sound/opus", "Failed to open file. Filename='%s'", pFilename);
 		return -1;
 	}
 
-	const bool DecodeSuccess = DecodeOpus(*pSample, pData, DataSize);
+	const bool DecodeSuccess = DecodeOpus(*pSample, pData, DataSize, pFilename);
 	free(pData);
 	if(!DecodeSuccess)
 	{
@@ -546,7 +584,7 @@ int CSound::LoadOpus(const char *pFilename, int StorageType)
 	}
 
 	if(g_Config.m_Debug)
-		dbg_msg("sound/opus", "loaded %s", pFilename);
+		log_trace("sound/opus", "Loaded '%s' (index %d)", pFilename, pSample->m_Index);
 
 	RateConvert(*pSample);
 	return pSample->m_Index;
@@ -561,7 +599,7 @@ int CSound::LoadWV(const char *pFilename, int StorageType)
 	CSample *pSample = AllocSample();
 	if(!pSample)
 	{
-		dbg_msg("sound/wv", "failed to allocate sample ID. filename='%s'", pFilename);
+		log_error("sound/wv", "Failed to allocate sample ID. Filename='%s'", pFilename);
 		return -1;
 	}
 
@@ -570,11 +608,11 @@ int CSound::LoadWV(const char *pFilename, int StorageType)
 	if(!m_pStorage->ReadFile(pFilename, StorageType, &pData, &DataSize))
 	{
 		UnloadSample(pSample->m_Index);
-		dbg_msg("sound/wv", "failed to open file. filename='%s'", pFilename);
+		log_error("sound/wv", "Failed to open file. Filename='%s'", pFilename);
 		return -1;
 	}
 
-	const bool DecodeSuccess = DecodeWV(*pSample, pData, DataSize);
+	const bool DecodeSuccess = DecodeWV(*pSample, pData, DataSize, pFilename);
 	free(pData);
 	if(!DecodeSuccess)
 	{
@@ -583,13 +621,13 @@ int CSound::LoadWV(const char *pFilename, int StorageType)
 	}
 
 	if(g_Config.m_Debug)
-		dbg_msg("sound/wv", "loaded %s", pFilename);
+		log_trace("sound/wv", "Loaded '%s' (index %d)", pFilename, pSample->m_Index);
 
 	RateConvert(*pSample);
 	return pSample->m_Index;
 }
 
-int CSound::LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad = false)
+int CSound::LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad, const char *pContextName)
 {
 	// no need to load sound when we are running with no sound
 	if(!m_SoundEnabled && !ForceLoad)
@@ -599,7 +637,7 @@ int CSound::LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad
 	if(!pSample)
 		return -1;
 
-	if(!DecodeOpus(*pSample, pData, DataSize))
+	if(!DecodeOpus(*pSample, pData, DataSize, pContextName))
 	{
 		UnloadSample(pSample->m_Index);
 		return -1;
@@ -609,7 +647,7 @@ int CSound::LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad
 	return pSample->m_Index;
 }
 
-int CSound::LoadWVFromMem(const void *pData, unsigned DataSize, bool ForceLoad = false)
+int CSound::LoadWVFromMem(const void *pData, unsigned DataSize, bool ForceLoad, const char *pContextName)
 {
 	// no need to load sound when we are running with no sound
 	if(!m_SoundEnabled && !ForceLoad)
@@ -619,7 +657,7 @@ int CSound::LoadWVFromMem(const void *pData, unsigned DataSize, bool ForceLoad =
 	if(!pSample)
 		return -1;
 
-	if(!DecodeWV(*pSample, pData, DataSize))
+	if(!DecodeWV(*pSample, pData, DataSize, pContextName))
 	{
 		UnloadSample(pSample->m_Index);
 		return -1;
@@ -734,7 +772,7 @@ void CSound::SetVoiceVolume(CVoiceHandle Voice, float Volume)
 	if(m_aVoices[VoiceId].m_Age != Voice.Age())
 		return;
 
-	Volume = clamp(Volume, 0.0f, 1.0f);
+	Volume = std::clamp(Volume, 0.0f, 1.0f);
 	m_aVoices[VoiceId].m_Vol = (int)(Volume * 255.0f);
 }
 
@@ -749,7 +787,7 @@ void CSound::SetVoiceFalloff(CVoiceHandle Voice, float Falloff)
 	if(m_aVoices[VoiceId].m_Age != Voice.Age())
 		return;
 
-	Falloff = clamp(Falloff, 0.0f, 1.0f);
+	Falloff = std::clamp(Falloff, 0.0f, 1.0f);
 	m_aVoices[VoiceId].m_Falloff = Falloff;
 }
 
@@ -785,9 +823,28 @@ void CSound::SetVoiceTimeOffset(CVoiceHandle Voice, float TimeOffset)
 	bool IsLooping = m_aVoices[VoiceId].m_Flags & ISound::FLAG_LOOP;
 	uint64_t TickOffset = m_aVoices[VoiceId].m_pSample->m_Rate * TimeOffset;
 	if(m_aVoices[VoiceId].m_pSample->m_NumFrames > 0 && IsLooping)
-		Tick = TickOffset % m_aVoices[VoiceId].m_pSample->m_NumFrames;
+	{
+		const int LoopStart = m_aVoices[VoiceId].m_pSample->m_LoopStart;
+		const int NumFrames = m_aVoices[VoiceId].m_pSample->m_NumFrames;
+		if(TickOffset < static_cast<uint64_t>(NumFrames))
+		{
+			// Still in first playthrough
+			Tick = TickOffset;
+		}
+		else
+		{
+			// Past first playthrough, wrap within loop section only
+			const int LoopLength = NumFrames - LoopStart;
+			if(LoopLength > 0)
+				Tick = LoopStart + ((TickOffset - NumFrames) % LoopLength);
+			else
+				Tick = LoopStart;
+		}
+	}
 	else
-		Tick = clamp(TickOffset, (uint64_t)0, (uint64_t)m_aVoices[VoiceId].m_pSample->m_NumFrames);
+	{
+		Tick = std::clamp<uint64_t>(TickOffset, 0, m_aVoices[VoiceId].m_pSample->m_NumFrames);
+	}
 
 	// at least 200msec off, else depend on buffer size
 	float Threshold = maximum(0.2f * m_aVoices[VoiceId].m_pSample->m_Rate, (float)m_MaxFrames);
@@ -869,7 +926,7 @@ ISound::CVoiceHandle CSound::Play(int ChannelId, int SampleId, int Flags, float 
 	{
 		m_aVoices[VoiceId].m_Tick = 0;
 	}
-	m_aVoices[VoiceId].m_Vol = (int)(clamp(Volume, 0.0f, 1.0f) * 255.0f);
+	m_aVoices[VoiceId].m_Vol = (int)(std::clamp(Volume, 0.0f, 1.0f) * 255.0f);
 	m_aVoices[VoiceId].m_Flags = Flags;
 	m_aVoices[VoiceId].m_Position = Position;
 	m_aVoices[VoiceId].m_Falloff = 0.0f;

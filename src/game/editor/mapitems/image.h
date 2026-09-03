@@ -1,18 +1,20 @@
 #ifndef GAME_EDITOR_MAPITEMS_IMAGE_H
 #define GAME_EDITOR_MAPITEMS_IMAGE_H
 
+#include <base/types.h>
+
 #include <engine/graphics.h>
 
 #include <game/editor/auto_map.h>
-#include <game/editor/component.h>
+#include <game/editor/map_object.h>
 
-class CEditorImage : public CImageInfo, public CEditorComponent
+class CEditorImage : public CImageInfo, public CMapObject
 {
 public:
-	explicit CEditorImage(CEditor *pEditor);
-	~CEditorImage();
+	explicit CEditorImage(CEditorMap *pMap);
+	~CEditorImage() override;
+	void OnAttach(CEditorMap *pMap) override;
 
-	void OnInit(CEditor *pEditor) override;
 	void AnalyseTileFlags();
 	void Free();
 
@@ -20,6 +22,7 @@ public:
 	int m_External = 0;
 	char m_aName[IO_MAX_PATH_LENGTH] = "";
 	unsigned char m_aTileFlags[256];
+
 	CAutoMapper m_AutoMapper;
 };
 

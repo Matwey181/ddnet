@@ -1,0 +1,29 @@
+name: Build iOS libraries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-libraries-ios:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Prepare macOS
+      run: |
+        brew update
+        brew install autoconf automake cmake libtool m4 ninja pkg-config autoconf-archive
+
+    - name: Build iOS libraries
+      run: |
+        export M4="$(brew --prefix m4)/bin/m4"
+        export LIBTOOLIZE=glibtoolize
+        export PATH="$(brew --prefix automake)/bin:$(brew --prefix autoconf)/bin:$PATH"
+        scripts/compile_libs/gen_libs.sh build-ios-libs ios
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ddnet-libs-ios
+        path: build-ios-libs/ddnet-libs

@@ -4,11 +4,14 @@
 #define ENGINE_DEMO_H
 
 #include "kernel.h"
+
 #include <base/hash.h>
+
 #include <engine/map.h>
 #include <engine/shared/uuid_manager.h>
 
 #include <cstdint>
+#include <optional>
 
 enum
 {
@@ -52,7 +55,7 @@ struct CTimelineMarkers
 struct CMapInfo
 {
 	char m_aName[MAX_MAP_LENGTH];
-	SHA256_DIGEST m_Sha256;
+	std::optional<SHA256_DIGEST> m_Sha256;
 	unsigned m_Crc;
 	unsigned m_Size;
 };
@@ -65,6 +68,8 @@ public:
 	{
 	public:
 		bool m_Paused;
+		bool m_LiveDemo;
+		bool m_LivePlayback;
 		float m_Speed;
 
 		int m_FirstTick;
@@ -82,14 +87,13 @@ public:
 		TICK_NEXT, // go to the next tick
 	};
 
-	virtual ~IDemoPlayer() {}
 	virtual void SetSpeed(float Speed) = 0;
 	virtual void SetSpeedIndex(int SpeedIndex) = 0;
 	virtual void AdjustSpeedIndex(int Offset) = 0;
-	virtual int SeekPercent(float Percent) = 0;
-	virtual int SeekTime(float Seconds) = 0;
-	virtual int SeekTick(ETickOffset TickOffset) = 0;
-	virtual int SetPos(int WantedTick) = 0;
+	virtual bool SeekPercent(float Percent) = 0;
+	virtual bool SeekTime(float Seconds) = 0;
+	virtual bool SeekTick(ETickOffset TickOffset) = 0;
+	virtual bool SetPos(int WantedTick) = 0;
 	virtual void Pause() = 0;
 	virtual void Unpause() = 0;
 	virtual const char *ErrorMessage() const = 0;
@@ -109,7 +113,6 @@ public:
 		REMOVE_FILE,
 	};
 
-	virtual ~IDemoRecorder() {}
 	virtual bool IsRecording() const = 0;
 	virtual int Stop(IDemoRecorder::EStopMode Mode, const char *pTargetFilename = "") = 0;
 	virtual int Length() const = 0;

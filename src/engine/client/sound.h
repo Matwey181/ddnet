@@ -21,7 +21,6 @@ struct CSample
 	int m_Rate;
 	int m_Channels;
 	int m_LoopStart;
-	int m_LoopEnd;
 	int m_PausedAt;
 
 	float TotalTime() const
@@ -96,8 +95,9 @@ class CSound : public IEngineSound
 	CSample *AllocSample() REQUIRES(!m_SoundLock);
 	void RateConvert(CSample &Sample) const;
 
-	bool DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize) const;
-	bool DecodeWV(CSample &Sample, const void *pData, unsigned DataSize) const;
+	// pContextName used for error
+	bool DecodeOpus(CSample &Sample, const void *pData, unsigned DataSize, const char *pContextName) const;
+	bool DecodeWV(CSample &Sample, const void *pData, unsigned DataSize, const char *pContextName) const;
 
 	void UpdateVolume();
 
@@ -110,8 +110,8 @@ public:
 
 	int LoadOpus(const char *pFilename, int StorageType = IStorage::TYPE_ALL) override REQUIRES(!m_SoundLock);
 	int LoadWV(const char *pFilename, int StorageType = IStorage::TYPE_ALL) override REQUIRES(!m_SoundLock);
-	int LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad) override REQUIRES(!m_SoundLock);
-	int LoadWVFromMem(const void *pData, unsigned DataSize, bool ForceLoad) override REQUIRES(!m_SoundLock);
+	int LoadOpusFromMem(const void *pData, unsigned DataSize, bool ForceLoad, const char *pContextName) override REQUIRES(!m_SoundLock);
+	int LoadWVFromMem(const void *pData, unsigned DataSize, bool ForceLoad, const char *pContextName) override REQUIRES(!m_SoundLock);
 	void UnloadSample(int SampleId) override REQUIRES(!m_SoundLock);
 
 	float GetSampleTotalTime(int SampleId) override REQUIRES(!m_SoundLock); // in s

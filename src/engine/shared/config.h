@@ -14,22 +14,41 @@
 // include protocol for MAX_CLIENT used in config_variables
 #include <engine/shared/protocol.h>
 
+static constexpr const char *DEFAULT_SAVED_RCON_USER = "local-server";
+
 #define CONFIG_FILE "settings_ddnet.cfg"
 #define AUTOEXEC_FILE "autoexec.cfg"
 #define AUTOEXEC_CLIENT_FILE "autoexec_client.cfg"
 #define AUTOEXEC_SERVER_FILE "autoexec_server.cfg"
 
+/**
+ * Stores the current values of all client, server and game config variables.
+ *
+ * The config variables are declared in `src/engine/shared/config_variables.h`.
+ */
 class CConfig
 {
 public:
 #define MACRO_CONFIG_INT(Name, ScriptName, Def, Min, Max, Flags, Desc) \
-	static constexpr int ms_##Name = Def; \
+	/** Config variable: ScriptName\n \
+		Type: Integer\n \
+		Default: Def\n \
+		Minimum: Min\n \
+		Maximum: Max\n \
+		Description: Desc */ \
 	int m_##Name;
 #define MACRO_CONFIG_COL(Name, ScriptName, Def, Flags, Desc) \
-	static constexpr unsigned ms_##Name = Def; \
+	/** Config variable: ScriptName\n \
+		Type: Color\n \
+		Default: Def\n \
+		Description: Desc */ \
 	unsigned m_##Name;
 #define MACRO_CONFIG_STR(Name, ScriptName, Len, Def, Flags, Desc) \
-	static constexpr const char *ms_p##Name = Def; \
+	/** Config variable: ScriptName\n \
+		Type: String\n \
+		Length: Len\n \
+		Default: Def\n \
+		Description: Desc */ \
 	char m_##Name[Len]; // Flawfinder: ignore
 #include "config_variables.h"
 #undef MACRO_CONFIG_INT
@@ -38,6 +57,26 @@ public:
 };
 
 extern CConfig g_Config;
+
+/**
+ * The default values of all config variables in @link CConfig @endlink.
+ */
+namespace DefaultConfig
+{
+#define MACRO_CONFIG_INT(Name, ScriptName, Def, Min, Max, Flags, Desc) \
+	/** Default value of the integer config variable 'ScriptName' (see CConfig::m_##Name). */ \
+	static constexpr int Name = Def;
+#define MACRO_CONFIG_COL(Name, ScriptName, Def, Flags, Desc) \
+	/** Default value of the color config variable 'ScriptName' (see CConfig::m_##Name). */ \
+	static constexpr unsigned Name = Def;
+#define MACRO_CONFIG_STR(Name, ScriptName, Len, Def, Flags, Desc) \
+	/** Default value of the string config variable 'ScriptName' (see CConfig::m_##Name). */ \
+	static constexpr const char *const Name = Def;
+#include "config_variables.h"
+#undef MACRO_CONFIG_INT
+#undef MACRO_CONFIG_COL
+#undef MACRO_CONFIG_STR
+}
 
 enum
 {
@@ -60,6 +99,14 @@ enum
 	CMDFLAG_PRACTICE = 1 << 14,
 };
 
+#ifdef CONF_DEBUG
+#define CFGFLAG_DEBUG_SERVER CFGFLAG_SERVER
+#define CFGFLAG_DEBUG_CLIENT CFGFLAG_CLIENT
+#else
+#define CFGFLAG_DEBUG_SERVER 0
+#define CFGFLAG_DEBUG_CLIENT 0
+#endif
+
 struct SConfigVariable
 {
 	enum EVariableType
@@ -74,7 +121,7 @@ struct SConfigVariable
 	int m_Flags;
 	const char *m_pHelp;
 	// Note that this only applies to the console command and the SetValue function,
-	// but the underlying config variable can still be modified programatically.
+	// but the underlying config variable can still be modified programmatically.
 	bool m_ReadOnly = false;
 
 	SConfigVariable(IConsole *pConsole, const char *pScriptName, EVariableType Type, int Flags, const char *pHelp) :
@@ -229,6 +276,7 @@ public:
 	void Reset(const char *pScriptName) override;
 	void ResetGameSettings() override;
 	void SetReadOnly(const char *pScriptName, bool ReadOnly) override;
+	void SetGameSettingsReadOnly(bool ReadOnly) override;
 	bool Save() override;
 	CConfig *Values() override { return &g_Config; }
 

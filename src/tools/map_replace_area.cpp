@@ -1,13 +1,16 @@
 #include <base/logger.h>
+#include <base/os.h>
 #include <base/system.h>
+
 #include <engine/shared/datafile.h>
 #include <engine/storage.h>
+
 #include <game/mapitems.h>
 
 // global new layers data (set by ReplaceAreaTiles and ReplaceAreaQuads)
-void *g_apNewData[1024];
-void *g_apNewItem[1024];
-int g_aNewDataSize[1024];
+static void *g_apNewData[1024];
+static void *g_apNewItem[1024];
+static int g_aNewDataSize[1024];
 
 class CMapObject // quad pivot or tile layer
 {
@@ -23,39 +26,37 @@ public:
 	float m_aaExtendedArea[2][2]; // extended with parallax
 };
 
-bool ReplaceArea(IStorage *, const char[3][64], const float[][2][2]);
-bool OpenMaps(IStorage *, const char[3][64], CDataFileReader[2], CDataFileWriter &);
-void SaveOutputMap(CDataFileReader &, CDataFileWriter &);
-bool CompareLayers(const char[3][64], CDataFileReader[2]);
-void CompareGroups(const char[3][64], CDataFileReader[2]);
-const CMapItemGroup *GetLayerGroup(CDataFileReader &, int);
+static bool ReplaceArea(IStorage *, const char[3][64], const float[][2][2]);
+static bool OpenMaps(IStorage *, const char[3][64], CDataFileReader[2], CDataFileWriter &);
+static void SaveOutputMap(CDataFileReader &, CDataFileWriter &);
+static bool CompareLayers(const char[3][64], CDataFileReader[2]);
+static void CompareGroups(const char[3][64], CDataFileReader[2]);
+static const CMapItemGroup *GetLayerGroup(CDataFileReader &, int);
 
-void ReplaceAreaTiles(CDataFileReader[2], const float[][2][2], const CMapItemGroup *[2], CMapItemLayer *[2]);
-void RemoveDestinationTiles(CMapItemLayerTilemap *, CTile *, float[2][2]);
-void ReplaceDestinationTiles(CMapItemLayerTilemap *[2], CTile *[2], float[2][2][2]);
-bool AdaptVisibleAreas(const float[2][2][2], const CMapObject[2], float[2][2][2]);
-bool AdaptReplaceableAreas(const float[2][2][2], const float[2][2][2], const CMapObject[2], float[2][2][2]);
+static void ReplaceAreaTiles(CDataFileReader[2], const float[][2][2], const CMapItemGroup *[2], CMapItemLayer *[2]);
+static void RemoveDestinationTiles(CMapItemLayerTilemap *, CTile *, float[2][2]);
+static void ReplaceDestinationTiles(CMapItemLayerTilemap *[2], CTile *[2], float[2][2][2]);
+static bool AdaptVisibleAreas(const float[2][2][2], const CMapObject[2], float[2][2][2]);
+static bool AdaptReplaceableAreas(const float[2][2][2], const float[2][2][2], const CMapObject[2], float[2][2][2]);
 
-void ReplaceAreaQuads(CDataFileReader[2], const float[][2][2], const CMapItemGroup *[2], CMapItemLayer *[2], int);
-bool RemoveDestinationQuads(const float[2][2], const CQuad *, int, const CMapItemGroup *, CQuad *, int &);
-bool InsertDestinationQuads(const float[2][2][2], const CQuad *, int, const CMapItemGroup *[2], CQuad *, int &);
-bool AdaptVisiblePoint(const float[2][2][2], const float[2][2], const CMapObject[2], float[2]);
+static void ReplaceAreaQuads(CDataFileReader[2], const float[][2][2], const CMapItemGroup *[2], CMapItemLayer *[2], int);
+static bool RemoveDestinationQuads(const float[2][2], const CQuad *, int, const CMapItemGroup *, CQuad *, int &);
+static bool InsertDestinationQuads(const float[2][2][2], const CQuad *, int, const CMapItemGroup *[2], CQuad *, int &);
+static bool AdaptVisiblePoint(const float[2][2][2], const float[2][2], const CMapObject[2], float[2]);
 
-CMapObject CreateMapObject(const CMapItemGroup *, int, int, int, int);
-void SetExtendedArea(CMapObject &);
-bool GetVisibleArea(const float[2][2], const CMapObject &, float[2][2] = nullptr);
-bool GetReplaceableArea(const float[2][2], const CMapObject &, float[2][2]);
+static CMapObject CreateMapObject(const CMapItemGroup *, int, int, int, int);
+static void SetExtendedArea(CMapObject &);
+static bool GetVisibleArea(const float[2][2], const CMapObject &, float[2][2] = nullptr);
+static bool GetReplaceableArea(const float[2][2], const CMapObject &, float[2][2]);
 
-void GetGameAreaDistance(const float[2][2][2], const CMapObject[2], const float[2][2][2], float[2]);
-void GetGameAreaDistance(const float[2][2][2], const CMapObject[2], const float[2][2], float[2]);
-void GetSignificantScreenPos(const CMapObject &, const float[2][2], const float[2][2], float[2]);
-void ConvertToTiles(const float[2][2], int[2][2]);
+static void GetGameAreaDistance(const float[2][2][2], const CMapObject[2], const float[2][2][2], float[2]);
+static void GetGameAreaDistance(const float[2][2][2], const CMapObject[2], const float[2][2], float[2]);
+static void GetSignificantScreenPos(const CMapObject &, const float[2][2], const float[2][2], float[2]);
+static void ConvertToTiles(const float[2][2], int[2][2]);
 
-bool GetLineIntersection(const float[2], const float[2], float[2] = nullptr);
-bool GetLineIntersection(const float[2], float);
-void SetInexistent(float *, int);
-bool IsInexistent(const float *, int);
-bool IsInexistent(float);
+static bool GetLineIntersection(const float[2], const float[2], float[2]);
+static void SetInexistent(float *, int);
+static bool IsInexistent(const float *, int);
 
 int main(int argc, const char *argv[])
 {
@@ -88,7 +89,7 @@ int main(int argc, const char *argv[])
 
 	cmdline_free(argc, argv);
 
-	dbg_msg("map_replace_area", "from_map='%s'; to_map='%s'; from_area='%fx,%fy'; to_area='%fx,%fy'; area_width='%fpx'; area_heigth='%fpx'; output_map='%s'",
+	dbg_msg("map_replace_area", "from_map='%s'; to_map='%s'; from_area='%fx,%fy'; to_area='%fx,%fy'; area_width='%fpx'; area_height='%fpx'; output_map='%s'",
 		aaMapNames[0], aaMapNames[1], aaaGameAreas[0][0][0], aaaGameAreas[0][1][0], aaaGameAreas[1][0][0], aaaGameAreas[1][1][0],
 		aaaGameAreas[0][0][1] - aaaGameAreas[0][0][0], aaaGameAreas[0][1][1] - aaaGameAreas[0][1][0], aaMapNames[2]);
 
@@ -652,11 +653,6 @@ bool GetLineIntersection(const float aLine1[2], const float aLine2[2], float aIn
 	return true;
 }
 
-bool GetLineIntersection(const float aLine[2], const float Point)
-{
-	return aLine[0] - Point <= 0.01f && aLine[1] - Point >= 0.01f;
-}
-
 void SetInexistent(float *pArray, const int Count)
 {
 	for(int i = 0; i < Count; i++)
@@ -669,9 +665,4 @@ bool IsInexistent(const float *pArray, const int Count)
 		if(pArray[i] == std::numeric_limits<float>::max())
 			return true;
 	return false;
-}
-
-bool IsInexistent(const float Value)
-{
-	return Value == std::numeric_limits<float>::max();
 }

@@ -7,6 +7,7 @@
 #include "teamscore.h"
 
 #include <base/system.h>
+
 #include <engine/shared/config.h>
 
 #include <limits>
@@ -55,13 +56,13 @@ float CTuningParams::GetWeaponFireDelay(int Weapon) const
 {
 	switch(Weapon)
 	{
-	case WEAPON_HAMMER: return (float)m_HammerHitFireDelay / 1000.0f;
+	case WEAPON_HAMMER: return (float)m_HammerFireDelay / 1000.0f;
 	case WEAPON_GUN: return (float)m_GunFireDelay / 1000.0f;
 	case WEAPON_SHOTGUN: return (float)m_ShotgunFireDelay / 1000.0f;
 	case WEAPON_GRENADE: return (float)m_GrenadeFireDelay / 1000.0f;
 	case WEAPON_LASER: return (float)m_LaserFireDelay / 1000.0f;
 	case WEAPON_NINJA: return (float)m_NinjaFireDelay / 1000.0f;
-	default: dbg_assert(false, "invalid weapon"); return 0.0f; // this value should not be reached
+	default: dbg_assert_failed("invalid weapon");
 	}
 }
 
@@ -132,9 +133,6 @@ void CCharacterCore::Init(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore
 
 	m_pTeams = pTeams;
 	m_Id = -1;
-
-	// fail safe, if core's tuning didn't get updated at all, just fallback to world tuning.
-	m_Tuning = m_pWorld->m_aTuning[g_Config.m_ClDummy];
 }
 
 void CCharacterCore::SetCoreWorld(CWorldCore *pWorld, CCollision *pCollision, CTeamsCore *pTeams)
@@ -194,7 +192,7 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 	m_TriggeredEvents = 0;
 
 	// get ground state
-	const bool Grounded = m_pCollision->CheckPoint(m_Pos.x + PhysicalSize() / 2, m_Pos.y + PhysicalSize() / 2 + 5) || m_pCollision->CheckPoint(m_Pos.x - PhysicalSize() / 2, m_Pos.y + PhysicalSize() / 2 + 5);
+	const bool Grounded = m_pCollision->IsOnGround(m_Pos, PhysicalSize());
 	vec2 TargetDirection = normalize(vec2(m_Input.m_TargetX, m_Input.m_TargetY));
 
 	m_Vel.y += m_Tuning.m_Gravity;
@@ -330,8 +328,8 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 		bool GoingToHitGround = false;
 		bool GoingToRetract = false;
 		bool GoingThroughTele = false;
-		int teleNr = 0;
-		int Hit = m_pCollision->IntersectLineTeleHook(m_HookPos, NewPos, &NewPos, nullptr, &teleNr);
+		int TeleNr = 0;
+		int Hit = m_pCollision->IntersectLineTeleHook(m_HookPos, NewPos, &NewPos, nullptr, &TeleNr);
 
 		if(Hit)
 		{
@@ -385,14 +383,14 @@ void CCharacterCore::Tick(bool UseInput, bool DoDeferredTick)
 				m_HookState = HOOK_RETRACT_START;
 			}
 
-			if(GoingThroughTele && m_pWorld && !m_pCollision->TeleOuts(teleNr - 1).empty())
+			if(GoingThroughTele && m_pWorld && !m_pCollision->TeleOuts(TeleNr - 1).empty())
 			{
 				m_TriggeredEvents = 0;
 				SetHookedPlayer(-1);
 
 				m_NewHook = true;
-				int RandomOut = m_pWorld->RandomOr0(m_pCollision->TeleOuts(teleNr - 1).size());
-				m_HookPos = m_pCollision->TeleOuts(teleNr - 1)[RandomOut] + TargetDirection * PhysicalSize() * 1.5f;
+				int RandomOut = m_pWorld->RandomOr0(m_pCollision->TeleOuts(TeleNr - 1).size());
+				m_HookPos = m_pCollision->TeleOuts(TeleNr - 1)[RandomOut] + TargetDirection * PhysicalSize() * 1.5f;
 				m_HookDir = TargetDirection;
 				m_HookTeleBase = m_HookPos;
 			}
@@ -758,3 +756,5 @@ void CWorldCore::InitSwitchers(int HighestSwitchNumber)
 		}
 	}
 }
+
+const CTuningParams CTuningParams::DEFAULT;

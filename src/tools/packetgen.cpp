@@ -1,13 +1,15 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
-#include <base/system.h>
+#include <base/io.h>
+#include <base/net.h>
+#include <base/os.h>
 
 enum
 {
 	NUM_SOCKETS = 64
 };
 
-void Run(NETADDR Dest)
+static void Run(NETADDR Dest)
 {
 	NETSOCKET aSockets[NUM_SOCKETS];
 

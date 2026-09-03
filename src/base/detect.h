@@ -76,10 +76,18 @@
 #endif
 
 #if defined(MACOSX) || defined(__APPLE__) || defined(__DARWIN__)
+#include <TargetConditionals.h>
 #define CONF_FAMILY_UNIX 1
 #define CONF_FAMILY_STRING "unix"
+#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
+#define CONF_PLATFORM_IOS 1
+#define PLATFORM_STRING "ios"
+#define CONF_BACKEND_OPENGL_ES 1
+#define CONF_BACKEND_OPENGL_ES3 1
+#else
 #define CONF_PLATFORM_MACOS 1
 #define PLATFORM_STRING "macos"
+#endif
 #endif
 
 #if defined(__sun)
@@ -191,11 +199,14 @@
 #define PLATFORM_STRING "unknown"
 #endif
 
-#ifndef PLATFORM_SUFFIX
-#define PLATFORM_SUFFIX ""
-#endif
+#define STRINGIFY2(x) #x
+#define STRINGIFY(x) STRINGIFY2(x)
 
-#define CONF_PLATFORM_STRING PLATFORM_STRING PLATFORM_SUFFIX
+#if defined(PLATFORM_SUFFIX)
+#define CONF_PLATFORM_STRING PLATFORM_STRING STRINGIFY(PLATFORM_SUFFIX)
+#else
+#define CONF_PLATFORM_STRING PLATFORM_STRING
+#endif
 
 #ifndef CONF_ARCH_STRING
 #define CONF_ARCH_STRING "unknown"

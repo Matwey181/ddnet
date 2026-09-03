@@ -1,6 +1,7 @@
 #include "glsl_shader_compiler.h"
 
 #include <base/system.h>
+
 #include <engine/graphics.h>
 
 CGLSLCompiler::CGLSLCompiler(int OpenGLVersionMajor, int OpenGLVersionMinor, int OpenGLVersionPatch, bool IsOpenGLES, float TextureLODBias)
@@ -181,7 +182,7 @@ void CGLSLCompiler::ParseLine(std::string &Line, const char *pReadLine, EGLSLSha
 
 					if(str_comp(aTmpStr, "noperspective") == 0)
 					{
-						Line.append("smooth");
+						// GLES does not support noperspective. Drop it to use the default (smooth) inexplicitly because shaders fail to compile on iOS otherwise.
 						Line.append(pBuff);
 						return;
 					}

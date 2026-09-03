@@ -3,11 +3,11 @@
 #ifndef ENGINE_SHARED_SNAPSHOT_H
 #define ENGINE_SHARED_SNAPSHOT_H
 
+#include <generated/protocol.h>
+#include <generated/protocol7.h>
+
 #include <cstddef>
 #include <cstdint>
-
-#include <game/generated/protocol.h>
-#include <game/generated/protocol7.h>
 
 // CSnapshot
 
@@ -53,6 +53,7 @@ public:
 	};
 
 	int NumItems() const { return m_NumItems; }
+	int DataSize() const { return m_DataSize; }
 	const CSnapshotItem *GetItem(int Index) const;
 	int GetItemSize(int Index) const;
 	int GetItemIndex(int Key) const;
@@ -62,6 +63,9 @@ public:
 	const void *FindItem(int Type, int Id) const;
 
 	unsigned Crc() const;
+	// Prints the raw snapshot data showing item and int boundaries.
+	// See also `CNetObjHandler::DebugDumpSnapshot(const CSnapshot *pSnap)`
+	// For more detailed annotations of the data.
 	void DebugDump() const;
 	bool IsValid(size_t ActualSize) const;
 
@@ -156,17 +160,16 @@ class CSnapshotBuilder
 	int m_NumItems;
 
 	int m_aExtendedItemTypes[MAX_EXTENDED_ITEM_TYPES];
-	int m_NumExtendedItemTypes;
+	int m_NumExtendedItemTypes = 0;
 
 	bool AddExtendedItemType(int Index);
 	int GetExtendedItemTypeIndex(int TypeId);
 	int GetTypeFromIndex(int Index) const;
 
+	bool m_Building = false;
 	bool m_Sixup = false;
 
 public:
-	CSnapshotBuilder();
-
 	void Init(bool Sixup = false);
 	void Init7(const CSnapshot *pSnapshot);
 
@@ -178,4 +181,4 @@ public:
 	int Finish(void *pSnapdata);
 };
 
-#endif // ENGINE_SNAPSHOT_H
+#endif // ENGINE_SHARED_SNAPSHOT_H

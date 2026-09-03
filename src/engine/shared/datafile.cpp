@@ -3,26 +3,31 @@
 
 #include "datafile.h"
 
+#include "uuid_manager.h"
+
+#include <base/bytes.h>
+#include <base/dbg.h>
+#include <base/fs.h>
 #include <base/hash_ctxt.h>
+#include <base/io.h>
 #include <base/log.h>
 #include <base/math.h>
-#include <base/system.h>
+#include <base/mem.h>
+#include <base/str.h>
 
 #include <engine/storage.h>
 
-#include "uuid_manager.h"
+#include <zlib.h>
 
 #include <cstdlib>
 #include <limits>
 #include <unordered_set>
 
-#include <zlib.h>
-
 static constexpr int MAX_ITEM_TYPE = 0xFFFF;
 static constexpr int MAX_ITEM_ID = 0xFFFF;
 static constexpr int OFFSET_UUID_TYPE = 0x8000;
 
-inline void SwapEndianInPlace(void *pObj, size_t Size)
+static inline void SwapEndianInPlace(void *pObj, size_t Size)
 {
 #if defined(CONF_ARCH_ENDIAN_BIG)
 	swap_endian(pObj, sizeof(int), Size / sizeof(int));
@@ -30,13 +35,13 @@ inline void SwapEndianInPlace(void *pObj, size_t Size)
 }
 
 template<typename T>
-inline void SwapEndianInPlace(T *pObj)
+static inline void SwapEndianInPlace(T *pObj)
 {
 	static_assert(sizeof(T) % sizeof(int) == 0);
 	SwapEndianInPlace(pObj, sizeof(T));
 }
 
-inline int SwapEndianInt(int Number)
+static inline int SwapEndianInt(int Number)
 {
 	SwapEndianInPlace(&Number);
 	return Number;
@@ -129,9 +134,13 @@ class CDatafile
 {
 public:
 	IOHANDLE m_File;
+	char m_aFullName[IO_MAX_PATH_LENGTH];
+	const char *m_pBaseName;
+	char m_aPath[IO_MAX_PATH_LENGTH];
 	unsigned m_FileSize;
 	SHA256_DIGEST m_Sha256;
 	unsigned m_Crc;
+
 	CDatafileInfo m_Info;
 	CDatafileHeader m_Header;
 	int m_DataStartOffset;
@@ -141,7 +150,7 @@ public:
 
 	int GetFileDataSize(int Index) const
 	{
-		dbg_assert(Index >= 0 && Index < m_Header.m_NumRawData, "Index invalid: %d", Index);
+		dbg_assert(Index >= 0 && Index < m_Header.m_NumRawData, "Invalid Index: %d", Index);
 
 		if(Index == m_Header.m_NumRawData - 1)
 		{
@@ -292,7 +301,7 @@ public:
 
 	int GetFileItemSize(int Index) const
 	{
-		dbg_assert(Index >= 0 && Index < m_Header.m_NumItems, "Index invalid: %d", Index);
+		dbg_assert(Index >= 0 && Index < m_Header.m_NumItems, "Invalid Index: %d", Index);
 
 		if(Index == m_Header.m_NumItems - 1)
 		{
@@ -309,7 +318,7 @@ public:
 
 	CDatafileItem *GetItem(int Index) const
 	{
-		dbg_assert(Index >= 0 && Index < m_Header.m_NumItems, "Index invalid: %d", Index);
+		dbg_assert(Index >= 0 && Index < m_Header.m_NumItems, "Invalid Index: %d", Index);
 
 		return static_cast<CDatafileItem *>(static_cast<void *>(m_Info.m_pItemStart + m_Info.m_pItemOffsets[Index]));
 	}
@@ -442,16 +451,16 @@ CDataFileReader &CDataFileReader::operator=(CDataFileReader &&Other)
 	return *this;
 }
 
-bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int StorageType)
+bool CDataFileReader::Open(const char *pFullName, IStorage *pStorage, const char *pPath, int StorageType)
 {
 	dbg_assert(m_pDataFile == nullptr, "File already open");
 
-	log_trace("datafile", "loading '%s'", pFilename);
+	log_trace("datafile", "loading '%s' from '%s'", pFullName, pPath);
 
-	IOHANDLE File = pStorage->OpenFile(pFilename, IOFLAG_READ, StorageType);
+	IOHANDLE File = pStorage->OpenFile(pPath, IOFLAG_READ, StorageType);
 	if(!File)
 	{
-		log_error("datafile", "failed to open file '%s' for reading", pFilename);
+		log_error("datafile", "failed to open file '%s' for reading", pPath);
 		return false;
 	}
 
@@ -545,7 +554,7 @@ bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int 
 	if((int64_t)sizeof(Header) + Size + (int64_t)Header.m_DataSize != FileSize)
 	{
 		io_close(File);
-		log_error("datafile", "invalid header data size or truncated file. data_size=%" PRId64 " file_size=%" PRId64, Header.m_DataSize, FileSize);
+		log_error("datafile", "invalid header data size or truncated file. data_size=%d file_size=%" PRId64, Header.m_DataSize, FileSize);
 		return false;
 	}
 
@@ -571,7 +580,7 @@ bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int 
 	{
 		if(Header.m_Swaplen % sizeof(int) == 0 && SizeFix != 0 && HeaderSwaplen + SizeFix == FileSizeSwaplen)
 		{
-			log_warn("datafile", "fixing invalid header swaplen. swaplen=%d fix=+%d", Header.m_Swaplen, SizeFix);
+			log_warn("datafile", "fixing invalid header swaplen. swaplen=%d fix=+%" PRId64, Header.m_Swaplen, SizeFix);
 			Header.m_Swaplen += SizeFix;
 		}
 		else
@@ -607,6 +616,9 @@ bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int 
 	pTmpDataFile->m_pDataSizes = (int *)(pTmpDataFile->m_ppDataPtrs + Header.m_NumRawData);
 	pTmpDataFile->m_pData = (char *)(pTmpDataFile->m_pDataSizes + Header.m_NumRawData);
 	pTmpDataFile->m_File = File;
+	str_copy(pTmpDataFile->m_aFullName, pFullName);
+	pTmpDataFile->m_pBaseName = fs_filename(pTmpDataFile->m_aFullName);
+	str_copy(pTmpDataFile->m_aPath, pPath);
 	pTmpDataFile->m_FileSize = FileSize;
 	pTmpDataFile->m_Sha256 = Sha256;
 	pTmpDataFile->m_Crc = Crc;
@@ -621,11 +633,14 @@ bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int 
 	{
 		io_close(pTmpDataFile->m_File);
 		free(pTmpDataFile);
-		log_error("datafile", "truncation error. could not read all item data. wanted=%" PRIzu " got=%d", Size, ReadSize);
+		log_error("datafile", "truncation error. could not read all item data. wanted=%" PRId64 " got=%d", Size, ReadSize);
 		return false;
 	}
 
-	SwapEndianInPlace(pTmpDataFile->m_pData, pTmpDataFile->m_Header.m_Swaplen);
+	// The swap len also includes the size of the header (without the size offset), but the header was already swapped above.
+	const int64_t DataSwapLen = pTmpDataFile->m_Header.m_Swaplen - (int)(sizeof(Header) - Header.SizeOffset());
+	dbg_assert(DataSwapLen == Size, "Swap len and file size mismatch");
+	SwapEndianInPlace(pTmpDataFile->m_pData, DataSwapLen);
 
 	pTmpDataFile->m_Info.m_pItemTypes = (CDatafileItemType *)pTmpDataFile->m_pData;
 	pTmpDataFile->m_Info.m_pItemOffsets = (int *)&pTmpDataFile->m_Info.m_pItemTypes[pTmpDataFile->m_Header.m_NumItemTypes];
@@ -650,9 +665,16 @@ bool CDataFileReader::Open(class IStorage *pStorage, const char *pFilename, int 
 	}
 
 	m_pDataFile = pTmpDataFile;
-	log_trace("datafile", "loading done. datafile='%s'", pFilename);
+	log_trace("datafile", "loading done. name='%s' path='%s'", pFullName, pPath);
 
 	return true;
+}
+
+bool CDataFileReader::Open(IStorage *pStorage, const char *pPath, int StorageType)
+{
+	char aFilename[IO_MAX_PATH_LENGTH];
+	fs_split_file_extension(fs_filename(pPath), aFilename, sizeof(aFilename));
+	return Open(aFilename, pStorage, pPath, StorageType);
 }
 
 void CDataFileReader::Close()
@@ -891,6 +913,27 @@ int CDataFileReader::NumItems() const
 	return m_pDataFile->m_Header.m_NumItems;
 }
 
+const char *CDataFileReader::FullName() const
+{
+	dbg_assert(m_pDataFile != nullptr, "File not open");
+
+	return m_pDataFile->m_aFullName;
+}
+
+const char *CDataFileReader::BaseName() const
+{
+	dbg_assert(m_pDataFile != nullptr, "File not open");
+
+	return m_pDataFile->m_pBaseName;
+}
+
+const char *CDataFileReader::Path() const
+{
+	dbg_assert(m_pDataFile != nullptr, "File not open");
+
+	return m_pDataFile->m_aPath;
+}
+
 SHA256_DIGEST CDataFileReader::Sha256() const
 {
 	dbg_assert(m_pDataFile != nullptr, "File not open");
@@ -905,7 +948,7 @@ unsigned CDataFileReader::Crc() const
 	return m_pDataFile->m_Crc;
 }
 
-int CDataFileReader::MapSize() const
+int CDataFileReader::Size() const
 {
 	dbg_assert(m_pDataFile != nullptr, "File not open");
 
@@ -990,8 +1033,8 @@ int CDataFileWriter::GetExtendedItemTypeIndex(int Type, const CUuid *pUuid)
 
 int CDataFileWriter::AddItem(int Type, int Id, size_t Size, const void *pData, const CUuid *pUuid)
 {
-	dbg_assert((Type >= 0 && Type <= MAX_ITEM_TYPE) || Type >= OFFSET_UUID || (Type == -1 && pUuid != nullptr), "Invalid type: %d", Type);
-	dbg_assert(Id >= 0 && Id <= MAX_ITEM_ID, "Invalid ID: %d", Id);
+	dbg_assert((Type >= 0 && Type <= MAX_ITEM_TYPE) || Type >= OFFSET_UUID || (Type == -1 && pUuid != nullptr), "Invalid Type: %d", Type);
+	dbg_assert(Id >= 0 && Id <= MAX_ITEM_ID, "Invalid Id: %d", Id);
 	dbg_assert(Size == 0 || pData != nullptr, "Data missing"); // Items without data are allowed
 	dbg_assert(Size <= (size_t)std::numeric_limits<int>::max(), "Data too large");
 	dbg_assert(Size % sizeof(int) == 0, "Invalid data boundary");
@@ -1097,8 +1140,7 @@ static int CompressionLevelToZlib(CDataFileWriter::ECompressionLevel Compression
 	case CDataFileWriter::COMPRESSION_BEST:
 		return Z_BEST_COMPRESSION;
 	default:
-		dbg_assert(false, "CompressionLevel invalid");
-		dbg_break();
+		dbg_assert_failed("Invalid CompressionLevel: %d", static_cast<int>(CompressionLevel));
 	}
 }
 
@@ -1168,7 +1210,7 @@ void CDataFileWriter::Finish()
 	int ItemCount = 0;
 	for(const auto &[Type, ItemType] : m_ItemTypes)
 	{
-		dbg_assert(ItemType.m_Num > 0, "Invalid item type entry");
+		dbg_assert(ItemType.m_Num > 0, "Invalid ItemType.m_Num: %d", ItemType.m_Num);
 
 		CDatafileItemType Info;
 		Info.m_Type = Type;

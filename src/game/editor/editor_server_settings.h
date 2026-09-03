@@ -4,6 +4,8 @@
 #include "component.h"
 #include "editor_ui.h"
 
+#include <base/str.h>
+
 #include <map>
 #include <string>
 #include <vector>
@@ -188,22 +190,21 @@ enum class ECollisionCheckResult
 {
 	ERROR,
 	REPLACE,
-	ADD
+	ADD,
 };
 
 class CMapSettingsBackend : public CEditorComponent
 {
 	typedef void (*FLoaderFunction)(const CSettingValuesBuilder &);
 
-public: // General methods
+public:
+	// General methods
 	CMapSettingsBackend() = default;
 
 	void OnInit(CEditor *pEditor) override;
-	bool OnInput(const IInput::CEvent &Event) override;
-	void OnUpdate() override;
 	void OnMapLoad() override;
 
-public: // Constraints methods
+	// Constraints methods
 	enum class EArgConstraint
 	{
 		DEFAULT = 0,
@@ -216,20 +217,20 @@ public: // Constraints methods
 		return m_ArgConstraintsPerCommand.at(pSettingName).at(Arg);
 	}
 
-public: // Backend methods
+	// Backend methods
 	const std::vector<SParsedMapSettingArg> &ParsedArgs(const std::shared_ptr<IMapSetting> &pSetting) const
 	{
 		return m_ParsedCommandArgs.at(pSetting);
 	}
 
-public: // CContext
+	// CContext
 	class CContext
 	{
-		static inline constexpr ColorRGBA ms_ArgumentStringColor = ColorRGBA(84.0f / 255.0f, 1.0f, 1.0f, 1.0f);
-		static inline constexpr ColorRGBA ms_ArgumentNumberColor = ColorRGBA(0.1f, 0.9f, 0.05f, 1.0f);
-		static inline constexpr ColorRGBA ms_ArgumentUnknownColor = ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f);
-		static inline constexpr ColorRGBA ms_CommentColor = ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
-		static inline constexpr ColorRGBA ms_ErrorColor = ColorRGBA(240.0f / 255.0f, 70.0f / 255.0f, 70.0f / 255.0f, 1.0f);
+		static constexpr ColorRGBA ms_ArgumentStringColor = ColorRGBA(84.0f / 255.0f, 1.0f, 1.0f, 1.0f);
+		static constexpr ColorRGBA ms_ArgumentNumberColor = ColorRGBA(0.1f, 0.9f, 0.05f, 1.0f);
+		static constexpr ColorRGBA ms_ArgumentUnknownColor = ColorRGBA(0.6f, 0.6f, 0.6f, 1.0f);
+		static constexpr ColorRGBA ms_CommentColor = ColorRGBA(0.5f, 0.5f, 0.5f, 1.0f);
+		static constexpr ColorRGBA ms_ErrorColor = ColorRGBA(240.0f / 255.0f, 70.0f / 255.0f, 70.0f / 255.0f, 1.0f);
 
 		friend class CMapSettingsBackend;
 
@@ -249,7 +250,7 @@ public: // CContext
 		const std::shared_ptr<IMapSetting> &Setting() const { return m_pCurrentSetting; }
 		CLineInput *LineInput() const { return m_pLineInput; }
 		void SetFontSize(float FontSize) { m_FontSize = FontSize; }
-		int CommentOffset() const { return m_CommentOffset; };
+		int CommentOffset() const { return m_CommentOffset; }
 
 		int CheckCollision(ECollisionCheckResult &Result) const;
 		int CheckCollision(const std::vector<CEditorMapSetting> &vSettings, ECollisionCheckResult &Result) const;
@@ -267,7 +268,8 @@ public: // CContext
 		SEditBoxDropdownContext m_DropdownContext;
 		int m_CurrentCompletionIndex;
 
-	private: // Methods
+	private:
+		// Methods
 		CContext(CMapSettingsBackend *pMaster, CLineInput *pLineinput) :
 			m_DropdownContext(), m_pLineInput(pLineinput), m_pBackend(pMaster)
 		{
@@ -281,12 +283,11 @@ public: // CContext
 		void ParseArgs(const char *pLineInputStr, const char *pStr);
 		bool OnInput(const IInput::CEvent &Event);
 		const char *InputString() const;
-		void UpdateCompositionString();
 
 		template<int N>
 		void FormatDisplayValue(const char *pValue, char (&aOut)[N]);
 
-	private: // Fields
+		// Fields
 		std::shared_ptr<IMapSetting> m_pCurrentSetting; // Current setting, can be nullptr in case of invalid setting name
 		std::vector<SCurrentSettingArg> m_vCurrentArgs; // Current parsed arguments from lineinput string
 		int m_CursorArgIndex; // The current argument the cursor is over
@@ -307,7 +308,8 @@ public: // CContext
 		return CContext(this, pLineInput);
 	}
 
-private: // Loader methods
+private:
+	// Loader methods
 	void LoadAllMapSettings();
 	void LoadCommand(const char *pName, const char *pArgs, const char *pHelp);
 	void LoadSettingInt(const std::shared_ptr<SMapSettingInt> &pSetting);
@@ -319,7 +321,7 @@ private: // Loader methods
 
 	static void PossibleConfigVariableCallback(const struct SConfigVariable *pVariable, void *pUserData);
 
-private: // Argument constraints
+	// Argument constraints
 	using TArgumentConstraints = std::map<int, EArgConstraint>; // Constraint per argument index
 	using TCommandArgumentConstraints = std::map<std::string, TArgumentConstraints>; // Constraints per command/setting name
 
@@ -330,7 +332,7 @@ private: // Argument constraints
 	//   CCommandArgumentConstraintBuilder Command(&m_Container);
 	//   Command("tune", 2).Unique(0); // Defines argument 0 of command "tune" having 2 args as UNIQUE
 	//   Command("tune_zone", 3).Multiple(0).Unique(1);
-	//   // ^ Multiple() currently is only for readable purposes. It can be omited:
+	//   // ^ Multiple() currently is only for readable purposes. It can be omitted:
 	//   // Command("tune_zone", 3).Unique(1);
 	//
 
@@ -342,7 +344,7 @@ private: // Argument constraints
 
 	private:
 		CArgumentConstraintsBuilder(TArgumentConstraints *pContainer) :
-			m_pContainer(pContainer){};
+			m_pContainer(pContainer) {}
 
 		TArgumentConstraints *m_pContainer;
 
@@ -381,27 +383,22 @@ private: // Argument constraints
 
 	TCommandArgumentConstraints m_ArgConstraintsPerCommand;
 
-private: // Backend fields
+	// Backend fields
 	std::vector<std::shared_ptr<IMapSetting>> m_vpMapSettings;
 	std::map<std::shared_ptr<IMapSetting>, std::vector<SParsedMapSettingArg>> m_ParsedCommandArgs; // Parsed available settings arguments, used for validation
 	TSettingsArgumentValues m_PossibleValuesPerCommand;
 	std::map<std::string, FLoaderFunction> m_LoaderFunctions;
 
-	static CContext *ms_pActiveContext;
-
 	friend class CEditor;
 
-private: // Map settings validation on load
+	// Map settings validation on load
 	struct SLoadedMapSettings
 	{
 		std::vector<SInvalidSetting> m_vSettingsInvalid;
 		std::vector<CEditorMapSetting> m_vSettingsValid;
 		std::map<int, std::vector<int>> m_SettingsDuplicate;
 
-		SLoadedMapSettings() :
-			m_vSettingsInvalid(), m_vSettingsValid(), m_SettingsDuplicate()
-		{
-		}
+		SLoadedMapSettings() = default;
 
 		void Reset()
 		{

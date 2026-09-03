@@ -3,12 +3,13 @@
 #ifndef GAME_SERVER_GAMEWORLD_H
 #define GAME_SERVER_GAMEWORLD_H
 
-#include <game/gamecore.h>
-
 #include "save.h"
+
+#include <game/gamecore.h>
 
 #include <vector>
 
+class CCollision;
 class CEntity;
 class CCharacter;
 
@@ -40,6 +41,7 @@ private:
 	class CGameContext *m_pGameServer;
 	class CConfig *m_pConfig;
 	class IServer *m_pServer;
+	CTuningParams *m_pTuningList;
 
 public:
 	class CGameContext *GameServer() { return m_pGameServer; }
@@ -54,6 +56,7 @@ public:
 	~CGameWorld();
 
 	void SetGameServer(CGameContext *pGameServer);
+	void Init(CCollision *pCollision, CTuningParams *pTuningList);
 
 	CEntity *FindFirst(int Type);
 
@@ -84,7 +87,7 @@ public:
 	 * @param Radius How far from the line the @link CCharacter @endlink is allowed to be
 	 * @param NewPos Intersection position
 	 * @param pNotThis Character to ignore intersecting with
-	 * @param CollideWith Only find entitys that can collide with that Client Id (pass -1 to ignore this check)
+	 * @param CollideWith Only find entities that can collide with that Client Id (pass -1 to ignore this check)
 	 * @param pThisOnly Only search this specific character and ignore all others
 	 *
 	 * @return Pointer to the closest hit or `nullptr` if there is no intersection.
@@ -102,7 +105,7 @@ public:
 	 * @param Type Type of the entity to intersect
 	 * @param NewPos Intersection position
 	 * @param pNotThis Entity to ignore intersecting with
-	 * @param CollideWith Only find entitys that can collide with that Client Id (pass -1 to ignore this check)
+	 * @param CollideWith Only find entities that can collide with that Client Id (pass -1 to ignore this check)
 	 * @param pThisOnly Only search this specific entity and ignore all others
 	 *
 	 * @return Pointer to the closest hit or `nullptr` if there is no intersection.
@@ -156,12 +159,6 @@ public:
 	void Snap(int SnappingClient);
 
 	/*
-		Function: PostSnap
-			Called after all clients received their snapshot.
-	*/
-	void PostSnap();
-
-	/*
 		Function: Tick
 			Calls Tick on all the entities in the world to progress
 			the world to the next tick.
@@ -199,10 +196,9 @@ public:
 	*/
 	std::vector<CCharacter *> IntersectedCharacters(vec2 Pos0, vec2 Pos1, float Radius, const CEntity *pNotThis = nullptr);
 
-	CTuningParams *Tuning();
-
-	CTuningParams *m_pTuningList;
+	const CTuningParams *TuningList() const { return m_pTuningList; }
 	CTuningParams *TuningList() { return m_pTuningList; }
+	const CTuningParams *GetTuning(int i) const { return &TuningList()[i]; }
 	CTuningParams *GetTuning(int i) { return &TuningList()[i]; }
 };
 

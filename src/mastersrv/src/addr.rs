@@ -11,7 +11,6 @@ pub enum Protocol {
     V5,
     V6,
     V7,
-    Ddper6,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -42,7 +41,7 @@ pub struct UnknownProtocol;
 
 impl fmt::Display for UnknownProtocol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        "protocol must be one of tw-0.5+udp, tw-0.6+udp, tw-0.7+udp or ddper-0.6+udp".fmt(f)
+        "protocol must be one of tw-0.5+udp, tw-0.6+udp or tw-0.7+udp".fmt(f)
     }
 }
 
@@ -54,7 +53,6 @@ impl FromStr for Protocol {
             "tw-0.5+udp" => V5,
             "tw-0.6+udp" => V6,
             "tw-0.7+udp" => V7,
-            "ddper-0.6+udp" => Ddper6,
             _ => return Err(UnknownProtocol),
         })
     }
@@ -75,7 +73,7 @@ impl<'de> serde::de::Visitor<'de> for ProtocolVisitor {
     type Value = Protocol;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("one of \"tw-0.5+udp\", \"tw-0.6+udp\", \"tw-0.7+udp\" and \"ddper-0.6+udp\"")
+        f.write_str("one of \"tw-0.5+udp\", \"tw-0.6+udp\" and \"tw-0.7+udp\"")
     }
     fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Protocol, E> {
         let invalid_value = || E::invalid_value(serde::de::Unexpected::Str(v), &self);
@@ -99,7 +97,6 @@ impl Protocol {
             V5 => "tw-0.5+udp",
             V6 => "tw-0.6+udp",
             V7 => "tw-0.7+udp",
-            Ddper6 => "ddper-0.6+udp",
         }
     }
 }
@@ -135,6 +132,9 @@ impl FromStr for Addr {
         )
         .unwrap();
         let sock_addr: SocketAddr = ip_port.parse().map_err(|_| InvalidAddr)?;
+        if sock_addr.port() == 0 {
+            return Err(InvalidAddr);
+        }
         Ok(Addr {
             ip: sock_addr.ip(),
             port: sock_addr.port(),
@@ -206,6 +206,7 @@ pub enum ParseRegisterAddrError {
     Protocol(UnknownProtocol),
     HostNotConnectingAddressInvalid,
     PortNotPresent,
+    Port0,
 }
 
 impl fmt::Display for ParseRegisterAddrError {
@@ -219,6 +220,7 @@ impl fmt::Display for ParseRegisterAddrError {
                 "register address must have domain connecting-address.invalid"
             ),
             PortNotPresent => write!(f, "register address must specify port"),
+            Port0 => write!(f, "register port can't be 0"),
         }
     }
 }
@@ -233,6 +235,9 @@ impl FromStr for RegisterAddr {
             return Err(Error::HostNotConnectingAddressInvalid);
         }
         let port = url.port().ok_or(Error::PortNotPresent)?;
+        if port == 0 {
+            return Err(Error::Port0);
+        }
         Ok(RegisterAddr { port, protocol })
     }
 }

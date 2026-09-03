@@ -3,7 +3,9 @@
 data/
 !/data/
 
-docs/
+# Doxygen output
+docs/warn.log
+docs/html
 
 bundle/
 !/other/bundle/
@@ -88,6 +90,7 @@ target
 
 /build*
 /integration_test/*
+/source_date_epoch
 
 # IDE project files
 .cache
