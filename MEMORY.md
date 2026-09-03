@@ -241,3 +241,9 @@ Touch API в порту:
    использует префикс из конфига для заголовков вар/тим колонок.
 
 Коммиты готовлю.
+
+### 2026-09-04 ~19:50 UTC — CI #64 УСПЕХ
+- Коммит `97af260fa` (правки по отзывам + public accessors)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33798145877
+- Все 9 правок пользователя применены и собраны
