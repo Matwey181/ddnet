@@ -837,6 +837,17 @@ private:
         void RenderSettingsDDNet(CUIRect MainView);
         void RenderSettingsAppearance(CUIRect MainView);
         void RenderSettingsPushin(CUIRect MainView);
+
+        // Pushin client — internal helpers (implementation in menus_settings_pushin.cpp)
+        // Declared as members so they can access protected CComponent interfaces
+        // (GameClient, TextRender, Graphics, etc.) and private CMenus UI helpers
+        // (DoLine_ColorPicker, DoButton_CheckBox, DoButton_Menu).
+        bool RenderPushinVarListRow(CUIRect Row);
+        void RenderPushinSettingsPanel(CUIRect View);
+        void RenderPushinPlayerRow(const CUIRect &Row, int ClientId, const char *pDisplayName, int Status);
+        int RenderPushinColumn(CUIRect View, const char *pTitle, const std::vector<int> &vClientIds, int ColumnStatus);
+        int RenderPushinMiniMenu(CUIRect View);
+        void RenderPushinPreview(CUIRect View);
         bool RenderHslaScrollbars(CUIRect *pRect, unsigned int *pColor, bool Alpha, float DarkestLight);
 };
 #endif
