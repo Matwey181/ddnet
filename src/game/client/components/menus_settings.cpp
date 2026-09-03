@@ -3127,118 +3127,118 @@ int CMenus::CPopupMapPickerContext::MapListFetchCallback(const CFsFileInfo *pInf
 // ----------------------------------------------------------------------------
 void CMenus::RenderSettingsPushin(CUIRect MainView)
 {
-	// Section title
-	CUIRect Title, ListView;
-	MainView.HSplitTop(30.0f, &Title, &ListView);
-	ListView.HSplitTop(10.0f, nullptr, &ListView);
-	Ui()->DoLabel(&Title, "Пушин клиент — Вар лист", 22.0f, TEXTALIGN_MC);
+        // Section title
+        CUIRect Title, ListView;
+        MainView.HSplitTop(30.0f, &Title, &ListView);
+        ListView.HSplitTop(10.0f, nullptr, &ListView);
+        Ui()->DoLabel(&Title, "Пушин клиент — Вар лист", 22.0f, TEXTALIGN_MC);
 
-	// Per-row pushin status: 0 = none, 1 = var, 2 = team. Indexed by row.
-	static int s_PushinStatus[256];
-	static int s_PushinExpandedIndex = -1;
-	static bool s_PushinInit = false;
-	if(!s_PushinInit)
-	{
-		for(int &v : s_PushinStatus)
-			v = 0;
-		s_PushinInit = true;
-	}
+        // Per-row pushin status: 0 = none, 1 = var, 2 = team. Indexed by row.
+        static int s_PushinStatus[256];
+        static int s_PushinExpandedIndex = -1;
+        static bool s_PushinInit = false;
+        if(!s_PushinInit)
+        {
+                for(int &v : s_PushinStatus)
+                        v = 0;
+                s_PushinInit = true;
+        }
 
-	// Get the skin list (same source as RenderSettingsAppearance uses).
-	CSkins::CSkinList &SkinList = GameClient()->m_Skins.SkinList();
-	std::vector<CSkins::CSkinListEntry> &vSkinList = SkinList.Skins();
-	const CSkin *pDefaultSkin = GameClient()->m_Skins.Find(DEFAULT_SKIN);
+        // Get the skin list (same source as RenderSettingsAppearance uses).
+        CSkins::CSkinList &SkinList = GameClient()->m_Skins.SkinList();
+        std::vector<CSkins::CSkinListEntry> &vSkinList = SkinList.Skins();
+        const CSkin *pDefaultSkin = GameClient()->m_Skins.Find("default");
 
-	// Layout: header row + scrollable list of skin rows.
-	// Each row is 40px. When expanded, the row grows to 64px to fit the two
-	// action buttons below the skin preview.
-	static CListBox s_ListBox;
-	s_ListBox.DoStart(40.0f, vSkinList.size(), 1, 6, -1, &ListView);
+        // Layout: header row + scrollable list of skin rows.
+        // Each row is 40px. When expanded, the row grows to 64px to fit the two
+        // action buttons below the skin preview.
+        static CListBox s_ListBox;
+        s_ListBox.DoStart(40.0f, vSkinList.size(), 1, 6, -1, &ListView);
 
-	for(size_t i = 0; i < vSkinList.size(); ++i)
-	{
-		CSkins::CSkinListEntry &SkinListEntry = vSkinList[i];
-		const CSkins::CSkinContainer *pSkinContainer = vSkinList[i].SkinContainer();
-		const CSkin *pSkin = pSkinContainer->State() == CSkins::CSkinContainer::EState::LOADED ? pSkinContainer->Skin().get() : pDefaultSkin;
-		const int Idx = (int)i % 256;
-		const bool IsExpanded = (s_PushinExpandedIndex == (int)i);
+        for(size_t i = 0; i < vSkinList.size(); ++i)
+        {
+                CSkins::CSkinListEntry &SkinListEntry = vSkinList[i];
+                const CSkins::CSkinContainer *pSkinContainer = vSkinList[i].SkinContainer();
+                const CSkin *pSkin = pSkinContainer->State() == CSkins::CSkinContainer::EState::LOADED ? pSkinContainer->Skin().get() : pDefaultSkin;
+                const int Idx = (int)i % 256;
+                const bool IsExpanded = (s_PushinExpandedIndex == (int)i);
 
-		const CListboxItem Item = s_ListBox.DoNextItem(SkinListEntry.ListItemId(), false);
-		if(!Item.m_Visible)
-			continue;
+                const CListboxItem Item = s_ListBox.DoNextItem(SkinListEntry.ListItemId(), false);
+                if(!Item.m_Visible)
+                        continue;
 
-		// ---- Row content: [skin tee preview] [name] [status chip] ----
-		CUIRect TeeBox, NameBox, ChipBox;
-		Item.m_Rect.VSplitLeft(40.0f, &TeeBox, &NameBox);
-		NameBox.VSplitRight(80.0f, &NameBox, &ChipBox);
+                // ---- Row content: [skin tee preview] [name] [status chip] ----
+                CUIRect TeeBox, NameBox, ChipBox;
+                Item.m_Rect.VSplitLeft(40.0f, &TeeBox, &NameBox);
+                NameBox.VSplitRight(80.0f, &NameBox, &ChipBox);
 
-		// Tee preview
-		{
-			CTeeRenderInfo Info;
-			Info.Apply(pSkin);
-			vec2 OffsetToMid;
-			CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
-			const vec2 Pos(TeeBox.x + TeeBox.w / 2.0f, TeeBox.y + TeeBox.h / 2.0f + OffsetToMid.y);
-			RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, EMOTE_NORMAL, vec2(1.0f, 0.0f), Pos);
-		}
+                // Tee preview
+                {
+                        CTeeRenderInfo Info;
+                        Info.Apply(pSkin);
+                        vec2 OffsetToMid;
+                        CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
+                        const vec2 Pos(TeeBox.x + TeeBox.w / 2.0f, TeeBox.y + TeeBox.h / 2.0f + OffsetToMid.y);
+                        RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, EMOTE_NORMAL, vec2(1.0f, 0.0f), Pos);
+                }
 
-		// Skin name (with status prefix if any)
-		char aDisplayName[64];
-		if(s_PushinStatus[Idx] == 1)
-			str_format(aDisplayName, sizeof(aDisplayName), "[var] %s", pSkinContainer->Name());
-		else if(s_PushinStatus[Idx] == 2)
-			str_format(aDisplayName, sizeof(aDisplayName), "[team] %s", pSkinContainer->Name());
-		else
-			str_format(aDisplayName, sizeof(aDisplayName), "%s", pSkinContainer->Name());
+                // Skin name (with status prefix if any)
+                char aDisplayName[64];
+                if(s_PushinStatus[Idx] == 1)
+                        str_format(aDisplayName, sizeof(aDisplayName), "[var] %s", pSkinContainer->Name());
+                else if(s_PushinStatus[Idx] == 2)
+                        str_format(aDisplayName, sizeof(aDisplayName), "[team] %s", pSkinContainer->Name());
+                else
+                        str_format(aDisplayName, sizeof(aDisplayName), "%s", pSkinContainer->Name());
 
-		SLabelProperties Props;
-		Props.m_MaxWidth = NameBox.w - 5.0f;
-		// Color the name based on status.
-		if(s_PushinStatus[Idx] == 1)
-			TextRender()->TextColor(0.9f, 0.2f, 0.2f, 1.0f);
-		else if(s_PushinStatus[Idx] == 2)
-			TextRender()->TextColor(0.2f, 0.9f, 0.4f, 1.0f);
-		Ui()->DoLabel(&NameBox, aDisplayName, 14.0f, TEXTALIGN_ML, Props);
-		TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+                SLabelProperties Props;
+                Props.m_MaxWidth = NameBox.w - 5.0f;
+                // Color the name based on status.
+                if(s_PushinStatus[Idx] == 1)
+                        TextRender()->TextColor(0.9f, 0.2f, 0.2f, 1.0f);
+                else if(s_PushinStatus[Idx] == 2)
+                        TextRender()->TextColor(0.2f, 0.9f, 0.4f, 1.0f);
+                Ui()->DoLabel(&NameBox, aDisplayName, 14.0f, TEXTALIGN_ML, Props);
+                TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-		// Status chip — clicking toggles expand
-		static CButtonContainer s_aPushinChips[256];
-		const char *pChipText = IsExpanded ? "×" :
-		                        (s_PushinStatus[Idx] == 1) ? "var" :
-		                        (s_PushinStatus[Idx] == 2) ? "team" : "+";
-		const ColorRGBA ChipColor = IsExpanded ? ColorRGBA(0.5f, 0.5f, 0.5f, 0.5f) :
-		                            s_PushinStatus[Idx] == 1 ? ColorRGBA(0.9f, 0.2f, 0.2f, 0.7f) :
-		                            s_PushinStatus[Idx] == 2 ? ColorRGBA(0.2f, 0.9f, 0.4f, 0.7f) :
-		                            ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f);
-		if(DoButton_Menu(&s_aPushinChips[Idx], pChipText, 0, &ChipBox, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ChipColor))
-		{
-			s_PushinExpandedIndex = IsExpanded ? -1 : (int)i;
-		}
+                // Status chip — clicking toggles expand
+                static CButtonContainer s_aPushinChips[256];
+                const char *pChipText = IsExpanded ? "×" :
+                                        (s_PushinStatus[Idx] == 1) ? "var" :
+                                        (s_PushinStatus[Idx] == 2) ? "team" : "+";
+                const ColorRGBA ChipColor = IsExpanded ? ColorRGBA(0.5f, 0.5f, 0.5f, 0.5f) :
+                                            s_PushinStatus[Idx] == 1 ? ColorRGBA(0.9f, 0.2f, 0.2f, 0.7f) :
+                                            s_PushinStatus[Idx] == 2 ? ColorRGBA(0.2f, 0.9f, 0.4f, 0.7f) :
+                                            ColorRGBA(1.0f, 1.0f, 1.0f, 0.4f);
+                if(DoButton_Menu(&s_aPushinChips[Idx], pChipText, 0, &ChipBox, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ChipColor))
+                {
+                        s_PushinExpandedIndex = IsExpanded ? -1 : (int)i;
+                }
 
-		// ---- Expanded action buttons (rendered below the row content) ----
-		// We can't grow the row inside an existing listbox item, so we draw
-		// the var/team buttons as a small overlay at the bottom-right of the
-		// current row. Clicking them toggles status.
-		if(IsExpanded)
-		{
-			CUIRect VarBtn, TeamBtn;
-			// Position buttons in the lower-right portion of the row.
-			ChipBox.VSplitLeft(38.0f, &VarBtn, &TeamBtn);
-			TeamBtn.VSplitLeft(38.0f, &TeamBtn, nullptr);
+                // ---- Expanded action buttons (rendered below the row content) ----
+                // We can't grow the row inside an existing listbox item, so we draw
+                // the var/team buttons as a small overlay at the bottom-right of the
+                // current row. Clicking them toggles status.
+                if(IsExpanded)
+                {
+                        CUIRect VarBtn, TeamBtn;
+                        // Position buttons in the lower-right portion of the row.
+                        ChipBox.VSplitLeft(38.0f, &VarBtn, &TeamBtn);
+                        TeamBtn.VSplitLeft(38.0f, &TeamBtn, nullptr);
 
-			static CButtonContainer s_aPushinVarBtns[256];
-			static CButtonContainer s_aPushinTeamBtns[256];
-			if(DoButton_Menu(&s_aPushinVarBtns[Idx], "var", s_PushinStatus[Idx] == 1, &VarBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.9f, 0.2f, 0.2f, 0.9f)))
-			{
-				s_PushinStatus[Idx] = (s_PushinStatus[Idx] == 1) ? 0 : 1;
-			}
-			if(DoButton_Menu(&s_aPushinTeamBtns[Idx], "team", s_PushinStatus[Idx] == 2, &TeamBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.2f, 0.9f, 0.4f, 0.9f)))
-			{
-				s_PushinStatus[Idx] = (s_PushinStatus[Idx] == 2) ? 0 : 2;
-			}
-		}
-	}
+                        static CButtonContainer s_aPushinVarBtns[256];
+                        static CButtonContainer s_aPushinTeamBtns[256];
+                        if(DoButton_Menu(&s_aPushinVarBtns[Idx], "var", s_PushinStatus[Idx] == 1, &VarBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.9f, 0.2f, 0.2f, 0.9f)))
+                        {
+                                s_PushinStatus[Idx] = (s_PushinStatus[Idx] == 1) ? 0 : 1;
+                        }
+                        if(DoButton_Menu(&s_aPushinTeamBtns[Idx], "team", s_PushinStatus[Idx] == 2, &TeamBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.2f, 0.9f, 0.4f, 0.9f)))
+                        {
+                                s_PushinStatus[Idx] = (s_PushinStatus[Idx] == 2) ? 0 : 2;
+                        }
+                }
+        }
 
-	s_ListBox.DoEnd();
+        s_ListBox.DoEnd();
 }
 // ---- end Pushin client ----
