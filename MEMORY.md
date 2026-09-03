@@ -123,3 +123,18 @@ CI workflow `build-ios-ipa.yml` запущен через API (run #54), ждё�
 - .ipa с Pushin client: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB)
 - Artifact ID: 9897564523
 - Пользователь может устанавливать через Esign
+
+### 2026-09-03 (правка раздела)
+- Пользователь сказал: "нечего не появилось" — inline Pushin в списке скинов не заметил
+- Пользователь попросил: добавить ОТДЕЛЬНЫЙ раздел "Пушин клиент" в настройках,
+  как Language/General/Player и т.д., по-русски
+- Сделал:
+  - Добавил SETTINGS_PUSHIN в enum в menus.h
+  - Добавил "Пушин клиент" в массив apTabs в menus_settings.cpp
+  - Добавил else if for SETTINGS_PUSHIN → RenderSettingsPushin(MainView)
+  - Убрал inline Pushin из RenderSettingsAppearance
+  - Добавил функцию RenderSettingsPushin в конец menus_settings.cpp:
+    показывает список всех скинов с превью, именем и чипом статуса.
+    Клик по чипу разворачивает 2 кнопки var/team прямо в строке.
+    Префикс [var]/[team] в имени + цвет ника (красный/зелёный).
+- Готовлю коммит и буду триггерить CI
