@@ -144,3 +144,54 @@ CI workflow `build-ios-ipa.yml` запущен через API (run #54), ждё�
 - .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, от 15:14 UTC)
 - В бинарнике подтверждено: `RenderSettingsPushin`, `s_PushinExpandedIndex`
 - Ссылка на CI: https://github.com/Matwey181/ddnet/actions/runs/33770925159
+
+### 2026-09-04 (новое ТЗ — полная версия)
+Пользователь дал РАСШИРЕННОЕ ТЗ. Старая inline реализация не подходит.
+Нужно:
+1. Раздел "Пушин клиент" в настройках (уже есть, коммит 6be15bba5)
+2. Внутри — сворачиваемая строка "вар лист" со стрелкой ▼ (как др. настройки)
+   — тёмная подложка от начала до почти конца, справа стрелка
+3. При разворачивании — меню вар листа:
+   - Список ВСЕХ игроков (скин + ник + статус: "нету"/"вар"/"тим")
+   - Справа 2 мини-меню: сверху "тим", снизу "вар"
+   - DRAG-AND-DROP: касанием хватаем игрока, тащим в тим/вар, отпускаем
+   - Если в вар → скин злой красный 35-40%, ник красный "[вар] ник"
+   - Если в тим → скин радостный зелёный 35-40%, ник зелёный "[тим] ник"
+4. Настройки:
+   - Цвет для варов и тимов (RGB палитра)
+   - Включить/выключить меняние цвета скина
+   - Процент красноты/зелёности (0-100)
+   - Включить/выключить меняние цвета ника
+   - Включить/выключить префикс [вар]/[тим]
+   - Свои префиксы (текстовое поле)
+   — При смене префикса меняются подписи мини-меню
+5. Общая менюшка с 3 отдельными скроллами: Players / Team / Var
+6. Снизу — предпросмотр:
+   - Тии смотрит за курсором
+   - Сверху ник (как в игре)
+   - 2 кнопки сверху по середине: тим (или кастом) и вар (или кастом)
+   - При клике — применяются все настройки (префикс/цвет/эмодзи)
+   — Учитывает все настройки в превью
+
+Touch API в порту:
+- Input()->TouchFingerStates() → vector<CTouchFingerState>
+  у каждого: m_Finger (id), m_Position (vec2 0..1), m_Delta
+- Ui()->MouseX()/MouseY() — работает и для touch (SDL прокси)
+- Ui()->MouseButton(0) — нажат ли палец
+
+ПЛАН РЕАЛИЗАЦИИ:
+1. Удалить старый RenderSettingsPushin из menus_settings.cpp
+2. Создать новый файл src/game/client/components/menus_settings_pushin.cpp
+3. Добавить его в CMakeLists (там уже есть components/menus_settings_*.cpp)
+4. Реализовать:
+   - static state: m_aPushinStatus[MAX_CLIENTS], drag state, config vars
+   - RenderSettingsPushin: сворачиваемая строка + при раскрытии render 3 cols
+   - Drag-and-drop через MouseX/Y + MouseButton(0)
+   - Превью с тии
+5. Добавить config vars в config_variables.h:
+   m_PushinVarColor, m_PushinTeamColor (unsigned int HSLA)
+   m_PushinVarTintSkin, m_PushinTeamTintSkin (bool)
+   m_PushinVarTintPercent, m_PushinTeamTintPercent (int 0..100)
+   m_PushinVarColorNick, m_PushinTeamColorNick (bool)
+   m_PushinVarUsePrefix, m_PushinTeamUsePrefix (bool)
+   m_PushinVarPrefix[16], m_PushinTeamPrefix[16] (char)

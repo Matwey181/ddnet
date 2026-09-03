@@ -790,3 +790,21 @@ MACRO_CONFIG_INT(ClVideoRecorderFPS, cl_video_recorder_fps, 60, 1, 1000, CFGFLAG
 /*
  * Add config variables for mods below this comment to avoid merge conflicts.
  */
+
+/*
+ * Pushin client — Var list feature config variables.
+ * See src/game/client/components/menus_settings_pushin.cpp
+ */
+MACRO_CONFIG_INT(PushinVarListExpanded, pushin_var_list_expanded, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: var list row expanded")
+MACRO_CONFIG_INT(PushinVarColor, pushin_var_color, 0xFF0000FF, 0, 0xFFFFFFFF, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: var nick/skin tint color (HSLA packed)")
+MACRO_CONFIG_INT(PushinTeamColor, pushin_team_color, 0x00FF00FF, 0, 0xFFFFFFFF, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: team nick/skin tint color (HSLA packed)")
+MACRO_CONFIG_INT(PushinVarTintSkin, pushin_var_tint_skin, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: tint var skin")
+MACRO_CONFIG_INT(PushinTeamTintSkin, pushin_team_tint_skin, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: tint team skin")
+MACRO_CONFIG_INT(PushinVarTintPercent, pushin_var_tint_percent, 40, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: var skin tint strength %")
+MACRO_CONFIG_INT(PushinTeamTintPercent, pushin_team_tint_percent, 40, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: team skin tint strength %")
+MACRO_CONFIG_INT(PushinVarColorNick, pushin_var_color_nick, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: color var nick")
+MACRO_CONFIG_INT(PushinTeamColorNick, pushin_team_color_nick, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: color team nick")
+MACRO_CONFIG_INT(PushinVarUsePrefix, pushin_var_use_prefix, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: add [var] prefix to var nicks")
+MACRO_CONFIG_INT(PushinTeamUsePrefix, pushin_team_use_prefix, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: add [team] prefix to team nicks")
+MACRO_CONFIG_STR(PushinVarPrefix, pushin_var_prefix, 16, "вар", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: var prefix text")
+MACRO_CONFIG_STR(PushinTeamPrefix, pushin_team_prefix, 16, "тим", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: team prefix text")
