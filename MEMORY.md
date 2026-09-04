@@ -288,3 +288,8 @@ Touch API в порту:
 - Double-click в var/тим колонке уже убирал (предыдущая правка) — оставил.
 - Перенос обратно в список игроков работает автоматически: drop в Players
   колонку ставит status=NONE → игрок появляется в списке.
+
+### 2026-09-04 ~20:55 UTC — CI #66 УСПЕХ
+- Коммит `1153bc792` (Players column shows only NONE)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 06:36 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33844777944
