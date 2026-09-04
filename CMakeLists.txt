@@ -2919,6 +2919,7 @@ if(CLIENT)
       COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/data $<TARGET_BUNDLE_DIR:game-client>/data
       COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/storage.cfg $<TARGET_BUNDLE_DIR:game-client>/storage.cfg
       COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/other/icons/DDNet_256x256x32.png $<TARGET_BUNDLE_DIR:game-client>/AppIcon.png
+      COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_SOURCE_DIR}/scripts/ios/files/LaunchScreen.storyboard $<TARGET_BUNDLE_DIR:game-client>/LaunchScreen.storyboard
     )
   endif()
 

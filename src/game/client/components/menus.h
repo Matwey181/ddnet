@@ -853,7 +853,7 @@ private:
         // (DoLine_ColorPicker, DoButton_CheckBox, DoButton_Menu).
         bool RenderPushinVarListRow(CUIRect Row);
         void RenderPushinSettingsPanel(CUIRect View);
-        void RenderPushinPlayerRow(const CUIRect &Row, int ClientId, const char *pDisplayName, int Status);
+        void RenderPushinPlayerRow(const CUIRect &Row, int ClientId, const char *pDisplayName, int Status, int ColumnStatus);
         int RenderPushinColumn(CUIRect View, const char *pTitle, const std::vector<int> &vClientIds, int ColumnStatus);
         int RenderPushinMiniMenu(CUIRect View);
         void RenderPushinPreview(CUIRect View);

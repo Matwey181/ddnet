@@ -247,3 +247,23 @@ Touch API в порту:
 - .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB)
 - CI: https://github.com/Matwey181/ddnet/actions/runs/33798145877
 - Все 9 правок пользователя применены и собраны
+
+### 2026-09-04 ~20:25 UTC — правки по отзывам 2
+Пользователь сообщил:
+1. Tint не меняется — квадратик цвета белый при движении кругляшка
+   ПОЧИНЕНО: передавал локальную копию unsigned int в DoLine_ColorPicker,
+   popup писал в неё, но она терялась. Теперь передаю &g_Config.m_PushinVarColor
+   напрямую (через cast) — popup пишет прямо в config var.
+2. Один клик по игроку в вар/тим из списка игроков убирает его
+   ПОЧИНЕНО: double-click теперь срабатывает ТОЛЬКО в var/team колонке
+   (ColumnStatus != PUSHIN_STATUS_NONE). В Players колонке клик не делает
+   ничего кроме начала drag.
+3. Drag визуальный — строка должна быть под пальцем
+   ПОЧИНЕНО: при s_PushinDragging рисую floating rect 220x40 по центру
+   курсора с тии+ник+статус. В исходной колонке строка рисуется бледной.
+4. Info.plist не починен (чёрные края)
+   ПОЧИНЕНО: добавил LaunchScreen.storyboard (чёрный фон + "DDNet" по центру)
+   + UILaunchStoryboardName=LaunchScreen в Info.plist + копирование storyboard
+   в bundle через CMake post-build.
+
+Коммиты готовлю.

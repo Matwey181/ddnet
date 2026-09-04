@@ -35,10 +35,10 @@
                 <true/>
                 <key>UIViewControllerBasedStatusBarAppearance</key>
                 <false/>
-                <key>UILaunchImageFile</key>
-                <string>LaunchImage</string>
                 <key>UIRequiresFullScreen</key>
                 <true/>
+                <key>UILaunchStoryboardName</key>
+                <string>LaunchScreen</string>
                 <key>NSCameraUsageDescription</key>
                 <string>DDNet requires camera access for QR code scanning</string>
                 <key>NSMicrophoneUsageDescription</key>
