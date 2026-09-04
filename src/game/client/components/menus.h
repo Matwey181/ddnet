@@ -857,6 +857,7 @@ private:
         int RenderPushinColumn(CUIRect View, const char *pTitle, const std::vector<int> &vClientIds, int ColumnStatus);
         int RenderPushinMiniMenu(CUIRect View);
         void RenderPushinPreview(CUIRect View);
+        void RenderPushinTeePreview(CUIRect View, int Status);
         bool RenderHslaScrollbars(CUIRect *pRect, unsigned int *pColor, bool Alpha, float DarkestLight);
 };
 #endif

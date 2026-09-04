@@ -492,7 +492,7 @@ int CMenus::RenderPushinMiniMenu(CUIRect View)
 // Helper: render a single tee preview inside a rect.
 // Status determines the tint/prefix/emote applied to the local player's tee.
 // The tee scales to fill ~85% of the rect so the whole body always fits.
-static void RenderPushinTeePreview(CMenus *pMenus, CUIRect View, int Status)
+void CMenus::RenderPushinTeePreview(CUIRect View, int Status)
 {
         View.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_ALL, 6.0f);
         View.Margin(6.0f, &View);
@@ -517,7 +517,7 @@ static void RenderPushinTeePreview(CMenus *pMenus, CUIRect View, int Status)
 
         static CButtonContainer s_aPreviewBtns[2];
         const int BtnIdx = (Status == PUSHIN_STATUS_TEAM) ? 0 : 1;
-        if(pMenus->DoButton_Menu(&s_aPreviewBtns[BtnIdx], pLabel, 0, &BtnRow, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, BtnColor))
+        if(DoButton_Menu(&s_aPreviewBtns[BtnIdx], pLabel, 0, &BtnRow, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, BtnColor))
                 s_PushinPreviewStatus = (s_PushinPreviewStatus == Status) ? PUSHIN_STATUS_NONE : Status;
 
         // Nick on top of the tee
@@ -525,19 +525,19 @@ static void RenderPushinTeePreview(CMenus *pMenus, CUIRect View, int Status)
         TeeArea.HSplitTop(16.0f, &NickRect, &TeeRect);
 
         char aDisplayName[64];
-        const int LocalId = pMenus->GameClient()->m_Snap.m_LocalClientId;
-        const char *pLocalName = (LocalId >= 0) ? pMenus->GameClient()->m_aClients[LocalId].m_aName : "player";
+        const int LocalId = GameClient()->m_Snap.m_LocalClientId;
+        const char *pLocalName = (LocalId >= 0) ? GameClient()->m_aClients[LocalId].m_aName : "player";
         FormatPushinName(aDisplayName, sizeof(aDisplayName), Status, pLocalName);
 
         const ColorRGBA NickColor = PushinNickColor(Status);
-        pMenus->TextRender()->TextColor(NickColor.r, NickColor.g, NickColor.b, NickColor.a);
-        pMenus->Ui()->DoLabel(&NickRect, aDisplayName, 13.0f, TEXTALIGN_MC);
-        pMenus->TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+        TextRender()->TextColor(NickColor.r, NickColor.g, NickColor.b, NickColor.a);
+        Ui()->DoLabel(&NickRect, aDisplayName, 13.0f, TEXTALIGN_MC);
+        TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         // Tee — scales with available TeeRect so it always fits.
         if(LocalId >= 0)
         {
-                const CGameClient::CClientData &Client = pMenus->GameClient()->m_aClients[LocalId];
+                const CGameClient::CClientData &Client = GameClient()->m_aClients[LocalId];
                 CTeeRenderInfo Info = Client.m_RenderInfo;
                 ApplyPushinTintToTee(Info, Status);
                 Info.m_Size = std::min(TeeRect.w, TeeRect.h) * 0.85f;
@@ -546,11 +546,11 @@ static void RenderPushinTeePreview(CMenus *pMenus, CUIRect View, int Status)
                 CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
                 const vec2 TeePos(TeeRect.x + TeeRect.w / 2.0f, TeeRect.y + TeeRect.h / 2.0f + OffsetToMid.y);
 
-                const vec2 CursorPos(pMenus->Ui()->MouseX(), pMenus->Ui()->MouseY());
+                const vec2 CursorPos(Ui()->MouseX(), Ui()->MouseY());
                 vec2 Dir = normalize(CursorPos - TeePos);
 
                 const int Emote = PushinEmote(Status);
-                pMenus->RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Dir, TeePos);
+                RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Dir, TeePos);
         }
 }
 
@@ -559,8 +559,8 @@ void CMenus::RenderPushinPreview(CUIRect View)
         // Split the preview area into two equal halves: team (left) and var (right).
         CUIRect TeamHalf, VarHalf;
         View.VSplitMid(&TeamHalf, &VarHalf, 6.0f);
-        RenderPushinTeePreview(this, TeamHalf, PUSHIN_STATUS_TEAM);
-        RenderPushinTeePreview(this, VarHalf, PUSHIN_STATUS_VAR);
+        RenderPushinTeePreview(TeamHalf, PUSHIN_STATUS_TEAM);
+        RenderPushinTeePreview(VarHalf, PUSHIN_STATUS_VAR);
 }
 
 // ============================================================================
