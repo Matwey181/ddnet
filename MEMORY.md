@@ -306,3 +306,8 @@ Touch API в порту:
    - Колонки 220→180px (превью +40px по высоте)
    - Тии размер 80px фиксированный → min(w,h)*0.9 адаптивный
    - Ник 20→18px (чуть больше места для тии)
+
+### 2026-09-04 ~21:20 UTC — CI #67 УСПЕХ
+- Коммит `834e31057` (linear tint + bigger preview)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 07:17 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33847574531
