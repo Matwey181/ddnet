@@ -267,3 +267,8 @@ Touch API в порту:
    в bundle через CMake post-build.
 
 Коммиты готовлю.
+
+### 2026-09-04 ~20:35 UTC — CI #65 УСПЕХ
+- Коммит `c1d13b561` (tint fix + drag visual + launch screen + dblclick fix)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 06:03 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33842395784
