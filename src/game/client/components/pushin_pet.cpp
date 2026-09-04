@@ -101,7 +101,9 @@ void CPushinPet::OnRender()
         {
                 if(!m_Init)
                 {
-                        m_PetPos = TargetPos;
+                        // Spawn the pet right on top of the player (not the delayed
+                        // target) so it doesn't get stuck inside a wall on first frame.
+                        m_PetPos = PlayerPos;
                         m_PetVel = vec2(0.0f, 0.0f);
                         m_JumpsLeft = 2;
                         m_HookState = 0;
@@ -123,14 +125,16 @@ void CPushinPet::OnRender()
                         m_JumpsLeft = 2;
 
                 // --- Horizontal movement: keep a minimum distance ---
+                // Direct velocity set (not mix) — the pet needs to keep up with
+                // the player who moves at ~400px/s. RunSpeed matches player speed.
                 const float MinDist = 40.0f;
-                const float RunSpeed = 500.0f;
+                const float RunSpeed = 550.0f; // slightly faster than player to catch up
                 if(DistX > MinDist + 10.0f)
-                        m_PetVel.x = mix(m_PetVel.x, TargetDir * RunSpeed, 0.15f);
+                        m_PetVel.x = TargetDir * RunSpeed;
                 else if(DistX < MinDist - 10.0f)
-                        m_PetVel.x = mix(m_PetVel.x, -TargetDir * RunSpeed * 0.5f, 0.15f);
+                        m_PetVel.x = -TargetDir * RunSpeed * 0.5f;
                 else
-                        m_PetVel.x *= 0.85f;
+                        m_PetVel.x *= 0.5f;
 
                 // --- Gravity ---
                 m_PetVel.y += 900.0f * Dt;
