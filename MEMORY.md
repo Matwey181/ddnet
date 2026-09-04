@@ -322,3 +322,8 @@ Touch API в порту:
    — нужно сбросить через кнопку "Сброс" в picker.
 3. Списки чуть больше в высоту — ПОЧИНЕНО: settings panel 180→140px,
    columns row 180→200px (+20px высоты спискам).
+
+### 2026-09-04 ~22:00 UTC — CI #69 УСПЕХ
+- Коммит `eec45e082` (split preview + taller columns)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 08:31 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33853314197
