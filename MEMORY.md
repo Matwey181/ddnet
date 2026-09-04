@@ -343,3 +343,8 @@ Touch API в порту:
 - Применение в scoreboard.cpp: так же, TeeInfo.Apply(pForced).
 - nameplates.cpp: не нужен — там tee не рисуется в игре, только ник.
 - Skin name в конфиге без .png (CSkins.Find принимает имя без расширения).
+
+### 2026-09-04 ~23:00 UTC — CI #70 УСПЕХ
+- Коммит `0d337ab78` (force skin toggle)
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 10:41 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33864073485
