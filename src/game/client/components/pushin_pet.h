@@ -50,6 +50,10 @@ private:
         vec2 m_HookPos = vec2(0.0f, 0.0f);
         // Hook active timer (seconds). When 0, hook releases.
         float m_HookTimer = 0.0f;
+        // Hook cooldown (seconds). Prevents re-hooking immediately after release.
+        float m_HookCooldown = 0.0f;
+        // Stuck timer — if the pet hasn't moved for a while, it tries to hook.
+        float m_StuckTimer = 0.0f;
 };
 
 #endif
