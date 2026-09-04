@@ -708,33 +708,53 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
                                         g_Config.m_PushinPetLook ^= 1;
                         }
 
-                        // --- Preview tee (right column) ---
+                        // --- Preview: player tee + pet tee side by side ---
                         PreviewCol.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_ALL, 4.0f);
                         PreviewCol.Margin(4.0f, &PreviewCol);
                         {
-                                const CSkin *pPreviewSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
-                                if(pPreviewSkin == nullptr)
-                                        pPreviewSkin = GameClient()->m_Skins.Find("default");
-                                if(pPreviewSkin != nullptr)
+                                CUIRect TeeArea, LabelArea;
+                                PreviewCol.HSplitBottom(12.0f, &TeeArea, &LabelArea);
+                                const vec2 CursorPos(Ui()->MouseX(), Ui()->MouseY());
+
+                                // Player tee (left, normal size)
                                 {
-                                        CTeeRenderInfo PreviewInfo;
-                                        PreviewInfo.Apply(pPreviewSkin);
-                                        PreviewInfo.m_Size = std::min(PreviewCol.w, PreviewCol.h) * 0.7f;
-
-                                        vec2 OffsetToMid;
-                                        CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &PreviewInfo, OffsetToMid);
-                                        const vec2 PreviewPos(PreviewCol.x + PreviewCol.w / 2.0f, PreviewCol.y + PreviewCol.h / 2.0f + OffsetToMid.y);
-
-                                        const vec2 CursorPos(Ui()->MouseX(), Ui()->MouseY());
-                                        vec2 Dir = normalize(CursorPos - PreviewPos);
-                                        const int Emote = g_Config.m_PushinPetMode == 0 ? EMOTE_NORMAL : EMOTE_NORMAL;
-                                        RenderTools()->RenderTee(CAnimState::GetIdle(), &PreviewInfo, Emote, Dir, PreviewPos);
+                                        const CSkin *pPlayerSkin = GameClient()->m_Skins.Find("default");
+                                        if(pPlayerSkin != nullptr)
+                                        {
+                                                CTeeRenderInfo PlayerInfo;
+                                                PlayerInfo.Apply(pPlayerSkin);
+                                                PlayerInfo.m_Size = std::min(TeeArea.w * 0.35f, TeeArea.h * 0.7f);
+                                                vec2 OffsetToMid;
+                                                CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &PlayerInfo, OffsetToMid);
+                                                const vec2 Pos(TeeArea.x + TeeArea.w * 0.3f, TeeArea.y + TeeArea.h / 2.0f + OffsetToMid.y);
+                                                vec2 Dir = normalize(CursorPos - Pos);
+                                                RenderTools()->RenderTee(CAnimState::GetIdle(), &PlayerInfo, EMOTE_NORMAL, Dir, Pos);
+                                        }
                                 }
-                                // Label below the tee
-                                CUIRect PreviewLabel;
-                                PreviewCol.HSplitBottom(14.0f, nullptr, &PreviewLabel);
+
+                                // Pet tee (right, with selected skin + size)
+                                {
+                                        const CSkin *pPetSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
+                                        if(pPetSkin == nullptr)
+                                                pPetSkin = GameClient()->m_Skins.Find("default");
+                                        if(pPetSkin != nullptr)
+                                        {
+                                                CTeeRenderInfo PetInfo;
+                                                PetInfo.Apply(pPetSkin);
+                                                float PetSize = std::min(TeeArea.w * 0.35f, TeeArea.h * 0.7f);
+                                                PetInfo.m_Size = PetSize * ((float)g_Config.m_PushinPetSize / 100.0f);
+                                                vec2 OffsetToMid;
+                                                CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &PetInfo, OffsetToMid);
+                                                // Offset the pet based on configured X/Y.
+                                                const vec2 Pos(TeeArea.x + TeeArea.w * 0.7f + (float)g_Config.m_PushinPetOffsetX * 0.2f,
+                                                               TeeArea.y + TeeArea.h / 2.0f + OffsetToMid.y + (float)g_Config.m_PushinPetOffsetY * 0.2f);
+                                                vec2 Dir = normalize(CursorPos - Pos);
+                                                RenderTools()->RenderTee(CAnimState::GetIdle(), &PetInfo, EMOTE_NORMAL, Dir, Pos);
+                                        }
+                                }
+
                                 const char *pModeText = g_Config.m_PushinPetMode == 0 ? "летающий" : "ходящий";
-                                Ui()->DoLabel(&PreviewLabel, pModeText, 10.0f, TEXTALIGN_MC);
+                                Ui()->DoLabel(&LabelArea, pModeText, 9.0f, TEXTALIGN_MC);
                         }
                 }
                 Body = Rest3;

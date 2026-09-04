@@ -2,7 +2,14 @@
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 
 // Pushin client — Pet feature.
-// See pushin_pet.h for the full description.
+//
+// The pet is a mini character with real physics: gravity, ground collision,
+// wall collision, walking, jumping. It follows the local player with a
+// configurable delay by chasing a "ghost" of the player's past position.
+//
+// Flying mode: the pet floats above the player (no physics, smooth interp).
+// Walking mode: the pet is a physics body that runs on the ground, jumps
+// over obstacles, and chases the player's delayed position.
 
 #include "pushin_pet.h"
 
@@ -14,6 +21,13 @@
 #include <game/client/render.h>
 #include <game/client/skin.h>
 #include <generated/client_data.h>
+
+// History buffer: stores player positions for the last ~2 seconds so the
+// pet can follow with a delay.
+constexpr int PET_HISTORY_SIZE = 120; // ~2s at 60fps
+static vec2 s_aPlayerHistory[PET_HISTORY_SIZE];
+static int s_HistoryHead = 0;
+static int s_HistoryCount = 0;
 
 void CPushinPet::OnRender()
 {
@@ -28,80 +42,122 @@ void CPushinPet::OnRender()
 	if(!GameClient()->m_aClients[LocalId].m_Active)
 		return;
 
-	// --- Player data ---
 	const vec2 PlayerPos = GameClient()->m_aClients[LocalId].m_RenderPos;
 	int PlayerEmote = EMOTE_NORMAL;
 	if(GameClient()->m_Snap.m_aCharacters[LocalId].m_Active)
 		PlayerEmote = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur.m_Emote;
 	const vec2 AimTarget = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
-	const CCharacterCore &PlayerCore = GameClient()->m_aClients[LocalId].m_Predicted;
-	const float VelX = PlayerCore.m_Vel.x;
-	const bool PlayerMoving = std::abs(VelX) > 1.0f;
-	const bool PlayerInAir = !Collision()->IsOnGround(PlayerPos, CCharacterCore::PhysicalSize());
-
-	// Player facing direction
 	const float PlayerDir = (AimTarget.x >= PlayerPos.x) ? 1.0f : -1.0f;
 
-	// --- Target pet position ---
-	vec2 TargetPos;
-	const float OffsetX = (float)g_Config.m_PushinPetOffsetX;
-	const float OffsetY = (float)g_Config.m_PushinPetOffsetY;
+	// --- Record player position into history ---
+	s_aPlayerHistory[s_HistoryHead] = PlayerPos;
+	s_HistoryHead = (s_HistoryHead + 1) % PET_HISTORY_SIZE;
+	if(s_HistoryCount < PET_HISTORY_SIZE)
+		s_HistoryCount++;
+
+	const float Dt = Client()->RenderFrameTime();
 	const float PetSize = 64.0f * ((float)g_Config.m_PushinPetSize / 100.0f);
+	// Pet collision size (proportional to render size, min 14).
+	const float PetCollideSize = std::max(14.0f, PetSize * 0.44f);
 
-	if(g_Config.m_PushinPetMode == 0) // flying
+	// --- Get delayed target position ---
+	// Delay is in centiseconds (30 = 0.3s). Convert to frames at ~60fps.
+	const int DelayFrames = std::clamp((int)((float)g_Config.m_PushinPetDelay / 100.0f * 60.0f), 0, PET_HISTORY_SIZE - 1);
+	vec2 TargetPos;
+	if(s_HistoryCount > DelayFrames)
 	{
-		TargetPos = PlayerPos + vec2(OffsetX, OffsetY);
-		if(g_Config.m_PushinPetBob)
-		{
-			m_BobPhase += Client()->RenderFrameTime() * 3.0f;
-			TargetPos.y += std::sin(m_BobPhase) * (float)g_Config.m_PushinPetBobAmount;
-		}
-	}
-	else // walking — pet is on the ground, behind the player
-	{
-		// Place pet at the same Y as the player (both are body-center).
-		// Offset horizontally behind the player based on facing direction.
-		// The pet walks on the same surface as the player.
-		TargetPos = vec2(PlayerPos.x - PlayerDir * std::abs(OffsetX), PlayerPos.y);
-	}
-
-	// --- Smooth position ---
-	// For flying: use the full configurable delay.
-	// For walking: use a much smaller delay (1/5 of configured) so the pet
-	// stays glued to the ground and doesn't float. The pet should feel like
-	// it's walking right behind you, not drifting.
-	if(!m_Init)
-	{
-		m_PetPos = TargetPos;
-		m_Init = true;
+		const int Idx = (s_HistoryHead - 1 - DelayFrames + PET_HISTORY_SIZE) % PET_HISTORY_SIZE;
+		TargetPos = s_aPlayerHistory[Idx];
 	}
 	else
 	{
-		float DelaySec = std::max(0.01f, (float)g_Config.m_PushinPetDelay / 100.0f);
-		if(g_Config.m_PushinPetMode == 1) // walking — 5x faster follow
-			DelaySec *= 0.2f;
-		const float Dt = Client()->RenderFrameTime();
-		const float Factor = 1.0f - std::exp(-Dt / DelaySec);
-		m_PetPos = mix(m_PetPos, TargetPos, Factor);
+		TargetPos = PlayerPos;
+	}
+
+	if(g_Config.m_PushinPetMode == 0) // ===== FLYING =====
+	{
+		// Smooth interpolation toward target + offset.
+		vec2 FlyTarget = TargetPos + vec2((float)g_Config.m_PushinPetOffsetX, (float)g_Config.m_PushinPetOffsetY);
+		if(g_Config.m_PushinPetBob)
+		{
+			m_BobPhase += Dt * 3.0f;
+			FlyTarget.y += std::sin(m_BobPhase) * (float)g_Config.m_PushinPetBobAmount;
+		}
+		if(!m_Init)
+		{
+			m_PetPos = FlyTarget;
+			m_Init = true;
+		}
+		else
+		{
+			const float DelaySec = std::max(0.01f, (float)g_Config.m_PushinPetDelay / 100.0f);
+			const float Factor = 1.0f - std::exp(-Dt / DelaySec);
+			m_PetPos = mix(m_PetPos, FlyTarget, Factor);
+		}
+	}
+	else // ===== WALKING (physics-based) =====
+	{
+		if(!m_Init)
+		{
+			m_PetPos = TargetPos;
+			m_PetVel = vec2(0.0f, 0.0f);
+			m_Init = true;
+		}
+
+		// --- AI: chase the delayed player position ---
+		const vec2 ToTarget = TargetPos - m_PetPos;
+		const float DistX = std::abs(ToTarget.x);
+		const float TargetDir = (ToTarget.x > 0.0f) ? 1.0f : (ToTarget.x < 0.0f ? -1.0f : 0.0f);
+
+		// Horizontal speed: run toward target. Scale with render frame time.
+		const float RunSpeed = 8.0f; // pixels per frame baseline
+		if(DistX > 5.0f)
+			m_PetVel.x = TargetDir * RunSpeed * 50.0f; // convert to units/s
+		else
+			m_PetVel.x *= 0.8f; // slow down when close
+
+		// --- Gravity ---
+		m_PetVel.y += 18.0f * 50.0f * Dt; // ~18 * 50 = 900 px/s²
+
+		// --- Jumping: if there's a wall ahead and we're on the ground, jump ---
+		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
+		if(OnGround && DistX > 10.0f)
+		{
+			// Check if there's a wall in the movement direction.
+			const vec2 CheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.6f, 0.0f);
+			const bool WallAhead = Collision()->CheckPoint(CheckPos);
+			// Also jump if the target is significantly above us.
+			const bool TargetAbove = ToTarget.y < -20.0f;
+			if(WallAhead || TargetAbove)
+			{
+				m_PetVel.y = -12.0f * 50.0f; // jump velocity
+			}
+		}
+
+		// --- Move with collision ---
+		bool Grounded = false;
+		vec2 VelPerFrame = m_PetVel * Dt;
+		Collision()->MoveBox(&m_PetPos, &VelPerFrame, vec2(PetCollideSize, PetCollideSize), vec2(0.0f, 0.0f), &Grounded);
+		// Update velocity from the post-collision velocity (walls stop us).
+		m_PetVel = VelPerFrame / std::max(Dt, 0.001f);
+		if(Grounded && m_PetVel.y > 0.0f)
+			m_PetVel.y = 0.0f;
 	}
 
 	// --- Smooth look direction (0.1s) ---
 	const vec2 PetToAimRaw = AimTarget - m_PetPos;
-	vec2 TargetDir(1.0f, 0.0f);
+	vec2 TargetDir2(1.0f, 0.0f);
 	if(length(PetToAimRaw) > 0.001f)
-		TargetDir = normalize(PetToAimRaw);
-
+		TargetDir2 = normalize(PetToAimRaw);
 	if(!m_LookInit)
 	{
-		m_LookDir = TargetDir;
+		m_LookDir = TargetDir2;
 		m_LookInit = true;
 	}
 	else
 	{
-		const float LookDelay = 0.1f;
-		const float Dt = Client()->RenderFrameTime();
-		const float Factor = 1.0f - std::exp(-Dt / LookDelay);
-		m_LookDir = normalize(mix(m_LookDir, TargetDir, Factor));
+		const float Factor = 1.0f - std::exp(-Dt / 0.1f);
+		m_LookDir = normalize(mix(m_LookDir, TargetDir2, Factor));
 	}
 
 	// --- Build the tee render info ---
@@ -126,22 +182,20 @@ void CPushinPet::OnRender()
 	{
 		pState = CAnimState::GetIdle();
 	}
-	else // walking — full walk animation like CPlayers
+	else // walking — physics-based animation
 	{
-		// Check if the PET is on the ground (not the player).
-		const bool PetInAir = !Collision()->IsOnGround(m_PetPos, PetSize);
-		const bool PetStationary = std::abs(m_PetPos.x - m_LastPetX) < 0.5f;
-		m_LastPetX = m_PetPos.x;
+		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
+		const bool Moving = std::abs(m_PetVel.x) > 50.0f;
+		const float WalkSpeed = std::abs(m_PetVel.x) / 500.0f;
 
-		// Walk time based on pet's x position (same formula as CPlayers).
 		float WalkTime = std::fmod(m_PetPos.x, 100.0f) / 100.0f;
 		if(WalkTime < 0.0f)
 			WalkTime += 1.0f;
 
 		m_WalkState.Set(&g_pData->m_aAnimations[ANIM_BASE], 0.0f);
-		if(PetInAir)
+		if(!OnGround)
 			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_INAIR], 0.0f, 1.0f);
-		else if(PetStationary)
+		else if(!Moving)
 			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_IDLE], 0.0f, 1.0f);
 		else
 			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_WALK], WalkTime, 1.0f);

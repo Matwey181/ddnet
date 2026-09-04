@@ -29,6 +29,8 @@ public:
 private:
         // Smoothed pet position (interpolated toward the target with a delay).
         vec2 m_PetPos = vec2(0.0f, 0.0f);
+        // Pet velocity for walking-mode physics.
+        vec2 m_PetVel = vec2(0.0f, 0.0f);
         bool m_Init = false;
         // Smoothed look direction (0.1s delay, prevents snap on fast turns).
         vec2 m_LookDir = vec2(1.0f, 0.0f);
