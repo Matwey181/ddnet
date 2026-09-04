@@ -575,6 +575,20 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         Body.HSplitTop(8.0f, nullptr, &Body);
         Ui()->DoLabel(&Title, "пушин клиент", 22.0f, TEXTALIGN_MC);
 
+        // "Force skin" toggle row — when on, every player on the server is
+        // rendered with the skin named in g_Config.m_PushinForceSkinName
+        // (default "pusheen"). This is a separate feature from the var list.
+        {
+                CUIRect ForceRow, Rest2;
+                Body.HSplitTop(28.0f, &ForceRow, &Rest2);
+                Rest2.HSplitTop(4.0f, nullptr, &Rest2);
+                ForceRow.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f), IGraphics::CORNER_ALL, 4.0f);
+                ForceRow.Margin(2.0f, &ForceRow);
+                if(DoButton_CheckBox(&g_Config.m_PushinForceSkin, "принудительный скин для всех", g_Config.m_PushinForceSkin, &ForceRow))
+                        g_Config.m_PushinForceSkin ^= 1;
+                Body = Rest2;
+        }
+
         // Collapsible "вар лист" row
         CUIRect VarListRow, Rest;
         Body.HSplitTop(28.0f, &VarListRow, &Rest);
@@ -748,5 +762,29 @@ void CMenus::ApplyPushinToRenderInfo(CTeeRenderInfo &Info, int ClientId)
 int CMenus::GetPushinEmote(int ClientId)
 {
         return PushinEmote(GetPushinStatus(ClientId));
+}
+
+// Pushin client — force skin: when g_Config.m_PushinForceSkin is on, swap
+// the skin texture in the given CTeeRenderInfo to the skin named in
+// g_Config.m_PushinForceSkinName. Called from players.cpp, nameplates.cpp,
+// scoreboard.cpp before rendering any player's tee.
+//
+// We can't reach the CGameClient from a static method, so we rely on the
+// caller to have already populated Info.m_SkinTextureHandle etc. via
+// Info.Apply(pSkin). Here we only need to override the skin — but since
+// CTeeRenderInfo doesn't carry a skin name, the actual swap is done by
+// the caller (who has access to m_Skins). This accessor is a no-op stub
+// kept for API symmetry; the real logic is in the callers.
+//
+// Actually, CTeeRenderInfo does carry the skin via m_OriginalSkinTextureHandle
+// and m_BloodColor etc. The cleanest approach is for callers to look up the
+// forced skin and call Info.Apply() themselves. This static method exists
+// only so callers can check the toggle without referencing g_Config directly.
+void CMenus::ApplyPushinForceSkin(CTeeRenderInfo &Info)
+{
+        // No-op: the actual skin swap is done in players.cpp/nameplates.cpp/
+        // scoreboard.cpp where the CSkins API is reachable. This method is
+        // kept as a placeholder so the public API in menus.h stays consistent.
+        (void)Info;
 }
 // ---- end Pushin client ----

@@ -20,6 +20,7 @@
 #include <game/client/components/motd.h>
 #include <game/client/components/statboard.h>
 #include <game/client/gameclient.h>
+#include <game/client/skin.h>
 #include <game/client/ui.h>
 #include <game/localization.h>
 
@@ -738,6 +739,13 @@ void CScoreboard::RenderScoreboard(CUIRect Scoreboard, int Team, int CountStart,
                         {
                                 CTeeRenderInfo TeeInfo = ClientData.m_RenderInfo;
                                 TeeInfo.m_Size *= TeeSizeMod;
+                                // Pushin client: force skin — override on scoreboard.
+                                if(g_Config.m_PushinForceSkin)
+                                {
+                                        const CSkin *pForced = GameClient()->m_Skins.Find(g_Config.m_PushinForceSkinName);
+                                        if(pForced != nullptr)
+                                                TeeInfo.Apply(pForced);
+                                }
                                 // Pushin client: apply var/team skin tint on scoreboard.
                                 CMenus::ApplyPushinToRenderInfo(TeeInfo, pInfo->m_ClientId);
                                 vec2 OffsetToMid;

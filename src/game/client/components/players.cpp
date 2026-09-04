@@ -933,10 +933,18 @@ void CPlayers::OnRender()
         // update render info for ninja
         CTeeRenderInfo aRenderInfo[MAX_CLIENTS];
         const bool IsTeamPlay = GameClient()->IsTeamPlay();
+        // Pushin client: look up the forced skin once (if enabled).
+        const CSkin *pPushinForcedSkin = nullptr;
+        if(g_Config.m_PushinForceSkin)
+                pPushinForcedSkin = GameClient()->m_Skins.Find(g_Config.m_PushinForceSkinName);
         for(int i = 0; i < MAX_CLIENTS; ++i)
         {
                 aRenderInfo[i] = GameClient()->m_aClients[i].m_RenderInfo;
                 aRenderInfo[i].m_TeeRenderFlags = 0;
+
+                // Pushin client: force skin — override every player's skin.
+                if(pPushinForcedSkin != nullptr)
+                        aRenderInfo[i].Apply(pPushinForcedSkin);
 
                 // Pushin client: apply var/team skin tint in-game.
                 CMenus::ApplyPushinToRenderInfo(aRenderInfo[i], i);

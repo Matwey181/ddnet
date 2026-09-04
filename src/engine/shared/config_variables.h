@@ -808,3 +808,7 @@ MACRO_CONFIG_INT(PushinVarUsePrefix, pushin_var_use_prefix, 1, 0, 1, CFGFLAG_SAV
 MACRO_CONFIG_INT(PushinTeamUsePrefix, pushin_team_use_prefix, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: add [team] prefix to team nicks")
 MACRO_CONFIG_STR(PushinVarPrefix, pushin_var_prefix, 16, "вар", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: var prefix text")
 MACRO_CONFIG_STR(PushinTeamPrefix, pushin_team_prefix, 16, "тим", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: team prefix text")
+
+/* Pushin client — Force skin feature */
+MACRO_CONFIG_INT(PushinForceSkin, pushin_force_skin, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: force all players to use the skin named in pushin_force_skin_name")
+MACRO_CONFIG_STR(PushinForceSkinName, pushin_force_skin_name, 24, "pusheen", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: skin name to force when pushin_force_skin is on (without .png extension)")

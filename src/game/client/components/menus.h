@@ -80,6 +80,9 @@ public:
         static ColorRGBA GetPushinNickColor(int ClientId);
         static void ApplyPushinToRenderInfo(CTeeRenderInfo &Info, int ClientId);
         static int GetPushinEmote(int ClientId);
+        // Pushin client — force skin: when on, every player's tee render info
+        // is swapped to use the skin named in g_Config.m_PushinForceSkinName.
+        static void ApplyPushinForceSkin(CTeeRenderInfo &Info);
 
         struct SCustomItem
         {

@@ -327,3 +327,19 @@ Touch API в порту:
 - Коммит `eec45e082` (split preview + taller columns)
 - .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 08:31 UTC)
 - CI: https://github.com/Matwey181/ddnet/actions/runs/33853314197
+
+### 2026-09-04 ~22:30 UTC — new feature: force skin "pusheen"
+Пользователь: "добавь ещё одну функцию отдельно от вар листа но в том же
+разделе — чтобы у всех был скин на сервере 'pusheen.png' (мой кастомный
+загруженный скин). Когда включено — у всех скин pusheen, когда выключено —
+у каждого свой."
+
+Реализовано:
+- Config vars: m_PushinForceSkin (0/1), m_PushinForceSkinName ("pusheen")
+- UI: чекбокс "принудительный скин для всех" в разделе "пушин клиент",
+  над "вар лист" строкой. Тёмная подложка как у вар лист.
+- Применение в players.cpp: если toggle on, ищу скин по имени и
+  aRenderInfo[i].Apply(pPushinForcedSkin) для каждого клиента.
+- Применение в scoreboard.cpp: так же, TeeInfo.Apply(pForced).
+- nameplates.cpp: не нужен — там tee не рисуется в игре, только ник.
+- Skin name в конфиге без .png (CSkins.Find принимает имя без расширения).
