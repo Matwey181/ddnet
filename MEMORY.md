@@ -369,3 +369,16 @@ Touch API в порту:
   4. Анимация ходьбы: ANIM_WALK/IDLE/INAIR как у игроков, WalkTime от позиции питомца
   5. Позиция ходящего на поверхности (PlayerPos.y, не выше)
   6. m_PushinPetExpanded config var для сохранения состояния разворота
+
+### 2026-09-05 ~02:00 UTC — CI #75 УСПЕХ — pet walks on ground + compact UI
+- Коммит `f3704c1ad`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 14:46 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33885097850
+- Исправлено:
+  1. Ходящий питомец теперь на земле (Y = player Y), не летает
+  2. Follow speed 5x быстрее в ходящем режиме (delay * 0.2)
+  3. Ground check по позиции питомца, не игрока
+  4. Walk/idle/inair анимация по реальному состоянию питомца
+  5. Компактный UI: 200px панель, левая колонка настройки, правая превью тии
+  6. Превью питомца справа (тии смотрит за курсором)
+  7. Все подписи короткие, не налезают
