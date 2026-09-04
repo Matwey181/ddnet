@@ -31,176 +31,272 @@ static int s_HistoryCount = 0;
 
 void CPushinPet::OnRender()
 {
-	if(!g_Config.m_PushinPetEnabled)
-		return;
-	if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
-		return;
+        if(!g_Config.m_PushinPetEnabled)
+                return;
+        if(Client()->State() != IClient::STATE_ONLINE && Client()->State() != IClient::STATE_DEMOPLAYBACK)
+                return;
 
-	const int LocalId = GameClient()->m_Snap.m_LocalClientId;
-	if(LocalId < 0 || LocalId >= MAX_CLIENTS)
-		return;
-	if(!GameClient()->m_aClients[LocalId].m_Active)
-		return;
+        const int LocalId = GameClient()->m_Snap.m_LocalClientId;
+        if(LocalId < 0 || LocalId >= MAX_CLIENTS)
+                return;
+        if(!GameClient()->m_aClients[LocalId].m_Active)
+                return;
 
-	const vec2 PlayerPos = GameClient()->m_aClients[LocalId].m_RenderPos;
-	int PlayerEmote = EMOTE_NORMAL;
-	if(GameClient()->m_Snap.m_aCharacters[LocalId].m_Active)
-		PlayerEmote = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur.m_Emote;
-	const vec2 AimTarget = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
-	const float PlayerDir = (AimTarget.x >= PlayerPos.x) ? 1.0f : -1.0f;
+        const vec2 PlayerPos = GameClient()->m_aClients[LocalId].m_RenderPos;
+        int PlayerEmote = EMOTE_NORMAL;
+        if(GameClient()->m_Snap.m_aCharacters[LocalId].m_Active)
+                PlayerEmote = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur.m_Emote;
+        const vec2 AimTarget = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
+        const float PlayerDir = (AimTarget.x >= PlayerPos.x) ? 1.0f : -1.0f;
 
-	// --- Record player position into history ---
-	s_aPlayerHistory[s_HistoryHead] = PlayerPos;
-	s_HistoryHead = (s_HistoryHead + 1) % PET_HISTORY_SIZE;
-	if(s_HistoryCount < PET_HISTORY_SIZE)
-		s_HistoryCount++;
+        // --- Record player position into history ---
+        s_aPlayerHistory[s_HistoryHead] = PlayerPos;
+        s_HistoryHead = (s_HistoryHead + 1) % PET_HISTORY_SIZE;
+        if(s_HistoryCount < PET_HISTORY_SIZE)
+                s_HistoryCount++;
 
-	const float Dt = Client()->RenderFrameTime();
-	const float PetSize = 64.0f * ((float)g_Config.m_PushinPetSize / 100.0f);
-	// Pet collision size (proportional to render size, min 14).
-	const float PetCollideSize = std::max(14.0f, PetSize * 0.44f);
+        const float Dt = Client()->RenderFrameTime();
+        const float PetSize = 64.0f * ((float)g_Config.m_PushinPetSize / 100.0f);
+        // Pet collision size (proportional to render size, min 14).
+        const float PetCollideSize = std::max(14.0f, PetSize * 0.44f);
 
-	// --- Get delayed target position ---
-	// Delay is in centiseconds (30 = 0.3s). Convert to frames at ~60fps.
-	const int DelayFrames = std::clamp((int)((float)g_Config.m_PushinPetDelay / 100.0f * 60.0f), 0, PET_HISTORY_SIZE - 1);
-	vec2 TargetPos;
-	if(s_HistoryCount > DelayFrames)
-	{
-		const int Idx = (s_HistoryHead - 1 - DelayFrames + PET_HISTORY_SIZE) % PET_HISTORY_SIZE;
-		TargetPos = s_aPlayerHistory[Idx];
-	}
-	else
-	{
-		TargetPos = PlayerPos;
-	}
+        // --- Get delayed target position ---
+        // Delay is in centiseconds (30 = 0.3s). Convert to frames at ~60fps.
+        const int DelayFrames = std::clamp((int)((float)g_Config.m_PushinPetDelay / 100.0f * 60.0f), 0, PET_HISTORY_SIZE - 1);
+        vec2 TargetPos;
+        if(s_HistoryCount > DelayFrames)
+        {
+                const int Idx = (s_HistoryHead - 1 - DelayFrames + PET_HISTORY_SIZE) % PET_HISTORY_SIZE;
+                TargetPos = s_aPlayerHistory[Idx];
+        }
+        else
+        {
+                TargetPos = PlayerPos;
+        }
 
-	if(g_Config.m_PushinPetMode == 0) // ===== FLYING =====
-	{
-		// Smooth interpolation toward target + offset.
-		vec2 FlyTarget = TargetPos + vec2((float)g_Config.m_PushinPetOffsetX, (float)g_Config.m_PushinPetOffsetY);
-		if(g_Config.m_PushinPetBob)
-		{
-			m_BobPhase += Dt * 3.0f;
-			FlyTarget.y += std::sin(m_BobPhase) * (float)g_Config.m_PushinPetBobAmount;
-		}
-		if(!m_Init)
-		{
-			m_PetPos = FlyTarget;
-			m_Init = true;
-		}
-		else
-		{
-			const float DelaySec = std::max(0.01f, (float)g_Config.m_PushinPetDelay / 100.0f);
-			const float Factor = 1.0f - std::exp(-Dt / DelaySec);
-			m_PetPos = mix(m_PetPos, FlyTarget, Factor);
-		}
-	}
-	else // ===== WALKING (physics-based) =====
-	{
-		if(!m_Init)
-		{
-			m_PetPos = TargetPos;
-			m_PetVel = vec2(0.0f, 0.0f);
-			m_Init = true;
-		}
+        if(g_Config.m_PushinPetMode == 0) // ===== FLYING =====
+        {
+                // Smooth interpolation toward target + offset.
+                vec2 FlyTarget = TargetPos + vec2((float)g_Config.m_PushinPetOffsetX, (float)g_Config.m_PushinPetOffsetY);
+                if(g_Config.m_PushinPetBob)
+                {
+                        m_BobPhase += Dt * 3.0f;
+                        FlyTarget.y += std::sin(m_BobPhase) * (float)g_Config.m_PushinPetBobAmount;
+                }
+                if(!m_Init)
+                {
+                        m_PetPos = FlyTarget;
+                        m_Init = true;
+                }
+                else
+                {
+                        const float DelaySec = std::max(0.01f, (float)g_Config.m_PushinPetDelay / 100.0f);
+                        const float Factor = 1.0f - std::exp(-Dt / DelaySec);
+                        m_PetPos = mix(m_PetPos, FlyTarget, Factor);
+                }
+        }
+        else // ===== WALKING (physics-based) =====
+        {
+                if(!m_Init)
+                {
+                        m_PetPos = TargetPos;
+                        m_PetVel = vec2(0.0f, 0.0f);
+                        m_JumpsLeft = 2;
+                        m_HookState = 0; // 0=idle, 1=flying, 2=grabbed
+                        m_HookPos = m_PetPos;
+                        m_Init = true;
+                }
 
-		// --- AI: chase the delayed player position ---
-		const vec2 ToTarget = TargetPos - m_PetPos;
-		const float DistX = std::abs(ToTarget.x);
-		const float TargetDir = (ToTarget.x > 0.0f) ? 1.0f : (ToTarget.x < 0.0f ? -1.0f : 0.0f);
+                // --- AI: chase the delayed player position ---
+                const vec2 ToTarget = TargetPos - m_PetPos;
+                const float DistX = std::abs(ToTarget.x);
+                const float DistY = std::abs(ToTarget.y);
+                const float Dist = length(ToTarget);
+                const float TargetDir = (ToTarget.x > 0.0f) ? 1.0f : (ToTarget.x < 0.0f ? -1.0f : 0.0f);
 
-		// Horizontal speed: run toward target. Scale with render frame time.
-		const float RunSpeed = 8.0f; // pixels per frame baseline
-		if(DistX > 5.0f)
-			m_PetVel.x = TargetDir * RunSpeed * 50.0f; // convert to units/s
-		else
-			m_PetVel.x *= 0.8f; // slow down when close
+                const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
 
-		// --- Gravity ---
-		m_PetVel.y += 18.0f * 50.0f * Dt; // ~18 * 50 = 900 px/s²
+                // --- Reset jumps when on ground ---
+                if(OnGround)
+                        m_JumpsLeft = 2;
 
-		// --- Jumping: if there's a wall ahead and we're on the ground, jump ---
-		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
-		if(OnGround && DistX > 10.0f)
-		{
-			// Check if there's a wall in the movement direction.
-			const vec2 CheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.6f, 0.0f);
-			const bool WallAhead = Collision()->CheckPoint(CheckPos);
-			// Also jump if the target is significantly above us.
-			const bool TargetAbove = ToTarget.y < -20.0f;
-			if(WallAhead || TargetAbove)
-			{
-				m_PetVel.y = -12.0f * 50.0f; // jump velocity
-			}
-		}
+                // --- Horizontal movement: keep a minimum distance from the player ---
+                // Don't walk INTO the player — stop at 40px.
+                const float MinDist = 40.0f;
+                const float RunSpeed = 500.0f; // units/s
+                if(DistX > MinDist + 10.0f)
+                {
+                        // Accelerate toward target instead of snapping — smooth.
+                        m_PetVel.x = mix(m_PetVel.x, TargetDir * RunSpeed, 0.15f);
+                }
+                else if(DistX < MinDist - 10.0f)
+                {
+                        // Too close — back away.
+                        m_PetVel.x = mix(m_PetVel.x, -TargetDir * RunSpeed * 0.5f, 0.15f);
+                }
+                else
+                {
+                        // In the sweet spot — decelerate.
+                        m_PetVel.x *= 0.85f;
+                }
 
-		// --- Move with collision ---
-		bool Grounded = false;
-		vec2 VelPerFrame = m_PetVel * Dt;
-		Collision()->MoveBox(&m_PetPos, &VelPerFrame, vec2(PetCollideSize, PetCollideSize), vec2(0.0f, 0.0f), &Grounded);
-		// Update velocity from the post-collision velocity (walls stop us).
-		m_PetVel = VelPerFrame / std::max(Dt, 0.001f);
-		if(Grounded && m_PetVel.y > 0.0f)
-			m_PetVel.y = 0.0f;
-	}
+                // --- Gravity ---
+                m_PetVel.y += 900.0f * Dt;
 
-	// --- Smooth look direction (0.1s) ---
-	const vec2 PetToAimRaw = AimTarget - m_PetPos;
-	vec2 TargetDir2(1.0f, 0.0f);
-	if(length(PetToAimRaw) > 0.001f)
-		TargetDir2 = normalize(PetToAimRaw);
-	if(!m_LookInit)
-	{
-		m_LookDir = TargetDir2;
-		m_LookInit = true;
-	}
-	else
-	{
-		const float Factor = 1.0f - std::exp(-Dt / 0.1f);
-		m_LookDir = normalize(mix(m_LookDir, TargetDir2, Factor));
-	}
+                // --- Jumping logic ---
+                // Jump if: on ground or has air jumps, AND there's a reason to jump:
+                //   1. Wall ahead (can't walk through)
+                //   2. Target is significantly above
+                //   3. Stuck (velocity ~0 but still far from target)
+                const bool CanJump = (OnGround && m_JumpsLeft >= 1) || (!OnGround && m_JumpsLeft >= 2);
+                if(CanJump && Dist > MinDist)
+                {
+                        bool ShouldJump = false;
 
-	// --- Build the tee render info ---
-	const CSkin *pSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
-	if(pSkin == nullptr)
-		pSkin = GameClient()->m_Skins.Find("default");
-	if(pSkin == nullptr)
-		return;
+                        // Wall ahead?
+                        if(OnGround && DistX > 5.0f)
+                        {
+                                const vec2 CheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.7f, 0.0f);
+                                if(Collision()->CheckPoint(CheckPos))
+                                        ShouldJump = true;
+                        }
 
-	CTeeRenderInfo Info;
-	Info.Apply(pSkin);
-	Info.m_Size = PetSize;
+                        // Target above us?
+                        if(OnGround && ToTarget.y < -30.0f)
+                                ShouldJump = true;
 
-	// --- Animation ---
-	int Emote = EMOTE_NORMAL;
-	if(g_Config.m_PushinPetEmote)
-		Emote = PlayerEmote;
-	vec2 Dir = g_Config.m_PushinPetLook ? m_LookDir : vec2(PlayerDir, 0.0f);
+                        // Stuck on ground and target is far?
+                        if(OnGround && Dist > 100.0f && std::abs(m_PetVel.x) < 50.0f)
+                                ShouldJump = true;
 
-	const CAnimState *pState;
-	if(g_Config.m_PushinPetMode == 0) // flying — idle
-	{
-		pState = CAnimState::GetIdle();
-	}
-	else // walking — physics-based animation
-	{
-		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
-		const bool Moving = std::abs(m_PetVel.x) > 50.0f;
-		const float WalkSpeed = std::abs(m_PetVel.x) / 500.0f;
+                        // In air and target is above — use double jump.
+                        if(!OnGround && m_JumpsLeft >= 2 && ToTarget.y < -50.0f && DistY > 40.0f)
+                                ShouldJump = true;
 
-		float WalkTime = std::fmod(m_PetPos.x, 100.0f) / 100.0f;
-		if(WalkTime < 0.0f)
-			WalkTime += 1.0f;
+                        if(ShouldJump)
+                        {
+                                m_PetVel.y = -550.0f; // jump velocity
+                                m_JumpsLeft--;
+                        }
+                }
 
-		m_WalkState.Set(&g_pData->m_aAnimations[ANIM_BASE], 0.0f);
-		if(!OnGround)
-			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_INAIR], 0.0f, 1.0f);
-		else if(!Moving)
-			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_IDLE], 0.0f, 1.0f);
-		else
-			m_WalkState.Add(&g_pData->m_aAnimations[ANIM_WALK], WalkTime, 1.0f);
-		pState = &m_WalkState;
-	}
+                // --- Hook logic ---
+                // If the target is far above and we can't reach with jumps, hook toward it.
+                const bool ShouldHook = (ToTarget.y < -80.0f && Dist > 120.0f) ||
+                                        (Dist > 200.0f && !OnGround && m_JumpsLeft == 0);
+                if(ShouldHook && m_HookState == 0)
+                {
+                        // Cast a ray from pet toward target.
+                        vec2 HookDir = normalize(ToTarget);
+                        vec2 HookEnd = m_PetPos + HookDir * 400.0f;
+                        vec2 OutCol, OutBeforeCol;
+                        int Hit = Collision()->IntersectLine(m_PetPos, HookEnd, &OutCol, &OutBeforeCol);
+                        if(Hit != 0) // hit something solid
+                        {
+                                m_HookState = 2; // grabbed
+                                m_HookPos = OutCol;
+                                m_HookTimer = 0.5f; // hook for 0.5s
+                        }
+                }
 
-	RenderTools()->RenderTee(pState, &Info, Emote, Dir, m_PetPos);
+                // --- Apply hook pull ---
+                if(m_HookState == 2 && m_HookTimer > 0.0f)
+                {
+                        m_HookTimer -= Dt;
+                        vec2 HookDir = m_HookPos - m_PetPos;
+                        float HookDist = length(HookDir);
+                        if(HookDist > 10.0f)
+                        {
+                                HookDir = normalize(HookDir);
+                                // Pull toward hook point.
+                                m_PetVel.x += HookDir.x * 800.0f * Dt;
+                                m_PetVel.y += HookDir.y * 800.0f * Dt;
+                        }
+                        if(m_HookTimer <= 0.0f || HookDist < 15.0f)
+                                m_HookState = 0;
+                }
+
+                // --- Clamp velocity ---
+                m_PetVel.x = std::clamp(m_PetVel.x, -700.0f, 700.0f);
+                m_PetVel.y = std::clamp(m_PetVel.y, -700.0f, 700.0f);
+
+                // --- Move with collision ---
+                bool Grounded = false;
+                vec2 VelPerFrame = m_PetVel * Dt;
+                Collision()->MoveBox(&m_PetPos, &VelPerFrame, vec2(PetCollideSize, PetCollideSize), vec2(0.0f, 0.0f), &Grounded);
+                m_PetVel = VelPerFrame / std::max(Dt, 0.001f);
+                if(Grounded && m_PetVel.y > 0.0f)
+                        m_PetVel.y = 0.0f;
+
+                // --- Render the hook line if active ---
+                if(m_HookState == 2)
+                {
+                        Graphics()->TextureClear();
+                        Graphics()->LinesBegin();
+                        Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.8f);
+                        IGraphics::CLineItem Line(m_PetPos, m_HookPos);
+                        Graphics()->LinesDraw(&Line, 1);
+                        Graphics()->LinesEnd();
+                }
+        }
+
+        // --- Smooth look direction (0.1s) ---
+        const vec2 PetToAimRaw = AimTarget - m_PetPos;
+        vec2 TargetDir2(1.0f, 0.0f);
+        if(length(PetToAimRaw) > 0.001f)
+                TargetDir2 = normalize(PetToAimRaw);
+        if(!m_LookInit)
+        {
+                m_LookDir = TargetDir2;
+                m_LookInit = true;
+        }
+        else
+        {
+                const float Factor = 1.0f - std::exp(-Dt / 0.1f);
+                m_LookDir = normalize(mix(m_LookDir, TargetDir2, Factor));
+        }
+
+        // --- Build the tee render info ---
+        const CSkin *pSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
+        if(pSkin == nullptr)
+                pSkin = GameClient()->m_Skins.Find("default");
+        if(pSkin == nullptr)
+                return;
+
+        CTeeRenderInfo Info;
+        Info.Apply(pSkin);
+        Info.m_Size = PetSize;
+
+        // --- Animation ---
+        int Emote = EMOTE_NORMAL;
+        if(g_Config.m_PushinPetEmote)
+                Emote = PlayerEmote;
+        vec2 Dir = g_Config.m_PushinPetLook ? m_LookDir : vec2(PlayerDir, 0.0f);
+
+        const CAnimState *pState;
+        if(g_Config.m_PushinPetMode == 0) // flying — idle
+        {
+                pState = CAnimState::GetIdle();
+        }
+        else // walking — physics-based animation
+        {
+                const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
+                const bool Moving = std::abs(m_PetVel.x) > 50.0f;
+                const float WalkSpeed = std::abs(m_PetVel.x) / 500.0f;
+
+                float WalkTime = std::fmod(m_PetPos.x, 100.0f) / 100.0f;
+                if(WalkTime < 0.0f)
+                        WalkTime += 1.0f;
+
+                m_WalkState.Set(&g_pData->m_aAnimations[ANIM_BASE], 0.0f);
+                if(!OnGround)
+                        m_WalkState.Add(&g_pData->m_aAnimations[ANIM_INAIR], 0.0f, 1.0f);
+                else if(!Moving)
+                        m_WalkState.Add(&g_pData->m_aAnimations[ANIM_IDLE], 0.0f, 1.0f);
+                else
+                        m_WalkState.Add(&g_pData->m_aAnimations[ANIM_WALK], WalkTime, 1.0f);
+                pState = &m_WalkState;
+        }
+
+        RenderTools()->RenderTee(pState, &Info, Emote, Dir, m_PetPos);
 }

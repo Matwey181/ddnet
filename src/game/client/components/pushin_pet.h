@@ -42,6 +42,14 @@ private:
         // Last frame's pet X position — used to detect if the pet is moving
         // (for walk vs idle animation).
         float m_LastPetX = 0.0f;
+        // Jump counter for double jump (2 = full, 1 = one air jump left, 0 = none).
+        int m_JumpsLeft = 2;
+        // Hook state: 0=idle, 2=grabbed (pulling toward hook point).
+        int m_HookState = 0;
+        // Hook target position (where the hook grabbed).
+        vec2 m_HookPos = vec2(0.0f, 0.0f);
+        // Hook active timer (seconds). When 0, hook releases.
+        float m_HookTimer = 0.0f;
 };
 
 #endif
