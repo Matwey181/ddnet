@@ -22,6 +22,8 @@
 #include <game/client/skin.h>
 #include <generated/client_data.h>
 
+#include <vector>
+
 // History buffer: stores player positions for the last ~2 seconds so the
 // pet can follow with a delay.
 constexpr int PET_HISTORY_SIZE = 120; // ~2s at 60fps
@@ -102,7 +104,7 @@ void CPushinPet::OnRender()
                         m_PetPos = TargetPos;
                         m_PetVel = vec2(0.0f, 0.0f);
                         m_JumpsLeft = 2;
-                        m_HookState = 0; // 0=idle, 1=flying, 2=grabbed
+                        m_HookState = 0;
                         m_HookPos = m_PetPos;
                         m_Init = true;
                 }
@@ -120,36 +122,23 @@ void CPushinPet::OnRender()
                 if(OnGround)
                         m_JumpsLeft = 2;
 
-                // --- Horizontal movement: keep a minimum distance from the player ---
-                // Don't walk INTO the player — stop at 40px.
+                // --- Horizontal movement: keep a minimum distance ---
                 const float MinDist = 40.0f;
-                const float RunSpeed = 500.0f; // units/s
+                const float RunSpeed = 500.0f;
                 if(DistX > MinDist + 10.0f)
-                {
-                        // Accelerate toward target instead of snapping — smooth.
                         m_PetVel.x = mix(m_PetVel.x, TargetDir * RunSpeed, 0.15f);
-                }
                 else if(DistX < MinDist - 10.0f)
-                {
-                        // Too close — back away.
                         m_PetVel.x = mix(m_PetVel.x, -TargetDir * RunSpeed * 0.5f, 0.15f);
-                }
                 else
-                {
-                        // In the sweet spot — decelerate.
                         m_PetVel.x *= 0.85f;
-                }
 
                 // --- Gravity ---
                 m_PetVel.y += 900.0f * Dt;
 
-                // --- Jumping logic ---
-                // Jump if: on ground or has air jumps, AND there's a reason to jump:
-                //   1. Wall ahead (can't walk through)
-                //   2. Target is significantly above
-                //   3. Stuck (velocity ~0 but still far from target)
-                const bool CanJump = (OnGround && m_JumpsLeft >= 1) || (!OnGround && m_JumpsLeft >= 2);
-                if(CanJump && Dist > MinDist)
+                // --- Jumping logic (with double jump) ---
+                // Ground jump: m_JumpsLeft >= 1 (starts at 2, so first jump uses 1)
+                // Air jump (double): m_JumpsLeft >= 1 after ground jump used one
+                if(Dist > MinDist)
                 {
                         bool ShouldJump = false;
 
@@ -169,33 +158,33 @@ void CPushinPet::OnRender()
                         if(OnGround && Dist > 100.0f && std::abs(m_PetVel.x) < 50.0f)
                                 ShouldJump = true;
 
-                        // In air and target is above — use double jump.
-                        if(!OnGround && m_JumpsLeft >= 2 && ToTarget.y < -50.0f && DistY > 40.0f)
+                        // In air — use double jump if target is above.
+                        // Key fix: m_JumpsLeft >= 1 (not >= 2) so the SECOND jump works.
+                        if(!OnGround && m_JumpsLeft >= 1 && ToTarget.y < -40.0f && m_PetVel.y > -100.0f)
                                 ShouldJump = true;
 
-                        if(ShouldJump)
+                        if(ShouldJump && m_JumpsLeft > 0)
                         {
-                                m_PetVel.y = -550.0f; // jump velocity
+                                m_PetVel.y = -550.0f;
                                 m_JumpsLeft--;
                         }
                 }
 
                 // --- Hook logic ---
-                // If the target is far above and we can't reach with jumps, hook toward it.
+                // If the target is far above or the pet can't reach with jumps, hook.
                 const bool ShouldHook = (ToTarget.y < -80.0f && Dist > 120.0f) ||
                                         (Dist > 200.0f && !OnGround && m_JumpsLeft == 0);
                 if(ShouldHook && m_HookState == 0)
                 {
-                        // Cast a ray from pet toward target.
                         vec2 HookDir = normalize(ToTarget);
                         vec2 HookEnd = m_PetPos + HookDir * 400.0f;
                         vec2 OutCol, OutBeforeCol;
                         int Hit = Collision()->IntersectLine(m_PetPos, HookEnd, &OutCol, &OutBeforeCol);
-                        if(Hit != 0) // hit something solid
+                        if(Hit != 0)
                         {
-                                m_HookState = 2; // grabbed
+                                m_HookState = 2;
                                 m_HookPos = OutCol;
-                                m_HookTimer = 0.5f; // hook for 0.5s
+                                m_HookTimer = 0.5f;
                         }
                 }
 
@@ -208,7 +197,6 @@ void CPushinPet::OnRender()
                         if(HookDist > 10.0f)
                         {
                                 HookDir = normalize(HookDir);
-                                // Pull toward hook point.
                                 m_PetVel.x += HookDir.x * 800.0f * Dt;
                                 m_PetVel.y += HookDir.y * 800.0f * Dt;
                         }
@@ -228,15 +216,38 @@ void CPushinPet::OnRender()
                 if(Grounded && m_PetVel.y > 0.0f)
                         m_PetVel.y = 0.0f;
 
-                // --- Render the hook line if active ---
+                // --- Render the hook with game textures (hook chain + head) ---
                 if(m_HookState == 2)
                 {
-                        Graphics()->TextureClear();
-                        Graphics()->LinesBegin();
-                        Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.8f);
-                        IGraphics::CLineItem Line(m_PetPos, m_HookPos);
-                        Graphics()->LinesDraw(&Line, 1);
-                        Graphics()->LinesEnd();
+                        const vec2 HookDir = m_HookPos - m_PetPos;
+                        const float HookDist = length(HookDir);
+                        const vec2 Dir = normalize(m_PetPos - m_HookPos); // chain direction
+                        const float Angle = angle(Dir) + pi;
+
+                        // Hook head
+                        Graphics()->TextureSet(GameClient()->m_GameSkin.m_SpriteHookHead);
+                        Graphics()->QuadsSetRotation(Angle);
+                        Graphics()->QuadsBegin();
+                        Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.9f);
+                        IGraphics::CQuadItem HeadQuad(m_HookPos.x, m_HookPos.y, 16.0f, 16.0f);
+                        Graphics()->QuadsDrawTL(&HeadQuad, 1);
+                        Graphics()->QuadsEnd();
+
+                        // Hook chain — draw chain segments every 24px like the player hook
+                        Graphics()->TextureSet(GameClient()->m_GameSkin.m_SpriteHookChain);
+                        Graphics()->QuadsSetRotation(Angle);
+                        Graphics()->QuadsBegin();
+                        Graphics()->SetColor(1.0f, 1.0f, 1.0f, 0.9f);
+                        std::vector<IGraphics::CQuadItem> aChainQuads;
+                        for(float f = 24.0f; f < HookDist; f += 24.0f)
+                        {
+                                vec2 p = m_HookPos + Dir * f;
+                                aChainQuads.emplace_back(p.x, p.y, 24.0f, 16.0f);
+                        }
+                        if(!aChainQuads.empty())
+                                Graphics()->QuadsDrawTL(aChainQuads.data(), aChainQuads.size());
+                        Graphics()->QuadsEnd();
+                        Graphics()->QuadsSetRotation(0.0f);
                 }
         }
 
@@ -272,6 +283,14 @@ void CPushinPet::OnRender()
         if(g_Config.m_PushinPetEmote)
                 Emote = PlayerEmote;
         vec2 Dir = g_Config.m_PushinPetLook ? m_LookDir : vec2(PlayerDir, 0.0f);
+
+        // When hooking, override look direction toward the hook target.
+        if(g_Config.m_PushinPetMode == 1 && m_HookState == 2)
+        {
+                vec2 HookLook = m_HookPos - m_PetPos;
+                if(length(HookLook) > 0.001f)
+                        Dir = normalize(HookLook);
+        }
 
         const CAnimState *pState;
         if(g_Config.m_PushinPetMode == 0) // flying — idle
