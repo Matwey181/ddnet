@@ -404,3 +404,13 @@ Touch API в порту:
   * Дабл джамп (2 прыжка: 1 на земле + 1 в воздухе)
   * Хукает к стенам/потолкам когда цель высоко или далеко
   * Белая линия хука видна когда активна
+
+### 2026-09-05 ~04:20 UTC — CI #79 УСПЕХ — hook textures + dbljump fix
+- Коммит `93a3c9c4f`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 17:20 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33899511302
+- Исправлено:
+  1. Текстура хука как у игрока (m_SpriteHookHead + m_SpriteHookChain)
+  2. Питомец смотрит куда хукает
+  3. Дабл джамп починен (m_JumpsLeft >= 1 вместо >= 2)
+  4. AI использует history buffer для следования по пути игрока
