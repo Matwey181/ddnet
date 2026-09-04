@@ -29,7 +29,10 @@ void CPushinPet::OnRender()
 
         // --- Player position and emote ---
         const vec2 PlayerPos = GameClient()->m_aClients[LocalId].m_RenderPos;
-        const int PlayerEmote = GameClient()->m_aClients[LocalId].m_Emote;
+        // Emote: read from the character snapshot (CNetObj_Character.m_Emote).
+        int PlayerEmote = EMOTE_NORMAL;
+        if(GameClient()->m_Snap.m_aCharacters[LocalId].m_Active)
+                PlayerEmote = GameClient()->m_Snap.m_aCharacters[LocalId].m_Cur.m_Emote;
         // Look direction: from player to their aim target.
         const vec2 AimTarget = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
         const vec2 PlayerToAim = AimTarget - PlayerPos;
@@ -87,7 +90,7 @@ void CPushinPet::OnRender()
         Info.m_Size = 64.0f * ((float)g_Config.m_PushinPetSize / 100.0f);
 
         // --- Animation state ---
-        CAnimState *pState;
+        const CAnimState *pState;
         int Emote = EMOTE_NORMAL;
         vec2 Dir(1.0f, 0.0f);
 
