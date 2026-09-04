@@ -414,3 +414,15 @@ Touch API в порту:
   2. Питомец смотрит куда хукает
   3. Дабл джамп починен (m_JumpsLeft >= 1 вместо >= 2)
   4. AI использует history buffer для следования по пути игрока
+
+### 2026-09-05 ~06:10 UTC — CI #81 УСПЕХ — smart pet AI
+- Коммит `5bfdc4d`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 20:06 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33913997618
+- Полная переработка AI:
+  * Path replay: запоминает позицию + grounded state, повторяет прыжки
+  * Smart obstacle trace: проверяет 2 шага вперёд на уровне тела
+  * Multi-angle hook: 3 угла (прямой, выше, вертикально вверх)
+  * Hook cooldown 1.5s + stuck timer 0.5s
+  * Текстура хука: цепь 12px сегменты центрированы, голова центрирована
+  * Double jump: air-jump near apex только
