@@ -584,9 +584,112 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
                 Rest2.HSplitTop(4.0f, nullptr, &Rest2);
                 ForceRow.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f), IGraphics::CORNER_ALL, 4.0f);
                 ForceRow.Margin(2.0f, &ForceRow);
-                if(DoButton_CheckBox(&g_Config.m_PushinForceSkin, "принудительный скин для всех", g_Config.m_PushinForceSkin, &ForceRow))
+                if(DoButton_CheckBox(&g_Config.m_PushinForceSkin, "зделать всех пушынами", g_Config.m_PushinForceSkin, &ForceRow))
                         g_Config.m_PushinForceSkin ^= 1;
                 Body = Rest2;
+        }
+
+        // "Питомец" collapsible row — pet that follows the player.
+        {
+                CUIRect PetRow, Rest3;
+                Body.HSplitTop(28.0f, &PetRow, &Rest3);
+                Rest3.HSplitTop(4.0f, nullptr, &Rest3);
+                PetRow.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.4f), IGraphics::CORNER_ALL, 4.0f);
+                PetRow.Margin(2.0f, &PetRow);
+                CUIRect PetLabel, PetArrow;
+                PetRow.VSplitRight(20.0f, &PetLabel, &PetArrow);
+                PetArrow.VSplitLeft(8.0f, nullptr, &PetArrow);
+                Ui()->DoLabel(&PetLabel, "питомец", 14.0f, TEXTALIGN_ML);
+                Ui()->DoLabel(&PetArrow, g_Config.m_PushinPetEnabled ? "▼" : "▶", 14.0f, TEXTALIGN_MC);
+                static CButtonContainer s_PetToggleBtn;
+                if(DoButton_Menu(&s_PetToggleBtn, "", 0, &PetRow, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.0f, 0.0f, 0.0f, 0.0f)))
+                        g_Config.m_PushinPetEnabled ^= 1;
+
+                if(g_Config.m_PushinPetEnabled)
+                {
+                        // Pet settings panel
+                        CUIRect PetSettings;
+                        Rest3.HSplitTop(160.0f, &PetSettings, &Rest3);
+                        Rest3.HSplitTop(4.0f, nullptr, &Rest3);
+                        PetSettings.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.2f), IGraphics::CORNER_ALL, 6.0f);
+                        PetSettings.Margin(6.0f, &PetSettings);
+
+                        CUIRect Left, Right;
+                        PetSettings.VSplitMid(&Left, &Right, 8.0f);
+
+                        const float LineSize = 18.0f;
+                        CUIRect Btn;
+
+                        // Left column: mode, skin, size, delay
+                        {
+                                // Mode toggle: flying / walking
+                                Left.HSplitTop(LineSize, &Btn, &Left);
+                                Left.HSplitTop(2.0f, nullptr, &Left);
+                                CUIRect ModeFly, ModeWalk;
+                                Btn.VSplitMid(&ModeFly, &ModeWalk, 4.0f);
+                                static CButtonContainer s_ModeFlyBtn;
+                                static CButtonContainer s_ModeWalkBtn;
+                                if(DoButton_Menu(&s_ModeFlyBtn, "летающий", g_Config.m_PushinPetMode == 0, &ModeFly, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.5f)))
+                                        g_Config.m_PushinPetMode = 0;
+                                if(DoButton_Menu(&s_ModeWalkBtn, "ходящий", g_Config.m_PushinPetMode == 1, &ModeWalk, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.5f)))
+                                        g_Config.m_PushinPetMode = 1;
+
+                                // Skin name edit box
+                                Left.HSplitTop(LineSize, &Btn, &Left);
+                                Left.HSplitTop(2.0f, nullptr, &Left);
+                                static CLineInput s_PetSkinInput(g_Config.m_PushinPetSkin, sizeof(g_Config.m_PushinPetSkin));
+                                Ui()->DoClearableEditBox(&s_PetSkinInput, &Btn, 12.0f);
+
+                                // Size slider
+                                Left.HSplitTop(LineSize, &Btn, &Left);
+                                Left.HSplitTop(2.0f, nullptr, &Left);
+                                Ui()->DoScrollbarOption(&g_Config.m_PushinPetSize, &g_Config.m_PushinPetSize, &Btn,
+                                        "размер", 10, 200, &CUi::ms_LinearScrollbarScale, 0u, "%");
+
+                                // Delay slider
+                                Left.HSplitTop(LineSize, &Btn, &Left);
+                                Left.HSplitTop(2.0f, nullptr, &Left);
+                                Ui()->DoScrollbarOption(&g_Config.m_PushinPetDelay, &g_Config.m_PushinPetDelay, &Btn,
+                                        "задержка", 0, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
+                        }
+
+                        // Right column: offset X/Y, bob (flying only), emote, look
+                        {
+                                Right.HSplitTop(LineSize, &Btn, &Right);
+                                Right.HSplitTop(2.0f, nullptr, &Right);
+                                Ui()->DoScrollbarOption(&g_Config.m_PushinPetOffsetX, &g_Config.m_PushinPetOffsetX, &Btn,
+                                        "отступ по X", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
+
+                                Right.HSplitTop(LineSize, &Btn, &Right);
+                                Right.HSplitTop(2.0f, nullptr, &Right);
+                                Ui()->DoScrollbarOption(&g_Config.m_PushinPetOffsetY, &g_Config.m_PushinPetOffsetY, &Btn,
+                                        "отступ по Y", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
+
+                                if(g_Config.m_PushinPetMode == 0) // flying only
+                                {
+                                        Right.HSplitTop(LineSize, &Btn, &Right);
+                                        Right.HSplitTop(2.0f, nullptr, &Right);
+                                        if(DoButton_CheckBox(&g_Config.m_PushinPetBob, "покачивание", g_Config.m_PushinPetBob, &Btn))
+                                                g_Config.m_PushinPetBob ^= 1;
+
+                                        Right.HSplitTop(LineSize, &Btn, &Right);
+                                        Right.HSplitTop(2.0f, nullptr, &Right);
+                                        Ui()->DoScrollbarOption(&g_Config.m_PushinPetBobAmount, &g_Config.m_PushinPetBobAmount, &Btn,
+                                                "сила покачивания", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "");
+                                }
+
+                                Right.HSplitTop(LineSize, &Btn, &Right);
+                                Right.HSplitTop(2.0f, nullptr, &Right);
+                                if(DoButton_CheckBox(&g_Config.m_PushinPetEmote, "повторять эмоции", g_Config.m_PushinPetEmote, &Btn))
+                                        g_Config.m_PushinPetEmote ^= 1;
+
+                                Right.HSplitTop(LineSize, &Btn, &Right);
+                                Right.HSplitTop(2.0f, nullptr, &Right);
+                                if(DoButton_CheckBox(&g_Config.m_PushinPetLook, "смотреть куда ты", g_Config.m_PushinPetLook, &Btn))
+                                        g_Config.m_PushinPetLook ^= 1;
+                        }
+                }
+                Body = Rest3;
         }
 
         // Collapsible "вар лист" row

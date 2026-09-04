@@ -812,3 +812,16 @@ MACRO_CONFIG_STR(PushinTeamPrefix, pushin_team_prefix, 16, "тим", CFGFLAG_SAV
 /* Pushin client — Force skin feature */
 MACRO_CONFIG_INT(PushinForceSkin, pushin_force_skin, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: force all players to use the skin named in pushin_force_skin_name")
 MACRO_CONFIG_STR(PushinForceSkinName, pushin_force_skin_name, 24, "pusheen", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: skin name to force when pushin_force_skin is on (without .png extension)")
+
+/* Pushin client — Pet feature */
+MACRO_CONFIG_INT(PushinPetEnabled, pushin_pet_enabled, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet enabled")
+MACRO_CONFIG_INT(PushinPetMode, pushin_pet_mode, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet mode (0=flying, 1=walking)")
+MACRO_CONFIG_STR(PushinPetSkin, pushin_pet_skin, 24, "default", CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet skin name (without .png)")
+MACRO_CONFIG_INT(PushinPetSize, pushin_pet_size, 50, 10, 200, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet size as % of player size (50 = half)")
+MACRO_CONFIG_INT(PushinPetOffsetX, pushin_pet_offset_x, -40, -200, 200, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet horizontal offset from player")
+MACRO_CONFIG_INT(PushinPetOffsetY, pushin_pet_offset_y, -60, -200, 200, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet vertical offset from player (negative = above)")
+MACRO_CONFIG_INT(PushinPetDelay, pushin_pet_delay, 30, 0, 200, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet follow delay in centiseconds (30 = 0.3s)")
+MACRO_CONFIG_INT(PushinPetBob, pushin_pet_bob, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet bobbing (up-down motion) for flying mode")
+MACRO_CONFIG_INT(PushinPetBobAmount, pushin_pet_bob_amount, 15, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet bob amplitude in pixels")
+MACRO_CONFIG_INT(PushinPetEmote, pushin_pet_emote, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet copies player emote")
+MACRO_CONFIG_INT(PushinPetLook, pushin_pet_look, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet looks where player looks")
