@@ -427,6 +427,10 @@ int CMenus::RenderPushinColumn(CUIRect View, const char *pTitle, const std::vect
         {
                 DroppedClientId = s_PushinDragClientId;
                 s_aPushinStatus[DroppedClientId] = ColumnStatus;
+                // End the drag immediately so it doesn't also drop into another
+                // column whose rect happens to overlap the cursor.
+                s_PushinDragging = false;
+                s_PushinDragClientId = -1;
         }
         return DroppedClientId;
 }
@@ -584,23 +588,28 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         ColTeam = ColTeamLeft;
         ColVar = ColVarRight;
 
-        // Build the client lists per status
-        std::vector<int> vAll, vTeam, vVar;
+        // Build the client lists per status.
+        // The Players column shows ONLY players with status=none — once a
+        // player is dragged into var/team, they disappear from the Players
+        // list and only appear in their assigned column. Drag them back to
+        // the Players column (or double-click them in var/team) to return.
+        std::vector<int> vPlayers, vTeam, vVar;
         const CGameClient *pGC = GameClient();
         for(int i = 0; i < MAX_CLIENTS; ++i)
         {
                 if(!pGC->m_aClients[i].m_Active)
                         continue;
                 const int Status = s_aPushinStatus[i];
-                vAll.push_back(i);
                 if(Status == PUSHIN_STATUS_TEAM)
                         vTeam.push_back(i);
                 else if(Status == PUSHIN_STATUS_VAR)
                         vVar.push_back(i);
+                else
+                        vPlayers.push_back(i);
         }
 
         // Render the three columns
-        (void)RenderPushinColumn(ColPlayers, "игроки", vAll, PUSHIN_STATUS_NONE);
+        (void)RenderPushinColumn(ColPlayers, "игроки", vPlayers, PUSHIN_STATUS_NONE);
         (void)RenderPushinColumn(ColTeam, "тим", vTeam, PUSHIN_STATUS_TEAM);
         (void)RenderPushinColumn(ColVar, "вар", vVar, PUSHIN_STATUS_VAR);
 
