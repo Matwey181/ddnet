@@ -825,3 +825,4 @@ MACRO_CONFIG_INT(PushinPetBob, pushin_pet_bob, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_C
 MACRO_CONFIG_INT(PushinPetBobAmount, pushin_pet_bob_amount, 15, 0, 100, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet bob amplitude in pixels")
 MACRO_CONFIG_INT(PushinPetEmote, pushin_pet_emote, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet copies player emote")
 MACRO_CONFIG_INT(PushinPetLook, pushin_pet_look, 1, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet looks where player looks")
+MACRO_CONFIG_INT(PushinPetExpanded, pushin_pet_expanded, 0, 0, 1, CFGFLAG_SAVE | CFGFLAG_CLIENT, "Pushin client: pet settings row expanded")
