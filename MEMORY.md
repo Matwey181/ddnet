@@ -348,3 +348,12 @@ Touch API в порту:
 - Коммит `0d337ab78` (force skin toggle)
 - .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 10:41 UTC)
 - CI: https://github.com/Matwey181/ddnet/actions/runs/33864073485
+
+### 2026-09-04 ~23:30 UTC — CI #72 УСПЕХ — pet feature + rename
+- Коммиты `fb32e35b2` + `042d4d9af`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 12:17 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33871530756
+- Реализовано:
+  * "зделать всех пушынами" (переименовано)
+  * "питомец" — 2 режима (летающий/ходящий), скин, размер, отступы,
+    задержка, покачивание, эмоции, взгляд — всё настраивается
