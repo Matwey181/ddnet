@@ -23,20 +23,23 @@
 class CPushinPet : public CComponent
 {
 public:
-	int Sizeof() const override { return sizeof(*this); }
-	void OnRender() override;
+        int Sizeof() const override { return sizeof(*this); }
+        void OnRender() override;
 
 private:
-	// Smoothed pet position (interpolated toward the target with a delay).
-	vec2 m_PetPos = vec2(0.0f, 0.0f);
-	bool m_Init = false;
-	// Smoothed look direction (0.1s delay, prevents snap on fast turns).
-	vec2 m_LookDir = vec2(1.0f, 0.0f);
-	bool m_LookInit = false;
-	// Bob phase for flying mode.
-	float m_BobPhase = 0.0f;
-	// Reusable walk animation state (walking mode only).
-	CAnimState m_WalkState;
+        // Smoothed pet position (interpolated toward the target with a delay).
+        vec2 m_PetPos = vec2(0.0f, 0.0f);
+        bool m_Init = false;
+        // Smoothed look direction (0.1s delay, prevents snap on fast turns).
+        vec2 m_LookDir = vec2(1.0f, 0.0f);
+        bool m_LookInit = false;
+        // Bob phase for flying mode.
+        float m_BobPhase = 0.0f;
+        // Reusable walk animation state (walking mode only).
+        CAnimState m_WalkState;
+        // Last frame's pet X position — used to detect if the pet is moving
+        // (for walk vs idle animation).
+        float m_LastPetX = 0.0f;
 };
 
 #endif

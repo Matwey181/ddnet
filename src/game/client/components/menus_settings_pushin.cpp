@@ -609,21 +609,27 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
 
                 if(g_Config.m_PushinPetExpanded)
                 {
-                        // Pet settings panel
+                        // Pet settings panel — 200px tall, split into
+                        // left (settings) and right (preview).
                         CUIRect PetSettings;
-                        Rest3.HSplitTop(180.0f, &PetSettings, &Rest3);
+                        Rest3.HSplitTop(200.0f, &PetSettings, &Rest3);
                         Rest3.HSplitTop(4.0f, nullptr, &Rest3);
                         PetSettings.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.2f), IGraphics::CORNER_ALL, 6.0f);
                         PetSettings.Margin(6.0f, &PetSettings);
 
-                        const float LineSize = 18.0f;
+                        // Split: left = settings, right = preview tee
+                        CUIRect SettingsCol, PreviewCol;
+                        PetSettings.VSplitRight(120.0f, &SettingsCol, &PreviewCol);
+                        SettingsCol.VSplitRight(4.0f, &SettingsCol, nullptr);
+
+                        const float LineSize = 16.0f;
+                        const float Gap = 3.0f;
                         CUIRect Btn;
 
-                        // Enable/disable checkbox at the top — this is the
-                        // explicit toggle the user asked for.
-                        PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                        PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                        if(DoButton_CheckBox(&g_Config.m_PushinPetEnabled, "включить питомца", g_Config.m_PushinPetEnabled, &Btn))
+                        // --- Enable checkbox ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
+                        if(DoButton_CheckBox(&g_Config.m_PushinPetEnabled, "включить", g_Config.m_PushinPetEnabled, &Btn))
                                 g_Config.m_PushinPetEnabled ^= 1;
 
                         if(!g_Config.m_PushinPetEnabled)
@@ -632,73 +638,104 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
                                 goto pet_done;
                         }
 
-                        // Mode toggle: flying / walking
-                        PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                        PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                        CUIRect ModeFly, ModeWalk;
-                        Btn.VSplitMid(&ModeFly, &ModeWalk, 4.0f);
-                        static CButtonContainer s_ModeFlyBtn;
-                        static CButtonContainer s_ModeWalkBtn;
-                        if(DoButton_Menu(&s_ModeFlyBtn, "летающий", g_Config.m_PushinPetMode == 0, &ModeFly, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.5f)))
-                                g_Config.m_PushinPetMode = 0;
-                        if(DoButton_Menu(&s_ModeWalkBtn, "ходящий", g_Config.m_PushinPetMode == 1, &ModeWalk, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.5f)))
-                                g_Config.m_PushinPetMode = 1;
-
-                        // Skin name — label + edit box on the same row
-                        PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                        PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
+                        // --- Mode: two small buttons side by side ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
                         {
-                                CUIRect SkinLabel, SkinEdit;
-                                Btn.VSplitLeft(80.0f, &SkinLabel, &SkinEdit);
-                                Ui()->DoLabel(&SkinLabel, "скин:", 12.0f, TEXTALIGN_ML);
-                                static CLineInput s_PetSkinInput(g_Config.m_PushinPetSkin, sizeof(g_Config.m_PushinPetSkin));
-                                Ui()->DoClearableEditBox(&s_PetSkinInput, &SkinEdit, 12.0f);
+                                CUIRect ModeFly, ModeWalk;
+                                Btn.VSplitMid(&ModeFly, &ModeWalk, 3.0f);
+                                static CButtonContainer s_ModeFlyBtn;
+                                static CButtonContainer s_ModeWalkBtn;
+                                if(DoButton_Menu(&s_ModeFlyBtn, "лет", g_Config.m_PushinPetMode == 0, &ModeFly, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 3.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.6f)))
+                                        g_Config.m_PushinPetMode = 0;
+                                if(DoButton_Menu(&s_ModeWalkBtn, "ход", g_Config.m_PushinPetMode == 1, &ModeWalk, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 3.0f, 0.0f, ColorRGBA(0.3f, 0.5f, 0.9f, 0.6f)))
+                                        g_Config.m_PushinPetMode = 1;
                         }
 
-                        // Two columns for the remaining settings
-                        CUIRect Left, Right;
-                        PetSettings.VSplitMid(&Left, &Right, 8.0f);
+                        // --- Skin name ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
+                        {
+                                CUIRect SkinLabel, SkinEdit;
+                                Btn.VSplitLeft(35.0f, &SkinLabel, &SkinEdit);
+                                Ui()->DoLabel(&SkinLabel, "скин", 10.0f, TEXTALIGN_ML);
+                                static CLineInput s_PetSkinInput(g_Config.m_PushinPetSkin, sizeof(g_Config.m_PushinPetSkin));
+                                Ui()->DoClearableEditBox(&s_PetSkinInput, &SkinEdit, 10.0f);
+                        }
 
-                        // Left: size, delay
-                        Left.HSplitTop(LineSize, &Btn, &Left);
-                        Left.HSplitTop(2.0f, nullptr, &Left);
+                        // --- Size ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
                         Ui()->DoScrollbarOption(&g_Config.m_PushinPetSize, &g_Config.m_PushinPetSize, &Btn,
                                 "размер", 10, 200, &CUi::ms_LinearScrollbarScale, 0u, "%");
-                        Left.HSplitTop(LineSize, &Btn, &Left);
-                        Left.HSplitTop(2.0f, nullptr, &Left);
+
+                        // --- Delay ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
                         Ui()->DoScrollbarOption(&g_Config.m_PushinPetDelay, &g_Config.m_PushinPetDelay, &Btn,
                                 "задержка", 0, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
 
-                        // Right: offset X/Y
-                        Right.HSplitTop(LineSize, &Btn, &Right);
-                        Right.HSplitTop(2.0f, nullptr, &Right);
+                        // --- Offset X ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
                         Ui()->DoScrollbarOption(&g_Config.m_PushinPetOffsetX, &g_Config.m_PushinPetOffsetX, &Btn,
-                                "отступ по X", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
-                        Right.HSplitTop(LineSize, &Btn, &Right);
-                        Right.HSplitTop(2.0f, nullptr, &Right);
-                        Ui()->DoScrollbarOption(&g_Config.m_PushinPetOffsetY, &g_Config.m_PushinPetOffsetY, &Btn,
-                                "отступ по Y", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
+                                "X", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
 
-                        // Bob (flying only) + emote + look — full width below
+                        // --- Offset Y ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
+                        Ui()->DoScrollbarOption(&g_Config.m_PushinPetOffsetY, &g_Config.m_PushinPetOffsetY, &Btn,
+                                "Y", -200, 200, &CUi::ms_LinearScrollbarScale, 0u, "");
+
+                        // --- Bob (flying only) ---
                         if(g_Config.m_PushinPetMode == 0)
                         {
-                                PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                                PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                                if(DoButton_CheckBox(&g_Config.m_PushinPetBob, "покачивание", g_Config.m_PushinPetBob, &Btn))
+                                SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                                SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
+                                if(DoButton_CheckBox(&g_Config.m_PushinPetBob, "покач", g_Config.m_PushinPetBob, &Btn))
                                         g_Config.m_PushinPetBob ^= 1;
-                                PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                                PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                                Ui()->DoScrollbarOption(&g_Config.m_PushinPetBobAmount, &g_Config.m_PushinPetBobAmount, &Btn,
-                                        "сила покачивания", 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "");
                         }
-                        PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                        PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                        if(DoButton_CheckBox(&g_Config.m_PushinPetEmote, "повторять эмоции", g_Config.m_PushinPetEmote, &Btn))
-                                g_Config.m_PushinPetEmote ^= 1;
-                        PetSettings.HSplitTop(LineSize, &Btn, &PetSettings);
-                        PetSettings.HSplitTop(2.0f, nullptr, &PetSettings);
-                        if(DoButton_CheckBox(&g_Config.m_PushinPetLook, "смотреть куда ты", g_Config.m_PushinPetLook, &Btn))
-                                g_Config.m_PushinPetLook ^= 1;
+
+                        // --- Emote + Look on the same row ---
+                        SettingsCol.HSplitTop(LineSize, &Btn, &SettingsCol);
+                        SettingsCol.HSplitTop(Gap, nullptr, &SettingsCol);
+                        {
+                                CUIRect EmoteBox, LookBox;
+                                Btn.VSplitMid(&EmoteBox, &LookBox, 3.0f);
+                                if(DoButton_CheckBox(&g_Config.m_PushinPetEmote, "эмоции", g_Config.m_PushinPetEmote, &EmoteBox))
+                                        g_Config.m_PushinPetEmote ^= 1;
+                                if(DoButton_CheckBox(&g_Config.m_PushinPetLook, "взгляд", g_Config.m_PushinPetLook, &LookBox))
+                                        g_Config.m_PushinPetLook ^= 1;
+                        }
+
+                        // --- Preview tee (right column) ---
+                        PreviewCol.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_ALL, 4.0f);
+                        PreviewCol.Margin(4.0f, &PreviewCol);
+                        {
+                                const CSkin *pPreviewSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
+                                if(pPreviewSkin == nullptr)
+                                        pPreviewSkin = GameClient()->m_Skins.Find("default");
+                                if(pPreviewSkin != nullptr)
+                                {
+                                        CTeeRenderInfo PreviewInfo;
+                                        PreviewInfo.Apply(pPreviewSkin);
+                                        PreviewInfo.m_Size = std::min(PreviewCol.w, PreviewCol.h) * 0.7f;
+
+                                        vec2 OffsetToMid;
+                                        CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &PreviewInfo, OffsetToMid);
+                                        const vec2 PreviewPos(PreviewCol.x + PreviewCol.w / 2.0f, PreviewCol.y + PreviewCol.h / 2.0f + OffsetToMid.y);
+
+                                        const vec2 CursorPos(Ui()->MouseX(), Ui()->MouseY());
+                                        vec2 Dir = normalize(CursorPos - PreviewPos);
+                                        const int Emote = g_Config.m_PushinPetMode == 0 ? EMOTE_NORMAL : EMOTE_NORMAL;
+                                        RenderTools()->RenderTee(CAnimState::GetIdle(), &PreviewInfo, Emote, Dir, PreviewPos);
+                                }
+                                // Label below the tee
+                                CUIRect PreviewLabel;
+                                PreviewCol.HSplitBottom(14.0f, nullptr, &PreviewLabel);
+                                const char *pModeText = g_Config.m_PushinPetMode == 0 ? "летающий" : "ходящий";
+                                Ui()->DoLabel(&PreviewLabel, pModeText, 10.0f, TEXTALIGN_MC);
+                        }
                 }
                 Body = Rest3;
         pet_done:;
