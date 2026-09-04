@@ -146,7 +146,10 @@ void ApplyPushinTintToTee(CTeeRenderInfo &Info, int Status)
         if(!TintSkin)
                 return;
 
-        const float Mix = std::clamp(TintPercent / 100.0f, 0.0f, 1.0f) * 0.4f; // cap at 40%
+        // Mix the tint color into the skin color. The slider 0..100% maps
+        // linearly to the mix factor — 100% means the skin becomes fully
+        // the tint color, 50% is a 50/50 blend. No artificial cap.
+        const float Mix = std::clamp(TintPercent / 100.0f, 0.0f, 1.0f);
         auto MixChannel = [&](float c, float t) { return c * (1.0f - Mix) + t * Mix; };
         Info.m_ColorBody = ColorRGBA(MixChannel(Info.m_ColorBody.r, TintColor.r),
                 MixChannel(Info.m_ColorBody.g, TintColor.g),
@@ -508,9 +511,10 @@ void CMenus::RenderPushinPreview(CUIRect View)
         if(DoButton_Menu(&s_PreviewVarBtn, pVarLabel, s_PushinPreviewStatus == PUSHIN_STATUS_VAR, &VarBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.9f, 0.2f, 0.2f, 0.7f)))
                 s_PushinPreviewStatus = (s_PushinPreviewStatus == PUSHIN_STATUS_VAR) ? PUSHIN_STATUS_NONE : PUSHIN_STATUS_VAR;
 
-        // Nick on top, tee below looking at cursor
+        // Nick on top, tee below looking at cursor.
+        // Nick gets a fixed 18px; the rest of PreviewArea goes to the tee.
         CUIRect NickRect, TeeRect;
-        PreviewArea.HSplitTop(20.0f, &NickRect, &TeeRect);
+        PreviewArea.HSplitTop(18.0f, &NickRect, &TeeRect);
 
         // Local player name with current preview status prefix
         char aDisplayName[64];
@@ -523,7 +527,8 @@ void CMenus::RenderPushinPreview(CUIRect View)
         Ui()->DoLabel(&NickRect, aDisplayName, 14.0f, TEXTALIGN_MC);
         TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        // Tee looking at cursor
+        // Tee looking at cursor — size scales with available TeeRect height
+        // so the whole tee (body + feet + eyes) always fits.
         {
                 const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
                 if(LocalClientId >= 0)
@@ -531,7 +536,9 @@ void CMenus::RenderPushinPreview(CUIRect View)
                         const CGameClient::CClientData &Client = GameClient()->m_aClients[LocalClientId];
                         CTeeRenderInfo Info = Client.m_RenderInfo;
                         ApplyPushinTintToTee(Info, s_PushinPreviewStatus);
-                        Info.m_Size = 80.0f;
+                        // Tee render size = min(rect width, rect height) * 0.9
+                        // so the tee fills ~90% of the available preview area.
+                        Info.m_Size = std::min(TeeRect.w, TeeRect.h) * 0.9f;
 
                         vec2 OffsetToMid;
                         CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
@@ -574,9 +581,11 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         ColumnsAndPreview.HSplitTop(6.0f, nullptr, &ColumnsAndPreview);
         RenderPushinSettingsPanel(SettingsView);
 
-        // Three columns (no mini-menu — user removed it)
+        // Three columns (no mini-menu — user removed it).
+        // Columns row is 180px tall; the rest of the space goes to the
+        // preview area so the tee fits entirely.
         CUIRect ColumnsRow, PreviewArea;
-        ColumnsAndPreview.HSplitTop(220.0f, &ColumnsRow, &PreviewArea);
+        ColumnsAndPreview.HSplitTop(180.0f, &ColumnsRow, &PreviewArea);
         PreviewArea.HSplitTop(6.0f, nullptr, &PreviewArea);
 
         // Split the width into 3 equal columns
