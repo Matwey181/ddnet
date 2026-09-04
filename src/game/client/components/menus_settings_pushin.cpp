@@ -489,69 +489,78 @@ int CMenus::RenderPushinMiniMenu(CUIRect View)
         return DroppedClientId;
 }
 
-void CMenus::RenderPushinPreview(CUIRect View)
+// Helper: render a single tee preview inside a rect.
+// Status determines the tint/prefix/emote applied to the local player's tee.
+// The tee scales to fill ~85% of the rect so the whole body always fits.
+static void RenderPushinTeePreview(CMenus *pMenus, CUIRect View, int Status)
 {
         View.Draw(ColorRGBA(0.0f, 0.0f, 0.0f, 0.3f), IGraphics::CORNER_ALL, 6.0f);
-        View.Margin(8.0f, &View);
+        View.Margin(6.0f, &View);
 
-        // Two buttons at the top
-        CUIRect BtnRow, PreviewArea;
-        View.HSplitTop(24.0f, &BtnRow, &PreviewArea);
-        BtnRow.VMargin((BtnRow.w - 200.0f) / 2.0f, &BtnRow);
-        CUIRect TeamBtn, VarBtn;
-        BtnRow.VSplitMid(&TeamBtn, &VarBtn, 8.0f);
+        // Header button at the top — shows the prefix label, toggles this status
+        // on the single shared preview state.
+        CUIRect BtnRow, TeeArea;
+        View.HSplitTop(22.0f, &BtnRow, &TeeArea);
 
-        const char *pTeamLabel = (g_Config.m_PushinTeamUsePrefix && g_Config.m_PushinTeamPrefix[0]) ? g_Config.m_PushinTeamPrefix : "тим";
-        const char *pVarLabel = (g_Config.m_PushinVarUsePrefix && g_Config.m_PushinVarPrefix[0]) ? g_Config.m_PushinVarPrefix : "вар";
-
-        static CButtonContainer s_PreviewTeamBtn;
-        static CButtonContainer s_PreviewVarBtn;
-        if(DoButton_Menu(&s_PreviewTeamBtn, pTeamLabel, s_PushinPreviewStatus == PUSHIN_STATUS_TEAM, &TeamBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.2f, 0.9f, 0.4f, 0.7f)))
-                s_PushinPreviewStatus = (s_PushinPreviewStatus == PUSHIN_STATUS_TEAM) ? PUSHIN_STATUS_NONE : PUSHIN_STATUS_TEAM;
-        if(DoButton_Menu(&s_PreviewVarBtn, pVarLabel, s_PushinPreviewStatus == PUSHIN_STATUS_VAR, &VarBtn, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, ColorRGBA(0.9f, 0.2f, 0.2f, 0.7f)))
-                s_PushinPreviewStatus = (s_PushinPreviewStatus == PUSHIN_STATUS_VAR) ? PUSHIN_STATUS_NONE : PUSHIN_STATUS_VAR;
-
-        // Nick on top, tee below looking at cursor.
-        // Nick gets a fixed 18px; the rest of PreviewArea goes to the tee.
-        CUIRect NickRect, TeeRect;
-        PreviewArea.HSplitTop(18.0f, &NickRect, &TeeRect);
-
-        // Local player name with current preview status prefix
-        char aDisplayName[64];
-        const int LocalId = GameClient()->m_Snap.m_LocalClientId;
-        const char *pLocalName = (LocalId >= 0) ? GameClient()->m_aClients[LocalId].m_aName : "player";
-        FormatPushinName(aDisplayName, sizeof(aDisplayName), s_PushinPreviewStatus, pLocalName);
-
-        const ColorRGBA NickColor = PushinNickColor(s_PushinPreviewStatus);
-        TextRender()->TextColor(NickColor.r, NickColor.g, NickColor.b, NickColor.a);
-        Ui()->DoLabel(&NickRect, aDisplayName, 14.0f, TEXTALIGN_MC);
-        TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
-
-        // Tee looking at cursor — size scales with available TeeRect height
-        // so the whole tee (body + feet + eyes) always fits.
+        const char *pLabel;
+        ColorRGBA BtnColor;
+        if(Status == PUSHIN_STATUS_TEAM)
         {
-                const int LocalClientId = GameClient()->m_Snap.m_LocalClientId;
-                if(LocalClientId >= 0)
-                {
-                        const CGameClient::CClientData &Client = GameClient()->m_aClients[LocalClientId];
-                        CTeeRenderInfo Info = Client.m_RenderInfo;
-                        ApplyPushinTintToTee(Info, s_PushinPreviewStatus);
-                        // Tee render size = min(rect width, rect height) * 0.9
-                        // so the tee fills ~90% of the available preview area.
-                        Info.m_Size = std::min(TeeRect.w, TeeRect.h) * 0.9f;
-
-                        vec2 OffsetToMid;
-                        CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
-                        const vec2 TeePos(TeeRect.x + TeeRect.w / 2.0f, TeeRect.y + TeeRect.h / 2.0f + OffsetToMid.y);
-
-                        // Direction: from tee to cursor
-                        const vec2 CursorPos(Ui()->MouseX(), Ui()->MouseY());
-                        vec2 Dir = normalize(CursorPos - TeePos);
-
-                        const int Emote = PushinEmote(s_PushinPreviewStatus);
-                        RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Dir, TeePos);
-                }
+                pLabel = (g_Config.m_PushinTeamUsePrefix && g_Config.m_PushinTeamPrefix[0]) ? g_Config.m_PushinTeamPrefix : "тим";
+                BtnColor = ColorRGBA(0.2f, 0.9f, 0.4f, 0.7f);
         }
+        else
+        {
+                pLabel = (g_Config.m_PushinVarUsePrefix && g_Config.m_PushinVarPrefix[0]) ? g_Config.m_PushinVarPrefix : "вар";
+                BtnColor = ColorRGBA(0.9f, 0.2f, 0.2f, 0.7f);
+        }
+
+        static CButtonContainer s_aPreviewBtns[2];
+        const int BtnIdx = (Status == PUSHIN_STATUS_TEAM) ? 0 : 1;
+        if(pMenus->DoButton_Menu(&s_aPreviewBtns[BtnIdx], pLabel, 0, &BtnRow, BUTTONFLAG_LEFT, nullptr, IGraphics::CORNER_ALL, 4.0f, 0.0f, BtnColor))
+                s_PushinPreviewStatus = (s_PushinPreviewStatus == Status) ? PUSHIN_STATUS_NONE : Status;
+
+        // Nick on top of the tee
+        CUIRect NickRect, TeeRect;
+        TeeArea.HSplitTop(16.0f, &NickRect, &TeeRect);
+
+        char aDisplayName[64];
+        const int LocalId = pMenus->GameClient()->m_Snap.m_LocalClientId;
+        const char *pLocalName = (LocalId >= 0) ? pMenus->GameClient()->m_aClients[LocalId].m_aName : "player";
+        FormatPushinName(aDisplayName, sizeof(aDisplayName), Status, pLocalName);
+
+        const ColorRGBA NickColor = PushinNickColor(Status);
+        pMenus->TextRender()->TextColor(NickColor.r, NickColor.g, NickColor.b, NickColor.a);
+        pMenus->Ui()->DoLabel(&NickRect, aDisplayName, 13.0f, TEXTALIGN_MC);
+        pMenus->TextRender()->TextColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        // Tee — scales with available TeeRect so it always fits.
+        if(LocalId >= 0)
+        {
+                const CGameClient::CClientData &Client = pMenus->GameClient()->m_aClients[LocalId];
+                CTeeRenderInfo Info = Client.m_RenderInfo;
+                ApplyPushinTintToTee(Info, Status);
+                Info.m_Size = std::min(TeeRect.w, TeeRect.h) * 0.85f;
+
+                vec2 OffsetToMid;
+                CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
+                const vec2 TeePos(TeeRect.x + TeeRect.w / 2.0f, TeeRect.y + TeeRect.h / 2.0f + OffsetToMid.y);
+
+                const vec2 CursorPos(pMenus->Ui()->MouseX(), pMenus->Ui()->MouseY());
+                vec2 Dir = normalize(CursorPos - TeePos);
+
+                const int Emote = PushinEmote(Status);
+                pMenus->RenderTools()->RenderTee(CAnimState::GetIdle(), &Info, Emote, Dir, TeePos);
+        }
+}
+
+void CMenus::RenderPushinPreview(CUIRect View)
+{
+        // Split the preview area into two equal halves: team (left) and var (right).
+        CUIRect TeamHalf, VarHalf;
+        View.VSplitMid(&TeamHalf, &VarHalf, 6.0f);
+        RenderPushinTeePreview(this, TeamHalf, PUSHIN_STATUS_TEAM);
+        RenderPushinTeePreview(this, VarHalf, PUSHIN_STATUS_VAR);
 }
 
 // ============================================================================
@@ -575,17 +584,19 @@ void CMenus::RenderSettingsPushin(CUIRect MainView)
         if(!Expanded)
                 return;
 
-        // Settings panel at the top
+        // Settings panel at the top — compact (140px) so the columns + preview
+        // get more vertical room.
         CUIRect SettingsView, ColumnsAndPreview;
-        Rest.HSplitTop(180.0f, &SettingsView, &ColumnsAndPreview);
+        Rest.HSplitTop(140.0f, &SettingsView, &ColumnsAndPreview);
         ColumnsAndPreview.HSplitTop(6.0f, nullptr, &ColumnsAndPreview);
         RenderPushinSettingsPanel(SettingsView);
 
-        // Three columns (no mini-menu — user removed it).
-        // Columns row is 180px tall; the rest of the space goes to the
-        // preview area so the tee fits entirely.
+        // Three columns + preview below.
+        // Columns row is 200px tall (was 180) — extra height absorbs the empty
+        // space that was below the prefix edit boxes. The preview area gets
+        // the rest.
         CUIRect ColumnsRow, PreviewArea;
-        ColumnsAndPreview.HSplitTop(180.0f, &ColumnsRow, &PreviewArea);
+        ColumnsAndPreview.HSplitTop(200.0f, &ColumnsRow, &PreviewArea);
         PreviewArea.HSplitTop(6.0f, nullptr, &PreviewArea);
 
         // Split the width into 3 equal columns
