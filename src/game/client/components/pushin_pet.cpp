@@ -3,17 +3,15 @@
 
 // Pushin client — Pet feature.
 //
-// Walking mode AI strategy:
-//   1. Follow the player's recorded path (position + grounded + frozen)
-//      with a configurable delay — the pet replays your jumps.
-//   2. Edge detection: trace ahead+down to find platform edges. If the
-//      target is below, walk toward the edge and drop off.
-//   3. Wall detection: trace ahead at body height. Jump over walls.
-//   4. Double jump: use air jump near apex when target is above.
-//   5. Hook: cast rays at 3 angles when jumps aren't enough.
-//   6. Stuck recovery: if velocity ~0 for 0.3s, try jump + hook.
-//   7. Freeze: switch to x_ninja skin when player was frozen.
-//   8. Air jump particles: same effect as the player.
+// Walking mode AI with BFS tile-based pathfinding:
+//   1. Every ~0.2s, run a BFS on the tile grid from the pet's tile to
+//      the player's tile. BFS treats solid tiles as impassable and can
+//      move in 8 directions (including diagonals for jump arcs).
+//   2. The first waypoint on the BFS path is the pet's immediate target.
+//      The pet runs toward it, jumps over walls, and drops off edges.
+//   3. If BFS fails (no path within 200 tiles), fall back to direct
+//      chase + jump + hook.
+//   4. If stuck for >1.5s, teleport to the player.
 
 #include "pushin_pet.h"
 
@@ -27,7 +25,12 @@
 #include <game/client/skin.h>
 #include <generated/client_data.h>
 
+#include <array>
+#include <queue>
+
 constexpr int PET_HISTORY_SIZE = 180;
+constexpr float TILE_SIZE = 32.0f;
+
 struct SPetHistoryEntry
 {
 	vec2 m_Pos;
@@ -37,6 +40,39 @@ struct SPetHistoryEntry
 static SPetHistoryEntry s_aHistory[PET_HISTORY_SIZE];
 static int s_HistoryHead = 0;
 static int s_HistoryCount = 0;
+
+// BFS pathfinding state — recompute every 0.2s.
+constexpr int BFS_MAX_NODES = 20000;
+constexpr float BFS_RECOMPUTE_INTERVAL = 0.2f;
+
+struct SBfsNode
+{
+	int16_t x, y;
+	int16_t parentIdx; // index into the node array, -1 = root
+};
+
+// Convert world position to tile coordinates.
+static inline void WorldToTile(vec2 Pos, int &Tx, int &Ty)
+{
+	Tx = (int)(Pos.x / TILE_SIZE);
+	Ty = (int)(Pos.y / TILE_SIZE);
+}
+
+// Convert tile to world center.
+static inline vec2 TileToWorld(int Tx, int Ty)
+{
+	return vec2(Tx * TILE_SIZE + TILE_SIZE / 2.0f, Ty * TILE_SIZE + TILE_SIZE / 2.0f);
+}
+
+// Check if a tile is passable (not solid).
+static inline bool TilePassable(class CCollision *pCol, int Tx, int Ty)
+{
+	if(Tx < 0 || Ty < 0)
+		return false;
+	if(Tx >= pCol->GetWidth() || Ty >= pCol->GetHeight())
+		return false;
+	return !pCol->IsSolid(Tx, Ty);
+}
 
 void CPushinPet::OnRender()
 {
@@ -65,7 +101,7 @@ void CPushinPet::OnRender()
 	if(GameClient()->m_aClients[LocalId].m_Predicted.m_FreezeEnd != 0)
 		PlayerFrozen = true;
 
-	// --- Record into history ---
+	// --- Record history ---
 	s_aHistory[s_HistoryHead].m_Pos = PlayerPos;
 	s_aHistory[s_HistoryHead].m_Grounded = PlayerGrounded;
 	s_aHistory[s_HistoryHead].m_Frozen = PlayerFrozen;
@@ -110,7 +146,7 @@ void CPushinPet::OnRender()
 			m_PetPos = mix(m_PetPos, FlyTarget, Factor);
 		}
 	}
-	else // ===== WALKING (smart AI) =====
+	else // ===== WALKING (BFS pathfinding + smart physics) =====
 	{
 		if(!m_Init)
 		{
@@ -119,54 +155,164 @@ void CPushinPet::OnRender()
 			m_JumpsLeft = 2;
 			m_HookState = 0;
 			m_HookPos = m_PetPos;
+			m_BfsTimer = 0.0f;
+			m_StuckTimer = 0.0f;
+			m_LastPetX = m_PetPos.x;
 			m_Init = true;
 		}
 
-		const vec2 ToTarget = TargetPos - m_PetPos;
-		const float DistX = std::abs(ToTarget.x);
-		const float DistY = ToTarget.y; // positive = target below
-		const float Dist = length(ToTarget);
-		const float TargetDir = (ToTarget.x > 0.0f) ? 1.0f : (ToTarget.x < 0.0f ? -1.0f : 0.0f);
-		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
+		// ================================================================
+		// BFS PATHFINDING — recompute every 0.2s
+		// ================================================================
+		m_BfsTimer -= Dt;
+		if(m_BfsTimer <= 0.0f)
+		{
+			m_BfsTimer = BFS_RECOMPUTE_INTERVAL;
 
+			int PetTx, PetTy, TargTx, TargTy;
+			WorldToTile(m_PetPos, PetTx, PetTy);
+			WorldToTile(TargetPos, TargTx, TargTy);
+
+			// BFS on the tile grid. 8-directional movement.
+			// Solid tiles are impassable. The BFS finds the shortest
+			// tile path from the pet to the target.
+			static SBfsNode aNodes[BFS_MAX_NODES];
+			int NodeCount = 0;
+			aNodes[NodeCount] = {(int16_t)PetTx, (int16_t)PetTy, -1};
+			NodeCount++;
+
+			// Visited set — use a simple hash. Grid can be up to ~1000x1000
+			// so we use a relative coordinate offset.
+			// Use a bitset for the visited area around the pet.
+			constexpr int BFS_RADIUS = 80; // 80 tiles in each direction
+			constexpr int BFS_SIZE = BFS_RADIUS * 2 + 1;
+			static std::array<bool, BFS_SIZE * BFS_SIZE> aVisited;
+			aVisited.fill(false);
+
+			auto VisitedIdx = [](int x, int y) -> int {
+				int rx = x + BFS_RADIUS;
+				int ry = y + BFS_RADIUS;
+				if(rx < 0 || ry < 0 || rx >= BFS_SIZE || ry >= BFS_SIZE)
+					return -1;
+				return ry * BFS_SIZE + rx;
+			};
+
+			auto SetVisited = [&](int x, int y) {
+				int idx = VisitedIdx(x, y);
+				if(idx >= 0)
+					aVisited[idx] = true;
+			};
+
+			auto IsVisited = [&](int x, int y) -> bool {
+				int idx = VisitedIdx(x, y);
+				return idx >= 0 && aVisited[idx];
+			};
+
+			SetVisited(PetTx, PetTy);
+
+			std::queue<int> Q;
+			Q.push(0); // index of root node
+
+			bool PathFound = false;
+			int GoalNodeIdx = -1;
+
+			// 8 directions: N, S, E, W, NE, NW, SE, SW
+			constexpr int dx[] = {0, 0, 1, -1, 1, -1, 1, -1};
+			constexpr int dy[] = {-1, 1, 0, 0, -1, -1, 1, 1};
+
+			int Iterations = 0;
+			while(!Q.empty() && NodeCount < BFS_MAX_NODES && Iterations < BFS_MAX_NODES)
+			{
+				Iterations++;
+				int CurIdx = Q.front();
+				Q.pop();
+				SBfsNode &Cur = aNodes[CurIdx];
+
+				// Reached the target tile?
+				if(Cur.x == TargTx && Cur.y == TargTy)
+				{
+					PathFound = true;
+					GoalNodeIdx = CurIdx;
+					break;
+				}
+
+				for(int d = 0; d < 8; d++)
+				{
+					int nx = Cur.x + dx[d];
+					int ny = Cur.y + dy[d];
+
+					if(IsVisited(nx, ny))
+						continue;
+
+					// Check passability: the tile itself must be non-solid.
+					if(!TilePassable(Collision(), nx, ny))
+					{
+						SetVisited(nx, ny);
+						continue;
+					}
+
+					// For diagonal moves, both adjacent tiles must be passable
+					// (no cutting through corners).
+					if(d >= 4)
+					{
+						if(!TilePassable(Collision(), Cur.x + dx[d], Cur.y) ||
+						   !TilePassable(Collision(), Cur.x, Cur.y + dy[d]))
+						{
+							SetVisited(nx, ny);
+							continue;
+						}
+					}
+
+					SetVisited(nx, ny);
+					aNodes[NodeCount] = {(int16_t)nx, (int16_t)ny, (int16_t)CurIdx};
+					Q.push(NodeCount);
+					NodeCount++;
+				}
+			}
+
+			// Extract the first waypoint (the step AFTER the pet's current
+			// tile — this is where the pet should move next).
+			m_HasBfsPath = false;
+			if(PathFound && GoalNodeIdx > 0)
+			{
+				// Walk back from goal to find the first step (child of root).
+				int TraceIdx = GoalNodeIdx;
+				while(aNodes[TraceIdx].parentIdx > 0)
+					TraceIdx = aNodes[TraceIdx].parentIdx;
+
+				// TraceIdx is now the child of the root — this is the
+				// first step toward the target.
+				m_BfsWaypoint = TileToWorld(aNodes[TraceIdx].x, aNodes[TraceIdx].y);
+				m_HasBfsPath = true;
+			}
+		}
+
+		// ================================================================
+		// MOVEMENT — navigate toward the BFS waypoint
+		// ================================================================
+		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
 		if(OnGround)
 			m_JumpsLeft = 2;
 
-		// ================================================================
-		// MOVEMENT DECISIONS
-		// ================================================================
-
-		// --- Check terrain ahead ---
-		// Wall: solid tile at body height in the movement direction.
-		const vec2 WallCheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.7f, 0.0f);
-		const bool WallAhead = Collision()->CheckPoint(WallCheckPos);
-
-		// Edge: no ground ahead+below — the platform ends.
-		const vec2 EdgeCheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 1.0f, PetCollideSize * 0.7f + 5.0f);
-		const bool EdgeAhead = OnGround && !Collision()->CheckPoint(EdgeCheckPos);
+		// Choose the target: BFS waypoint if available, else direct target.
+		vec2 NavTarget = m_HasBfsPath ? m_BfsWaypoint : TargetPos;
+		const vec2 ToNav = NavTarget - m_PetPos;
+		const vec2 ToTarget = TargetPos - m_PetPos;
+		const float NavDistX = std::abs(ToNav.x);
+		const float TargetDistX = std::abs(ToTarget.x);
+		const float TargetDistY = ToTarget.y; // positive = target below
+		const float TargetDist = length(ToTarget);
+		const float NavDir = (ToNav.x > 0.0f) ? 1.0f : (ToNav.x < 0.0f ? -1.0f : 0.0f);
 
 		// --- Horizontal movement ---
 		const float MinDist = 40.0f;
 		const float RunSpeed = 600.0f;
 
-		bool WantRun = false; // should the pet run toward target?
-		bool WantDrop = false; // should the pet walk off an edge to drop down?
-
-		if(DistX > MinDist + 10.0f)
-			WantRun = true;
-
-		// If target is below and we're on a platform, walk toward the edge
-		// and drop off. Don't jump — just walk off.
-		if(OnGround && DistY > 30.0f && Dist > MinDist)
-		{
-			WantRun = true; // run toward target X
-			WantDrop = true; // allow walking off edges
-		}
-
-		if(WantRun)
-			m_PetVel.x = TargetDir * RunSpeed;
-		else if(DistX < MinDist - 10.0f)
-			m_PetVel.x = -TargetDir * RunSpeed * 0.5f;
+		// If close to the player (not just the waypoint), slow down.
+		if(TargetDistX > MinDist + 10.0f)
+			m_PetVel.x = NavDir * RunSpeed;
+		else if(TargetDistX < MinDist - 10.0f)
+			m_PetVel.x = -NavDir * RunSpeed * 0.5f;
 		else
 			m_PetVel.x *= 0.5f;
 
@@ -176,33 +322,35 @@ void CPushinPet::OnRender()
 		// ================================================================
 		// JUMPING
 		// ================================================================
-		if(Dist > MinDist && m_JumpsLeft > 0)
+		bool WantDrop = (TargetDistY > 30.0f && TargetDist > MinDist); // target below
+
+		if(TargetDist > MinDist && m_JumpsLeft > 0 && !WantDrop)
 		{
 			bool ShouldJump = false;
 
-			// REPLAY: player was airborne → pet jumps.
+			// REPLAY: player was airborne → jump.
 			if(OnGround && !TargetGrounded)
 				ShouldJump = true;
 
-			// Wall ahead → jump over it.
-			if(OnGround && WallAhead && DistX > 5.0f)
+			// Wall ahead.
+			if(OnGround)
+			{
+				const vec2 CheckPos = m_PetPos + vec2(NavDir * PetCollideSize * 0.7f, 0.0f);
+				if(Collision()->CheckPoint(CheckPos))
+					ShouldJump = true;
+			}
+
+			// Target above.
+			if(OnGround && TargetDistY < -25.0f)
 				ShouldJump = true;
 
-			// Target above → jump to reach it.
-			if(OnGround && DistY < -25.0f)
+			// Stuck.
+			if(OnGround && TargetDist > 80.0f && std::abs(m_PetVel.x) < 80.0f)
 				ShouldJump = true;
 
-			// Stuck → jump.
-			if(OnGround && Dist > 80.0f && std::abs(m_PetVel.x) < 80.0f)
+			// Double jump in air.
+			if(!OnGround && m_JumpsLeft >= 1 && TargetDistY < -30.0f && m_PetVel.y > -50.0f && m_PetVel.y < 200.0f)
 				ShouldJump = true;
-
-			// Double jump in air: target above, near apex.
-			if(!OnGround && m_JumpsLeft >= 1 && DistY < -30.0f && m_PetVel.y > -50.0f && m_PetVel.y < 200.0f)
-				ShouldJump = true;
-
-			// DON'T jump if we want to drop down (target is below).
-			if(WantDrop)
-				ShouldJump = false;
 
 			if(ShouldJump)
 			{
@@ -219,28 +367,44 @@ void CPushinPet::OnRender()
 		// ================================================================
 		bool ShouldHook = false;
 
-		// Target high above, out of jumps.
-		if(DistY < -60.0f && Dist > 100.0f && m_JumpsLeft == 0)
+		if(TargetDistY < -60.0f && TargetDist > 100.0f && m_JumpsLeft == 0)
 			ShouldHook = true;
 
-		// Stuck timer.
-		m_StuckTimer = (Dist > 80.0f && std::abs(m_PetVel.x) < 30.0f && OnGround) ? m_StuckTimer + Dt : 0.0f;
+		// Stuck detection — track X movement.
+		if(std::abs(m_PetPos.x - m_LastPetX) < 1.0f && OnGround && TargetDist > 60.0f)
+			m_StuckTimer += Dt;
+		else
+			m_StuckTimer = 0.0f;
+		m_LastPetX = m_PetPos.x;
+
 		if(m_StuckTimer > 0.3f)
 			ShouldHook = true;
 
+		// TELEPORT: if stuck for >1.5s, teleport to the player.
+		if(m_StuckTimer > 1.5f)
+		{
+			m_PetPos = PlayerPos;
+			m_PetVel = vec2(0.0f, 0.0f);
+			m_StuckTimer = 0.0f;
+			m_HookState = 0;
+			m_JumpsLeft = 2;
+			ShouldHook = false;
+		}
+
 		if(ShouldHook && m_HookState == 0 && m_HookCooldown <= 0.0f)
 		{
-			for(int attempt = 0; attempt < 3 && m_HookState == 0; attempt++)
-			{
-				vec2 HookDir;
-				if(attempt == 0)
-					HookDir = normalize(ToTarget);
-				else if(attempt == 1)
-					HookDir = normalize(vec2(ToTarget.x * 0.3f, ToTarget.y - 100.0f));
-				else
-					HookDir = vec2(0.0f, -1.0f);
+			// Try 5 angles: direct, high-left, high-right, straight up, diagonal.
+			const vec2 HookDirs[] = {
+				normalize(ToTarget),
+				normalize(vec2(-1.0f, -1.0f)),
+				normalize(vec2(1.0f, -1.0f)),
+				vec2(0.0f, -1.0f),
+				normalize(vec2(ToTarget.x * 0.3f, ToTarget.y - 100.0f))
+			};
 
-				vec2 HookEnd = m_PetPos + HookDir * 500.0f;
+			for(int attempt = 0; attempt < 5 && m_HookState == 0; attempt++)
+			{
+				vec2 HookEnd = m_PetPos + HookDirs[attempt] * 500.0f;
 				vec2 OutCol, OutBeforeCol;
 				int Hit = Collision()->IntersectLine(m_PetPos, HookEnd, &OutCol, &OutBeforeCol);
 				if(Hit != 0 && OutCol.y < m_PetPos.y - 5.0f)
@@ -290,7 +454,6 @@ void CPushinPet::OnRender()
 		{
 			const float HookDist = length(m_HookPos - m_PetPos);
 			const vec2 ChainDir = (HookDist > 0.1f) ? normalize(m_PetPos - m_HookPos) : vec2(1.0f, 0.0f);
-			// Use the same angle formula as CPlayers::RenderHook.
 			const float HookAngle = angle(ChainDir) + pi;
 
 			Graphics()->TextureSet(GameClient()->m_GameSkin.m_SpriteHookHead);

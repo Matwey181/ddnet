@@ -54,6 +54,12 @@ private:
         float m_HookCooldown = 0.0f;
         // Stuck timer — if the pet hasn't moved for a while, it tries to hook.
         float m_StuckTimer = 0.0f;
+        // Last frame's pet X — for stuck detection.
+        float m_LastPetX = 0.0f;
+        // BFS pathfinding state.
+        float m_BfsTimer = 0.0f;
+        vec2 m_BfsWaypoint = vec2(0.0f, 0.0f);
+        bool m_HasBfsPath = false;
 };
 
 #endif
