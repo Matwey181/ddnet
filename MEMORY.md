@@ -461,3 +461,11 @@ Touch API в порту:
   * TELEPORT fallback: застрял >1.5с → телепорт к игроку
   * Drop-down: цель ниже → бежит к краю и падает
   * Stuck timer 0.3с → хук
+
+### 2026-09-05 ~23:30 UTC — CI #86 УСПЕХ — state machine + smooth physics
+- Коммит `6106736`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 17:26 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33980638789
+- Плавное ускорение (Accel=8000/s) вместо snap
+- State machine: CHASE/CLIMB/DROP/STUCK
+- BFS 0.3s, stuck timer с decay
