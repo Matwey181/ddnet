@@ -58,6 +58,8 @@ private:
         float m_BfsTimer = 0.0f;
         vec2 m_BfsWaypoint = vec2(0.0f, 0.0f);
         bool m_HasBfsPath = false;
+        // AI state machine
+        int m_PetState = 0; // 0=CHASE, 1=CLIMB, 2=DROP, 3=STUCK
 };
 
 #endif
