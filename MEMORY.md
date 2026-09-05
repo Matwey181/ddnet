@@ -437,3 +437,14 @@ Touch API в порту:
   3. Freeze skin: x_ninja + TEE_EFFECT_FROZEN когда игрок заморожен
   4. Hook rotation: angle(ChainDir)+pi как у игрока
   5. RunSpeed 600 для лучшего преследования
+
+### 2026-09-05 ~22:05 UTC — CI #83 УСПЕХ — edge detection + drop-down AI
+- Коммит `3b37a3d`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 16:03 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33976344768
+- Главные исправления:
+  * Edge detection: проверяет край платформы (нет земли впереди+внизу)
+  * Drop-down: когда цель ниже, бежит к краю и падает (не прыгает)
+  * WantDrop подавляет прыжки когда нужно спуститься
+  * Stuck timer 0.3s (быстрее реагирует)
+  * Wall detection упрощён (1 трейс вместо 2)
