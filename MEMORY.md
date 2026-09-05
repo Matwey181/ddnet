@@ -469,3 +469,12 @@ Touch API в порту:
 - Плавное ускорение (Accel=8000/s) вместо snap
 - State machine: CHASE/CLIMB/DROP/STUCK
 - BFS 0.3s, stuck timer с decay
+
+### 2026-09-06 ~01:00 UTC — CI #87 УСПЕХ — no oscillation + hysteresis
+- Коммит `f9c0aac`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 18:45 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33984780054
+- 3 главные правки:
+  1. Убрал бег назад — просто стоит когда близко (не осциллирует)
+  2. Hysteresis в state machine — не переключается каждый кадр
+  3. Accel 3000/s (было 8000) — плавный разгон
