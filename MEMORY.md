@@ -448,3 +448,16 @@ Touch API в порту:
   * WantDrop подавляет прыжки когда нужно спуститься
   * Stuck timer 0.3s (быстрее реагирует)
   * Wall detection упрощён (1 трейс вместо 2)
+
+### 2026-09-05 ~23:00 UTC — CI #85 УСПЕХ — BFS pathfinding pet
+- Коммиты `6d18848` + `a508c92`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 16:58 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33979254286
+- BFS tile-based pathfinding:
+  * Каждые 0.2с — BFS по тайл-гриду (32px) от питомца к игроку
+  * 8-направлений, проверка углов, радиус 80 тайлов
+  * Waypoint navigation — идёт по найденному пути
+  * 5-угловой хук
+  * TELEPORT fallback: застрял >1.5с → телепорт к игроку
+  * Drop-down: цель ниже → бежит к краю и падает
+  * Stuck timer 0.3с → хук
