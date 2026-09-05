@@ -3,11 +3,17 @@
 
 // Pushin client — Pet feature.
 //
-// Walking mode: the pet replays the player's recorded path (position +
-// grounded state + freeze state) with a configurable delay. It uses
-// real physics (gravity, collision, MoveBox) and can jump, double-jump,
-// and hook to reach platforms. When the player is frozen, the pet's
-// skin changes to x_ninja like the player's.
+// Walking mode AI strategy:
+//   1. Follow the player's recorded path (position + grounded + frozen)
+//      with a configurable delay — the pet replays your jumps.
+//   2. Edge detection: trace ahead+down to find platform edges. If the
+//      target is below, walk toward the edge and drop off.
+//   3. Wall detection: trace ahead at body height. Jump over walls.
+//   4. Double jump: use air jump near apex when target is above.
+//   5. Hook: cast rays at 3 angles when jumps aren't enough.
+//   6. Stuck recovery: if velocity ~0 for 0.3s, try jump + hook.
+//   7. Freeze: switch to x_ninja skin when player was frozen.
+//   8. Air jump particles: same effect as the player.
 
 #include "pushin_pet.h"
 
@@ -21,8 +27,7 @@
 #include <game/client/skin.h>
 #include <generated/client_data.h>
 
-// History buffer: stores player state for path replay.
-constexpr int PET_HISTORY_SIZE = 180; // ~3s at 60fps
+constexpr int PET_HISTORY_SIZE = 180;
 struct SPetHistoryEntry
 {
 	vec2 m_Pos;
@@ -53,7 +58,6 @@ void CPushinPet::OnRender()
 	const vec2 AimTarget = GameClient()->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
 	const float PlayerDir = (AimTarget.x >= PlayerPos.x) ? 1.0f : -1.0f;
 
-	// Player grounded + freeze state
 	const bool PlayerGrounded = Collision()->IsOnGround(PlayerPos, CCharacterCore::PhysicalSize());
 	bool PlayerFrozen = false;
 	if(GameClient()->m_Snap.m_aCharacters[LocalId].m_HasExtendedData)
@@ -73,7 +77,7 @@ void CPushinPet::OnRender()
 	const float PetSize = 64.0f * ((float)g_Config.m_PushinPetSize / 100.0f);
 	const float PetCollideSize = std::max(14.0f, PetSize * 0.44f);
 
-	// --- Get delayed state from history ---
+	// --- Get delayed state ---
 	const int DelayFrames = std::clamp((int)((float)g_Config.m_PushinPetDelay / 100.0f * 60.0f), 0, PET_HISTORY_SIZE - 1);
 	vec2 TargetPos = PlayerPos;
 	bool TargetGrounded = PlayerGrounded;
@@ -106,7 +110,7 @@ void CPushinPet::OnRender()
 			m_PetPos = mix(m_PetPos, FlyTarget, Factor);
 		}
 	}
-	else // ===== WALKING (smart physics) =====
+	else // ===== WALKING (smart AI) =====
 	{
 		if(!m_Init)
 		{
@@ -120,6 +124,7 @@ void CPushinPet::OnRender()
 
 		const vec2 ToTarget = TargetPos - m_PetPos;
 		const float DistX = std::abs(ToTarget.x);
+		const float DistY = ToTarget.y; // positive = target below
 		const float Dist = length(ToTarget);
 		const float TargetDir = (ToTarget.x > 0.0f) ? 1.0f : (ToTarget.x < 0.0f ? -1.0f : 0.0f);
 		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
@@ -127,10 +132,38 @@ void CPushinPet::OnRender()
 		if(OnGround)
 			m_JumpsLeft = 2;
 
+		// ================================================================
+		// MOVEMENT DECISIONS
+		// ================================================================
+
+		// --- Check terrain ahead ---
+		// Wall: solid tile at body height in the movement direction.
+		const vec2 WallCheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.7f, 0.0f);
+		const bool WallAhead = Collision()->CheckPoint(WallCheckPos);
+
+		// Edge: no ground ahead+below — the platform ends.
+		const vec2 EdgeCheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 1.0f, PetCollideSize * 0.7f + 5.0f);
+		const bool EdgeAhead = OnGround && !Collision()->CheckPoint(EdgeCheckPos);
+
 		// --- Horizontal movement ---
 		const float MinDist = 40.0f;
 		const float RunSpeed = 600.0f;
+
+		bool WantRun = false; // should the pet run toward target?
+		bool WantDrop = false; // should the pet walk off an edge to drop down?
+
 		if(DistX > MinDist + 10.0f)
+			WantRun = true;
+
+		// If target is below and we're on a platform, walk toward the edge
+		// and drop off. Don't jump — just walk off.
+		if(OnGround && DistY > 30.0f && Dist > MinDist)
+		{
+			WantRun = true; // run toward target X
+			WantDrop = true; // allow walking off edges
+		}
+
+		if(WantRun)
 			m_PetVel.x = TargetDir * RunSpeed;
 		else if(DistX < MinDist - 10.0f)
 			m_PetVel.x = -TargetDir * RunSpeed * 0.5f;
@@ -140,65 +173,63 @@ void CPushinPet::OnRender()
 		// --- Gravity ---
 		m_PetVel.y += 900.0f * Dt;
 
-		// --- SMART JUMP (replay player jumps + obstacle detection) ---
+		// ================================================================
+		// JUMPING
+		// ================================================================
 		if(Dist > MinDist && m_JumpsLeft > 0)
 		{
 			bool ShouldJump = false;
 
-			// REPLAY: if the player was NOT grounded at this point in
-			// history (i.e. they jumped), the pet should also jump.
+			// REPLAY: player was airborne → pet jumps.
 			if(OnGround && !TargetGrounded)
 				ShouldJump = true;
 
-			// Wall ahead — trace at body center height.
-			if(OnGround && DistX > 5.0f)
-			{
-				const vec2 CheckPos = m_PetPos + vec2(TargetDir * PetCollideSize * 0.7f, 0.0f);
-				if(Collision()->CheckPoint(CheckPos))
-					ShouldJump = true;
-			}
-
-			// Target is above.
-			if(OnGround && ToTarget.y < -25.0f)
+			// Wall ahead → jump over it.
+			if(OnGround && WallAhead && DistX > 5.0f)
 				ShouldJump = true;
 
-			// Stuck: not moving but target is far.
+			// Target above → jump to reach it.
+			if(OnGround && DistY < -25.0f)
+				ShouldJump = true;
+
+			// Stuck → jump.
 			if(OnGround && Dist > 80.0f && std::abs(m_PetVel.x) < 80.0f)
 				ShouldJump = true;
 
-			// Double jump: in air, target above, near apex.
-			if(!OnGround && m_JumpsLeft >= 1 && ToTarget.y < -30.0f && m_PetVel.y > -50.0f && m_PetVel.y < 200.0f)
+			// Double jump in air: target above, near apex.
+			if(!OnGround && m_JumpsLeft >= 1 && DistY < -30.0f && m_PetVel.y > -50.0f && m_PetVel.y < 200.0f)
 				ShouldJump = true;
+
+			// DON'T jump if we want to drop down (target is below).
+			if(WantDrop)
+				ShouldJump = false;
 
 			if(ShouldJump)
 			{
-				bool WasAirJump = !OnGround; // track for particle effect
+				bool WasAirJump = !OnGround;
 				m_PetVel.y = -550.0f;
 				m_JumpsLeft--;
-
-				// Air jump particles — same effect as the player.
 				if(WasAirJump)
-				{
 					GameClient()->m_Effects.AirJump(m_PetPos, 1.0f, 0.7f);
-				}
 			}
 		}
 
-		// --- SMART HOOK ---
+		// ================================================================
+		// HOOK
+		// ================================================================
 		bool ShouldHook = false;
 
-		// Target high above and out of jumps.
-		if(ToTarget.y < -60.0f && Dist > 100.0f && m_JumpsLeft == 0)
+		// Target high above, out of jumps.
+		if(DistY < -60.0f && Dist > 100.0f && m_JumpsLeft == 0)
 			ShouldHook = true;
 
-		// Stuck for too long.
+		// Stuck timer.
 		m_StuckTimer = (Dist > 80.0f && std::abs(m_PetVel.x) < 30.0f && OnGround) ? m_StuckTimer + Dt : 0.0f;
-		if(m_StuckTimer > 0.5f)
+		if(m_StuckTimer > 0.3f)
 			ShouldHook = true;
 
 		if(ShouldHook && m_HookState == 0 && m_HookCooldown <= 0.0f)
 		{
-			// Try 3 angles.
 			for(int attempt = 0; attempt < 3 && m_HookState == 0; attempt++)
 			{
 				vec2 HookDir;
@@ -246,7 +277,7 @@ void CPushinPet::OnRender()
 		m_PetVel.x = std::clamp(m_PetVel.x, -800.0f, 800.0f);
 		m_PetVel.y = std::clamp(m_PetVel.y, -800.0f, 800.0f);
 
-		// --- Move with collision ---
+		// --- Move ---
 		bool Grounded = false;
 		vec2 VelPerFrame = m_PetVel * Dt;
 		Collision()->MoveBox(&m_PetPos, &VelPerFrame, vec2(PetCollideSize, PetCollideSize), vec2(0.0f, 0.0f), &Grounded);
@@ -254,15 +285,14 @@ void CPushinPet::OnRender()
 		if(Grounded && m_PetVel.y > 0.0f)
 			m_PetVel.y = 0.0f;
 
-		// --- Render hook with game textures ---
+		// --- Render hook ---
 		if(m_HookState == 2)
 		{
 			const float HookDist = length(m_HookPos - m_PetPos);
-			// Chain direction: from hook point to pet (same as player code).
 			const vec2 ChainDir = (HookDist > 0.1f) ? normalize(m_PetPos - m_HookPos) : vec2(1.0f, 0.0f);
+			// Use the same angle formula as CPlayers::RenderHook.
 			const float HookAngle = angle(ChainDir) + pi;
 
-			// Hook head
 			Graphics()->TextureSet(GameClient()->m_GameSkin.m_SpriteHookHead);
 			Graphics()->QuadsSetRotation(HookAngle);
 			Graphics()->QuadsBegin();
@@ -271,7 +301,6 @@ void CPushinPet::OnRender()
 			Graphics()->QuadsDrawTL(&HeadQuad, 1);
 			Graphics()->QuadsEnd();
 
-			// Chain
 			Graphics()->TextureSet(GameClient()->m_GameSkin.m_SpriteHookChain);
 			Graphics()->QuadsSetRotation(HookAngle);
 			Graphics()->QuadsBegin();
@@ -287,7 +316,7 @@ void CPushinPet::OnRender()
 		}
 	}
 
-	// --- Smooth look direction (0.1s) ---
+	// --- Smooth look direction ---
 	const vec2 PetToAimRaw = AimTarget - m_PetPos;
 	vec2 TargetDir2(1.0f, 0.0f);
 	if(length(PetToAimRaw) > 0.001f)
@@ -303,7 +332,7 @@ void CPushinPet::OnRender()
 		m_LookDir = normalize(mix(m_LookDir, TargetDir2, Factor));
 	}
 
-	// --- Build the tee render info ---
+	// --- Build tee render info ---
 	const CSkin *pSkin = GameClient()->m_Skins.Find(g_Config.m_PushinPetSkin);
 	if(pSkin == nullptr)
 		pSkin = GameClient()->m_Skins.Find("default");
@@ -314,8 +343,7 @@ void CPushinPet::OnRender()
 	Info.Apply(pSkin);
 	Info.m_Size = PetSize;
 
-	// --- Freeze: if the player was frozen (at the delayed point), switch
-	// the pet's skin to x_ninja like the game does for frozen players. ---
+	// --- Freeze skin ---
 	if(g_Config.m_PushinPetMode == 1 && TargetFrozen)
 	{
 		const CSkin *pNinjaSkin = GameClient()->m_Skins.Find("x_ninja");
@@ -342,11 +370,11 @@ void CPushinPet::OnRender()
 	}
 
 	const CAnimState *pState;
-	if(g_Config.m_PushinPetMode == 0) // flying
+	if(g_Config.m_PushinPetMode == 0)
 	{
 		pState = CAnimState::GetIdle();
 	}
-	else // walking
+	else
 	{
 		const bool OnGround = Collision()->IsOnGround(m_PetPos, PetCollideSize);
 		const bool Moving = std::abs(m_PetVel.x) > 50.0f;
