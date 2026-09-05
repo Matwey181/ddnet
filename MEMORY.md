@@ -426,3 +426,14 @@ Touch API в порту:
   * Hook cooldown 1.5s + stuck timer 0.5s
   * Текстура хука: цепь 12px сегменты центрированы, голова центрирована
   * Double jump: air-jump near apex только
+
+### 2026-09-05 ~15:30 UTC — CI #82 УСПЕХ — path replay + air jump + freeze
+- Коммит `ecdd52a`
+- .ipa: `/home/z/my-project/download/DDNet-unsigned.ipa` (49 MB, 09:28 UTC)
+- CI: https://github.com/Matwey181/ddnet/actions/runs/33957833411
+- Исправлено:
+  1. Path replay: запоминает grounded state, повторяет прыжки игрока
+  2. Air jump particles: m_Effects.AirJump() при дабл джампе
+  3. Freeze skin: x_ninja + TEE_EFFECT_FROZEN когда игрок заморожен
+  4. Hook rotation: angle(ChainDir)+pi как у игрока
+  5. RunSpeed 600 для лучшего преследования
